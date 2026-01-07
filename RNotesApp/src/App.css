@@ -23,7 +23,7 @@
 
 .container {
   margin: 0;
-  padding-top: 10vh;
+  padding-top: 1vh;
   display: flex;
   flex-direction: column;
   justify-content: center;
@@ -110,6 +110,41 @@ button {
   background-color: #1b1d2e;
 }
 
+.miscellaneousbar{
+  display: grid;
+  justify-content: start;
+  align-items: flex-start;
+  grid-template-areas: 
+  "logo name"
+  "logo bar";
+  grid-template-columns: 20% 80%;
+}
+.misc-image{
+  grid-area: logo;
+}
+.document-name{
+  display: flex;
+  justify-content: start;
+  align-items: start;
+  grid-area: name;
+}
+.document-name input{ 
+  background-color: #2f2f2f;
+  box-shadow: none; 
+  font-size: medium;
+}
+
+.document-name input:hover{
+  background-color: #0f0f0f50;
+  font-size: medium;
+}
+.document-name input:focus{
+  background-color: #0f0f0f85;
+  font-size: medium;
+  font-weight: bold;
+  text-underline-position: below;
+  text-decoration: underline;
+}
 #greet-input {
   margin-right: 5px;
 }
