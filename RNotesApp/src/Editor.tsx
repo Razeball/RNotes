@@ -142,6 +142,7 @@ const Leaf = ({ attributes, children, leaf }: RenderLeafProps) => {
 const MySlateEditor = () => {
   const [value, setValue] = useState<Descendant[]>(initialValue);
   const [key, setKey] = useState(0);
+  const [documentName, setDocumentName] = useState("Document");
   const editor = useMemo(() => withHistory(withReact(createEditor())), [key]);
 
   const renderElement = useCallback(
@@ -152,14 +153,25 @@ const MySlateEditor = () => {
     (props: RenderLeafProps) => <Leaf {...props} />,
     []
   );
+  type Data = [Descendant[], string];
+
+  const getDocumentName = (name: string) => {
+    setDocumentName(name);
+  };
+
   async function save() {
-    alert(await invoke("save", { document: value }));
+    alert(await invoke("save", { document: value, documentName:  documentName}));
+  }
+  async function saveAs() {
+    alert(await invoke("save_as", { document: value, documentName:  documentName}));
   }
   async function open() {
     try {
-      const loadedDocument = await invoke<Descendant[]>("open");
+      const [loadedDocument, loadedName] = await invoke<Data>("open");
       setValue(loadedDocument);
       setKey((prev) => prev + 1); // Forced restart
+      console.log(loadedName);
+      setDocumentName(loadedName);
     } catch (error) {
       alert(`Error opening file: ${error}`);
     }
@@ -167,8 +179,9 @@ const MySlateEditor = () => {
 
   return (
     <div>
-      <Miscellaneousbar>
+      <Miscellaneousbar loadDocumentName={getDocumentName} documentName={documentName}>
         <button onClick={save}>Save</button>
+        <button onClick={saveAs}>Save As</button>
         <button onClick={open}>Open</button>
       </Miscellaneousbar>
       <div

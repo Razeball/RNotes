@@ -1,5 +1,5 @@
 use std::{path::PathBuf};
-use std::sync::{Arc, RwLock};
+use std::sync::{Arc, RwLock, RwLockWriteGuard};
 
 // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
 use serde::{Serialize, Deserialize};
@@ -88,27 +88,39 @@ impl Config {
 
 
 #[tauri::command]
-fn save(document: Vec<Node>, state: tauri::State<Config>) -> Result<String, String> {
+fn save(document: Vec<Node>, document_name: String, state: tauri::State<Config>) -> Result<String, String> {
     println!("Received document with {} nodes", document.len());
     let mut save_path = state.save_path.write().unwrap();
     let json_str = serde_json::to_string_pretty(&document)
         .map_err(|e| format!("Serialize error: {}", e))?;
-
     if save_path.as_os_str().is_empty() == false {
         std::fs::write(&*save_path, json_str.as_bytes()).expect("There was an error trying to save");
         println!("file saved successfully in {:?}", &*save_path);
         return Ok(format!("file saved successfully in {:?}", &*save_path));
     }
+    else {
+        return create_file(json_str, save_path, document_name);
+    }
+}
+
+#[tauri::command]
+fn save_as(document: Vec<Node>, document_name: String, state: tauri::State<Config>) -> Result<String, String>{
+    println!("Received document with {} nodes", document.len());
+    let json_str = serde_json::to_string_pretty(&document)
+    .map_err(|e| format!("Serialize error: {}", e))?;
+    let mut save_path = state.save_path.write().unwrap();
+    return create_file(json_str, save_path, document_name);
+}
+
+fn create_file(json_str: String, mut save_path: RwLockWriteGuard<'_, PathBuf>, document_name: String) -> Result<String, String>{
     if let Some(path) = FileDialog::new()
     .set_title("save file")
     .set_directory(".")
-    .set_file_name("File.json")
+    .set_file_name(format!("{}.json", document_name))
     .add_filter("Text", &["json"])
     .save_file()
     { 
-        if save_path.as_os_str().is_empty() {
-            *save_path = path.clone();
-        }
+        *save_path = path.clone();
         std::fs::write(&path, json_str.as_bytes()).expect("There was an error trying to save");
         println!("file saved successfully in {:?}", &path);
         return Ok(format!("file saved successfully in {:?}", &path));
@@ -117,9 +129,9 @@ fn save(document: Vec<Node>, state: tauri::State<Config>) -> Result<String, Stri
         return Ok("The operation was cancelled".to_string());
     }
 }
-
 #[tauri::command]
-fn open() -> Result<Vec<Node>, String> {
+fn open(state: tauri::State<Config>) -> Result<(Vec<Node>, String), String> {
+    let mut save_path = state.save_path.write().unwrap();
     if let Some(path) = FileDialog::new()
     .set_title("Open File")
     .set_directory(".")
@@ -134,8 +146,11 @@ fn open() -> Result<Vec<Node>, String> {
         
         let document: Vec<Node> = serde_json::from_str(&content)
         .map_err(|e| format!("Error parsing JSON: {}", e))?;
-        
-        return Ok(document)
+
+        *save_path = path.clone();
+        let file_name = path.file_prefix().unwrap();
+        let str_file_name = file_name.to_string_lossy().to_string();
+        return Ok((document, str_file_name));
     }
     else {
         println!("The operation was cancelled");
@@ -148,7 +163,7 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .manage(Config::new())
-        .invoke_handler(tauri::generate_handler![greet, save, open])
+        .invoke_handler(tauri::generate_handler![greet, save, open, save_as])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
