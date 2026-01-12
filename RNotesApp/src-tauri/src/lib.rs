@@ -85,6 +85,31 @@ impl Config {
     }
 }
 
+fn extract_plain_text(nodes: &[Node]) -> String {
+    let mut result = String::new();
+
+    for node in nodes {
+        let children = match node {
+            Node::Paragraph { children, .. }
+            | Node::Header { children, .. }
+            | Node::Header2 { children, .. }
+            | Node::Header3 { children, .. }
+            | Node::Header4 { children, .. }
+            | Node::UList { children, .. }
+            | Node::OList { children, .. }
+            | Node::ListItem { children, .. } => children,
+        };
+
+        for text_node in children {
+            result.push_str(&text_node.text);
+        }
+
+        result.push('\n'); 
+    }
+
+    result
+}
+
 
 
 #[tauri::command]
@@ -99,7 +124,7 @@ fn save(document: Vec<Node>, document_name: String, state: tauri::State<Config>)
         return Ok(format!("file saved successfully in {:?}", &*save_path));
     }
     else {
-        return create_file(json_str, save_path, document_name);
+        return create_file(extract_plain_text(&document), json_str, save_path, document_name);
     }
 }
 
@@ -109,21 +134,36 @@ fn save_as(document: Vec<Node>, document_name: String, state: tauri::State<Confi
     let json_str = serde_json::to_string_pretty(&document)
     .map_err(|e| format!("Serialize error: {}", e))?;
     let mut save_path = state.save_path.write().unwrap();
-    return create_file(json_str, save_path, document_name);
+    return create_file(extract_plain_text(&document), json_str, save_path, document_name);
 }
 
-fn create_file(json_str: String, mut save_path: RwLockWriteGuard<'_, PathBuf>, document_name: String) -> Result<String, String>{
-    if let Some(path) = FileDialog::new()
+fn create_file(document_text: String ,json_str: String, mut save_path: RwLockWriteGuard<'_, PathBuf>, document_name: String) -> Result<String, String>{
+    if let Some(mut path) = FileDialog::new()
     .set_title("save file")
     .set_directory(".")
     .set_file_name(format!("{}.json", document_name))
-    .add_filter("Text", &["json"])
+    .add_filter("RichText", &["json"])
+    .add_filter("Text", &["txt"])
     .save_file()
     { 
-        *save_path = path.clone();
-        std::fs::write(&path, json_str.as_bytes()).expect("There was an error trying to save");
-        println!("file saved successfully in {:?}", &path);
-        return Ok(format!("file saved successfully in {:?}", &path));
+        match path.extension().and_then(|e| e.to_str()){
+            Some("txt") => {
+                *save_path = path.clone();
+                std::fs::write(&path, document_text).expect("There was an error trying to save");
+                return Ok(format!("file saved successfully in {:?}", &path));
+            }
+            Some("json") =>{
+                *save_path = path.clone();
+                std::fs::write(&path, json_str.as_bytes()).expect("There was an error trying to save");
+                return Ok(format!("file saved successfully in {:?}", &path));
+            }
+            _ => {
+                path.set_extension("json");
+                *save_path = path.clone();
+                std::fs::write(&path, json_str.as_bytes()).expect("There was an error trying to save");
+                return Ok(format!("file saved successfully in {:?}", &path));
+            }
+        }
     } else {
         println!("The operation was cancelled");
         return Ok("The operation was cancelled".to_string());
@@ -132,25 +172,68 @@ fn create_file(json_str: String, mut save_path: RwLockWriteGuard<'_, PathBuf>, d
 #[tauri::command]
 fn open(state: tauri::State<Config>) -> Result<(Vec<Node>, String), String> {
     let mut save_path = state.save_path.write().unwrap();
-    if let Some(path) = FileDialog::new()
+    if let Some(mut path) = FileDialog::new()
     .set_title("Open File")
     .set_directory(".")
-    .add_filter("Text", &["json", "txt"])
+    .add_filter("RichText", &["json"])
+    .add_filter("Text", &["txt"])
     .pick_file()
     {
-        let content = std::fs::read_to_string(&path)
-        .map_err(|e| format!("Error reading file: {}", e))?;
-        
-        println!("File Open: {:?}", path);
-        println!("Content:\n{}", content);
-        
-        let document: Vec<Node> = serde_json::from_str(&content)
-        .map_err(|e| format!("Error parsing JSON: {}", e))?;
+        match path.extension().and_then(|e| e.to_str()){
+            Some("txt") => {
+                let content = std::fs::read_to_string(&path)
+                .map_err(|e| format!("Error reading file: {}", e))?;
+                
+                let document = content.lines().map(|line| {
+                    Node::Paragraph { alignment: None, children: vec![TextNode {
+                        text: line.to_string(),
+                        bold: None,
+                        italic: None,
+                        underline: None,
+                        font_size: None,
+                        color: None,
+                    }],
+                 }
+                })
+                .collect();
+                
+                *save_path = path.clone();
+                let file_name = path.file_prefix().unwrap();
+                let str_file_name = file_name.to_string_lossy().to_string();
+                return Ok((document, str_file_name));
+            }
+            Some("json") => {
+                let content = std::fs::read_to_string(&path)
+                .map_err(|e| format!("Error reading file: {}", e))?;
+                
+                println!("File Open: {:?}", path);
+                println!("Content:\n{}", content);
+                
+                let document: Vec<Node> = serde_json::from_str(&content)
+                .map_err(|e| format!("Error parsing JSON: {}", e))?;
 
-        *save_path = path.clone();
-        let file_name = path.file_prefix().unwrap();
-        let str_file_name = file_name.to_string_lossy().to_string();
-        return Ok((document, str_file_name));
+                *save_path = path.clone();
+                let file_name = path.file_prefix().unwrap();
+                let str_file_name = file_name.to_string_lossy().to_string();
+                return Ok((document, str_file_name));
+            }
+            _ => {
+                path.set_extension("json");
+                let content = std::fs::read_to_string(&path)
+                .map_err(|e| format!("Error reading file: {}", e))?;
+                
+                println!("File Open: {:?}", path);
+                println!("Content:\n{}", content);
+                
+                let document: Vec<Node> = serde_json::from_str(&content)
+                .map_err(|e| format!("Error parsing JSON: {}", e))?;
+
+                *save_path = path.clone();
+                let file_name = path.file_prefix().unwrap();
+                let str_file_name = file_name.to_string_lossy().to_string();
+                return Ok((document, str_file_name));
+            }
+        }
     }
     else {
         println!("The operation was cancelled");
