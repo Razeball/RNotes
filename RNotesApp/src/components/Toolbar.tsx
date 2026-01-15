@@ -171,6 +171,16 @@ const Toolbar = ({ editor }: ToolbarProps) => {
             { match: (n: any) => Text.isText(n), split: true }
         )
     }
+    const eraseFormatting = (event: React.MouseEvent) => {
+        event.preventDefault()
+        const { selection } = editor
+        if (!selection) return
+        Transforms.setNodes(
+            editor,
+            { bold: undefined, italic: undefined, underline: undefined, fontSize: undefined, color: undefined, code: undefined, quote: undefined, crossedOut: undefined },
+            { match: (n: any) => Text.isText(n), split: true }
+        )
+    }
 
     const alignStart = (event: React.MouseEvent) => {
         event.preventDefault()
@@ -329,12 +339,13 @@ const Toolbar = ({ editor }: ToolbarProps) => {
             <button onMouseDown={toggleBold}><b>B</b></button>
             <button onMouseDown={toogleItalic}><i>I</i></button>
             <button onMouseDown={toogleUnderline}><u>U</u></button>
-            <button onMouseDown={alignStart}><img src="Left.svg" alt="" style={{ width: '16px', height: '16px' }} /></button>
-            <button onMouseDown={alignCenter}><img src="Center.svg" alt="" style={{ width: '16px', height: '16px' }} /></button>
-            <button onMouseDown={alignEnd}><img src="Right.svg" alt="" style={{ width: '16px', height: '16px' }} /></button>
-            <button onMouseDown={alignJustify}><img src="Justify.svg" alt="" style={{ width: '16px', height: '16px' }} /></button>
-            <button onMouseDown={makeUnorderedList}><img src="Unordered List.svg" alt="" style={{ width: '16px', height: '16px' }} /></button>
-            <button onMouseDown={makeOrderedList}><img src="OrderedList.svg" alt="" style={{ width: '16px', height: '16px' }} /></button>
+            <button onMouseDown={eraseFormatting}><img src='NoFormat.svg'/></button>
+            <button onMouseDown={alignStart}><img src="Left.svg" alt="" /></button>
+            <button onMouseDown={alignCenter}><img src="Center.svg" alt="" /></button>
+            <button onMouseDown={alignEnd}><img src="Right.svg" alt="" /></button>
+            <button onMouseDown={alignJustify}><img src="Justify.svg" alt="" /></button>
+            <button onMouseDown={makeUnorderedList}><img src="Unordered List.svg" alt="" /></button>
+            <button onMouseDown={makeOrderedList}><img src="OrderedList.svg" alt="" /></button>
             
             <Dropdown
                 options={textStyleOption}

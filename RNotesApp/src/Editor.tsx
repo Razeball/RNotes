@@ -1,5 +1,5 @@
 import { useState, useMemo, useCallback } from "react";
-import { createEditor, Descendant, BaseEditor } from "slate";
+import { createEditor, Descendant, BaseEditor} from "slate";
 import {
   Slate,
   Editable,
@@ -31,9 +31,13 @@ type CustomText = {
   bold?: boolean;
   italic?: boolean;
   underline?: boolean;
+  code?: boolean;
+  quote?: boolean;
   fontSize?: number;
+  crossedOut?: boolean;
   color?: "red" | "blue" | "white" | "black" | "green";
 };
+
 
 declare module "slate" {
   interface CustomTypes {
@@ -91,13 +95,13 @@ const Element = ({ attributes, children, element }: RenderElementProps) => {
       );
     case "ulist":
       return (
-        <ul {...attributes} style={style}>
+        <ul {...attributes} style={{ ...style, listStylePosition: 'inside' }}>
           {children}
         </ul>
       );
     case "olist":
       return (
-        <ol {...attributes} style={style}>
+        <ol {...attributes} style={{ ...style, listStylePosition: 'inside' }}>
           {children}
         </ol>
       );
@@ -128,9 +132,16 @@ const Leaf = ({ attributes, children, leaf }: RenderLeafProps) => {
   if (leaf.underline) {
     styledChildren = <u>{styledChildren}</u>;
   }
+  if (leaf.quote){
+    styledChildren = <q>{styledChildren}</q>
+  }
+  if (leaf.code){
+    styledChildren = <code>{styledChildren}</code>
+  }
   const style: React.CSSProperties = {
     ...(leaf.fontSize && { fontSize: `${leaf.fontSize}px` }),
     ...(leaf.color && { color: leaf.color }),
+    ...(leaf.crossedOut && {textDecoration: "line-through"}),
   };
   return (
     <span {...attributes} style={style}>
@@ -177,12 +188,14 @@ const MySlateEditor = () => {
     }
   }
 
+
   return (
     <div>
-      <Miscellaneousbar loadDocumentName={getDocumentName} documentName={documentName}>
+      <Miscellaneousbar loadDocumentName={getDocumentName} documentName={documentName} editor={editor}>
         <button onClick={save}>Save</button>
         <button onClick={saveAs}>Save As</button>
         <button onClick={open}>Open</button>
+   
       </Miscellaneousbar>
       <div
         style={{ border: "1px solid #ccc", padding: "20px", height: "80vh" }}

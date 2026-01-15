@@ -109,6 +109,11 @@ button {
 .toolbar button:active{
   background-color: #1b1d2e;
 }
+.toolbar button img{
+  width: 20px;
+  height: 20px;
+}
+
 
 .miscellaneousbar{
   display: grid;
@@ -166,5 +171,11 @@ button {
   }
   button:active {
     background-color: #0f0f0f69;
+  }
+}
+@media (min-width: 1200px) {
+  .toolbar button img {
+    width: 32px;
+    height: 32px;
   }
 }
