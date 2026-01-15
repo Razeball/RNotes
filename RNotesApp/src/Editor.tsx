@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, useEffect } from "react";
 import { createEditor, Descendant, BaseEditor} from "slate";
 import {
   Slate,
@@ -11,7 +11,9 @@ import {
 import { withHistory, HistoryEditor } from "slate-history";
 import Toolbar from "./components/Toolbar";
 import { invoke } from "@tauri-apps/api/core";
+import { convertFileSrc } from "@tauri-apps/api/core";
 import Miscellaneousbar from "./components/Miscellaneousbar";
+import React from "react";
 
 type CustomElement = {
   type:
@@ -22,9 +24,11 @@ type CustomElement = {
     | "header4"
     | "ulist"
     | "olist"
-    | "list-item";
+    | "list-item"
+    | "image";
   children: CustomText[];
   alignment?: "start" | "center" | "end" | "justify";
+  url?: string;
 };
 type CustomText = {
   text: string;
@@ -69,6 +73,13 @@ const Element = ({ attributes, children, element }: RenderElementProps) => {
           {children}
         </p>
       );
+    case "image":
+      return (
+        <div {...attributes} style={{textAlign: 'center', margin: "10px 0"}}>
+          <img src={element.url} alt="" style={{maxWidth: '100%'}}/>
+          {children}
+        </div>
+      )
     case "header":
       return (
         <h1 {...attributes} style={style}>
@@ -149,6 +160,14 @@ const Leaf = ({ attributes, children, leaf }: RenderLeafProps) => {
     </span>
   );
 };
+export const insertImage = (editor: ReactEditor, url: string) => {
+    const image: CustomElement = {
+      type: "image", 
+      url,
+      children: [{text: ""}],
+    };
+    editor.insertNode(image);
+  };
 
 const MySlateEditor = () => {
   const [value, setValue] = useState<Descendant[]>(initialValue);
@@ -156,6 +175,44 @@ const MySlateEditor = () => {
   const [documentName, setDocumentName] = useState("Document");
   const editor = useMemo(() => withHistory(withReact(createEditor())), [key]);
 
+
+  const handlePaste = useCallback(async (event: React.ClipboardEvent) => {
+    const clipboardData = event.clipboardData;
+    
+
+    if (clipboardData.files && clipboardData.files.length > 0) {
+      const file = clipboardData.files[0];
+      if (file.type.startsWith('image/')) {
+        event.preventDefault();
+        try {
+          const filePath = await invoke<string>("insert_image_from_clipboard");
+          const url = convertFileSrc(filePath);
+          insertImage(editor, url);
+        } catch (error) {
+          console.error("Error pasting image:", error);
+        }
+        return;
+      }
+    }
+    
+
+    const items = clipboardData.items;
+    for (let i = 0; i < items.length; i++) {
+      if (items[i].type.startsWith('image/')) {
+        event.preventDefault();
+        try {
+          const filePath = await invoke<string>("insert_image_from_clipboard");
+          const url = convertFileSrc(filePath);
+          insertImage(editor, url);
+        } catch (error) {
+          console.error("Error pasting image:", error);
+        }
+        return;
+      }
+    }
+  }, [editor]);
+
+  
   const renderElement = useCallback(
     (props: RenderElementProps) => <Element {...props} />,
     []
@@ -195,10 +252,9 @@ const MySlateEditor = () => {
         <button onClick={save}>Save</button>
         <button onClick={saveAs}>Save As</button>
         <button onClick={open}>Open</button>
-   
       </Miscellaneousbar>
       <div
-        style={{ border: "1px solid #ccc", padding: "20px", height: "80vh" }}
+        style={{ border: "1px solid #ccc", padding: "20px", height: "80vh", overflowY: "auto" }}
       >
         <Slate
           key={key}
@@ -208,15 +264,19 @@ const MySlateEditor = () => {
         >
           <Toolbar editor={editor} />
           <Editable
-            style={{ height: "80%" }}
+            style={{ height: "80%", paddingLeft: "10px", overflowY: "auto" }}
             renderElement={renderElement}
             renderLeaf={renderLeaf}
             placeholder="Start Writing something..."
+            onPaste={handlePaste}
           />
         </Slate>
       </div>
     </div>
   );
 };
+
+
+
 
 export default MySlateEditor;

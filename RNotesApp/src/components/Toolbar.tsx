@@ -123,6 +123,9 @@ const Toolbar = ({ editor }: ToolbarProps) => {
                     case 'u':
                         toogleUnderline()
                         break;
+                    case "\\":
+                        eraseFormatting()
+                        break;
                     default:
                         break;
                 }
@@ -171,8 +174,8 @@ const Toolbar = ({ editor }: ToolbarProps) => {
             { match: (n: any) => Text.isText(n), split: true }
         )
     }
-    const eraseFormatting = (event: React.MouseEvent) => {
-        event.preventDefault()
+    const eraseFormatting = (event?: React.MouseEvent) => {
+        event?.preventDefault()
         const { selection } = editor
         if (!selection) return
         Transforms.setNodes(
