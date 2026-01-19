@@ -3,6 +3,7 @@ import { BaseEditor, Editor, Transforms, Text, Range, Element as SlateElement } 
 import { ReactEditor } from 'slate-react'
 import { HistoryEditor } from 'slate-history'
 import Dropdown, { DropdownOption } from './Dropdown'
+import Popup from './Popup'
 
 
 type ToolbarProps = {
@@ -339,10 +340,30 @@ const Toolbar = ({ editor }: ToolbarProps) => {
 
     return (
         <div className='toolbar'>
+            <Popup
+            content="Ctrl+b"
+            position="bottom"
+            delay={300}>
             <button onMouseDown={toggleBold}><b>B</b></button>
+            </Popup>
+            <Popup
+            content="Ctrl+i"
+            position="bottom"
+            delay={300}>
             <button onMouseDown={toogleItalic}><i>I</i></button>
+            </Popup>
+            <Popup
+            content="Ctrl+u"
+            position="bottom"
+            delay={300}>
             <button onMouseDown={toogleUnderline}><u>U</u></button>
+            </Popup>
+            <Popup
+            content="Ctrl+\"
+            position="bottom"
+            delay={300}>
             <button onMouseDown={eraseFormatting}><img src='NoFormat.svg'/></button>
+            </Popup>
             <button onMouseDown={alignStart}><img src="Left.svg" alt="" /></button>
             <button onMouseDown={alignCenter}><img src="Center.svg" alt="" /></button>
             <button onMouseDown={alignEnd}><img src="Right.svg" alt="" /></button>

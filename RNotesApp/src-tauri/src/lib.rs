@@ -60,8 +60,18 @@ enum Node {
     #[serde(rename = "image")]
     Image {
         url: Option<String>,
+        size: Option<ImageSize>,
         children: Vec<TextNode>,
     },
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+#[serde(rename_all = "lowercase")]
+enum ImageSize {
+    Small,
+    Medium,
+    Large,
+    Original,
 }
 
 #[derive(Serialize, Deserialize, Debug)]

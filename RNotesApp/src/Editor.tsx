@@ -1,5 +1,5 @@
-import { useState, useMemo, useCallback, useEffect } from "react";
-import { createEditor, Descendant, BaseEditor} from "slate";
+import { useState, useMemo, useCallback } from "react";
+import { createEditor, Descendant, BaseEditor, Transforms } from "slate";
 import {
   Slate,
   Editable,
@@ -7,6 +7,7 @@ import {
   RenderElementProps,
   RenderLeafProps,
   ReactEditor,
+  useSlateStatic,
 } from "slate-react";
 import { withHistory, HistoryEditor } from "slate-history";
 import Toolbar from "./components/Toolbar";
@@ -14,6 +15,9 @@ import { invoke } from "@tauri-apps/api/core";
 import { convertFileSrc } from "@tauri-apps/api/core";
 import Miscellaneousbar from "./components/Miscellaneousbar";
 import React from "react";
+import Popup from "./components/Popup";
+
+export type ImageSize = "small" | "medium" | "large" | "original";
 
 type CustomElement = {
   type:
@@ -29,6 +33,7 @@ type CustomElement = {
   children: CustomText[];
   alignment?: "start" | "center" | "end" | "justify";
   url?: string;
+  size?: ImageSize;
 };
 type CustomText = {
   text: string;
@@ -62,6 +67,78 @@ const initialValue: Descendant[] = [
   },
 ];
 
+const getImageWidth = (size?: ImageSize): string => {
+  switch (size) {
+    case "small":
+      return "25%";
+    case "medium":
+      return "50%";
+    case "large":
+      return "75%";
+    case "original":
+    default:
+      return "100%";
+  }
+};
+
+const ImageElement = ({ attributes, children, element }: RenderElementProps) => {
+  const editor = useSlateStatic();
+  const imageWidth = getImageWidth(element.size);
+  
+  const handleResize = (size: ImageSize) => {
+    const path = ReactEditor.findPath(editor, element);
+    Transforms.setNodes(editor, { size } as Partial<CustomElement>, { at: path });
+  };
+
+  const sizeButtons = (
+    <div style={{ display: 'flex', gap: '4px' }}>
+      <button 
+        className={element.size === 'small' ? 'active' : ''} 
+        onClick={() => handleResize('small')}
+      >
+        Small
+      </button>
+      <button 
+        className={element.size === 'medium' ? 'active' : ''} 
+        onClick={() => handleResize('medium')}
+      >
+        Medium
+      </button>
+      <button 
+        className={element.size === 'large' ? 'active' : ''} 
+        onClick={() => handleResize('large')}
+      >
+        Big
+      </button>
+      <button 
+        className={element.size === 'original' || !element.size ? 'active' : ''} 
+        onClick={() => handleResize('original')}
+      >
+        Original
+      </button>
+    </div>
+  );
+
+  return (
+    <div {...attributes} style={{textAlign: 'center', margin: "10px 0"}}>
+      <Popup 
+        content={sizeButtons} 
+        position="top" 
+        delay={200}
+        interactive={true}
+      >
+        <img 
+          src={element.url} 
+          alt="" 
+          style={{maxWidth: imageWidth, cursor: 'pointer'}}
+          contentEditable={false}
+        />
+      </Popup>
+      {children}
+    </div>
+  );
+};
+
 const Element = ({ attributes, children, element }: RenderElementProps) => {
   let style: React.CSSProperties = element.alignment
     ? { textAlign: `${element.alignment}` }
@@ -74,12 +151,7 @@ const Element = ({ attributes, children, element }: RenderElementProps) => {
         </p>
       );
     case "image":
-      return (
-        <div {...attributes} style={{textAlign: 'center', margin: "10px 0"}}>
-          <img src={element.url} alt="" style={{maxWidth: '100%'}}/>
-          {children}
-        </div>
-      )
+      return <ImageElement attributes={attributes} children={children} element={element} />;
     case "header":
       return (
         <h1 {...attributes} style={style}>
@@ -160,10 +232,11 @@ const Leaf = ({ attributes, children, leaf }: RenderLeafProps) => {
     </span>
   );
 };
-export const insertImage = (editor: ReactEditor, url: string) => {
+export const insertImage = (editor: ReactEditor, url: string, size: ImageSize = "original") => {
     const image: CustomElement = {
       type: "image", 
       url,
+      size,
       children: [{text: ""}],
     };
     editor.insertNode(image);
@@ -248,10 +321,26 @@ const MySlateEditor = () => {
 
   return (
     <div>
-      <Miscellaneousbar loadDocumentName={getDocumentName} documentName={documentName} editor={editor}>
-        <button onClick={save}>Save</button>
-        <button onClick={saveAs}>Save As</button>
-        <button onClick={open}>Open</button>
+      <Miscellaneousbar loadDocumentName={getDocumentName} documentName={documentName} editor={editor}>    
+        <Popup
+        content="Save the current document"
+        position="bottom"
+        delay={300}>
+           <button onClick={save}>Save</button>
+        </Popup>
+        <Popup
+        content="Save or export the current document"
+        position="bottom"
+        delay={300}>
+           <button onClick={saveAs}>Save As</button>
+        </Popup>
+        <Popup
+        content="Open a document"
+        position="bottom"
+        delay={300}>
+           <button onClick={open}>Open</button>
+        </Popup>
+       
       </Miscellaneousbar>
       <div
         style={{ border: "1px solid #ccc", padding: "20px", height: "80vh", overflowY: "auto" }}
