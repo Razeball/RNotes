@@ -63,6 +63,32 @@ enum Node {
         size: Option<ImageSize>,
         children: Vec<TextNode>,
     },
+    #[serde(rename = "table")]
+    Table {
+        children: Vec<TableRow>,
+    },
+    #[serde(rename = "table-row")]
+    TableRow {
+        children: Vec<TableCell>,
+    },
+    #[serde(rename = "table-cell")]
+    TableCell {
+        children: Vec<TextNode>,
+    },
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+struct TableRow {
+    #[serde(rename = "type")]
+    node_type: String,
+    children: Vec<TableCell>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+struct TableCell {
+    #[serde(rename = "type")]
+    node_type: String,
+    children: Vec<TextNode>,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -112,7 +138,7 @@ fn extract_plain_text(nodes: &[Node]) -> String {
     let mut result = String::new();
 
     for node in nodes {
-        let children = match node {
+        match node {
             Node::Paragraph { children, .. }
             | Node::Header { children, .. }
             | Node::Header2 { children, .. }
@@ -121,14 +147,34 @@ fn extract_plain_text(nodes: &[Node]) -> String {
             | Node::UList { children, .. }
             | Node::OList { children, .. }
             | Node::ListItem { children, .. }
-            | Node::Image { children, .. } => children,
+            | Node::Image { children, .. }
+            | Node::TableCell { children, .. } => {
+                for text_node in children {
+                    result.push_str(&text_node.text);
+                }
+                result.push('\n');
+            }
+            Node::Table { children } => {
+                for row in children {
+                    for cell in &row.children {
+                        for text_node in &cell.children {
+                            result.push_str(&text_node.text);
+                        }
+                        result.push('\t');
+                    }
+                    result.push('\n');
+                }
+            }
+            Node::TableRow { children } => {
+                for cell in children {
+                    for text_node in &cell.children {
+                        result.push_str(&text_node.text);
+                    }
+                    result.push('\t');
+                }
+                result.push('\n');
+            }
         };
-
-        for text_node in children {
-            result.push_str(&text_node.text);
-        }
-
-        result.push('\n'); 
     }
 
     result

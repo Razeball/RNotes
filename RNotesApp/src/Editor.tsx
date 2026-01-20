@@ -29,8 +29,11 @@ type CustomElement = {
     | "ulist"
     | "olist"
     | "list-item"
-    | "image";
-  children: CustomText[];
+    | "image"
+    | "table"
+    | "table-row"
+    | "table-cell";
+  children: CustomText[] | CustomElement[];
   alignment?: "start" | "center" | "end" | "justify";
   url?: string;
   size?: ImageSize;
@@ -42,6 +45,7 @@ type CustomText = {
   underline?: boolean;
   code?: boolean;
   quote?: boolean;
+  highlight?: boolean;
   fontSize?: number;
   crossedOut?: boolean;
   color?: "red" | "blue" | "white" | "black" | "green";
@@ -139,6 +143,151 @@ const ImageElement = ({ attributes, children, element }: RenderElementProps) => 
   );
 };
 
+const TableElement = ({ attributes, children, element }: RenderElementProps) => {
+  const editor = useSlateStatic();
+  
+  const addRow = (position: 'top' | 'bottom') => {
+    const path = ReactEditor.findPath(editor, element);
+    const tableChildren = element.children as CustomElement[];
+    const columnCount = tableChildren[0]?.children?.length || 2;
+    
+    const newRow: CustomElement = {
+      type: 'table-row',
+      children: Array(columnCount).fill(null).map(() => ({
+        type: 'table-cell',
+        children: [{ text: '' }],
+      })) as unknown as CustomText[],
+    };
+    
+    const insertPath = position === 'top' 
+      ? [...path, 0] 
+      : [...path, tableChildren.length];
+    
+    Transforms.insertNodes(editor, newRow, { at: insertPath });
+  };
+
+  const addColumn = (position: 'left' | 'right') => {
+    const path = ReactEditor.findPath(editor, element);
+    const tableChildren = element.children as CustomElement[];
+    
+    tableChildren.forEach((row, rowIndex) => {
+      const newCell: CustomElement = {
+        type: 'table-cell',
+        children: [{ text: '' }] as unknown as CustomText[],
+      };
+      
+      const columnCount = (row.children as CustomElement[]).length;
+      const insertPath = position === 'left'
+        ? [...path, rowIndex, 0]
+        : [...path, rowIndex, columnCount];
+      
+      Transforms.insertNodes(editor, newCell, { at: insertPath });
+    });
+  };
+
+  const addRowButton = (position: 'top' | 'bottom') => (
+    <div 
+      contentEditable={false}
+      style={{ 
+        display: 'flex', 
+        justifyContent: 'center',
+        padding: '2px',
+      }}
+    >
+      <button
+        onClick={() => addRow(position)}
+        style={{
+          background: '#444',
+          border: 'none',
+          color: 'white',
+          padding: '2px 8px',
+          borderRadius: '4px',
+          cursor: 'pointer',
+          fontSize: '14px',
+        }}
+        onMouseEnter={(e) => e.currentTarget.style.background = '#666'}
+        onMouseLeave={(e) => e.currentTarget.style.background = '#444'}
+      >
+        + Row
+      </button>
+    </div>
+  );
+
+  const addColumnButton = (position: 'left' | 'right') => (
+    <div 
+      contentEditable={false}
+      style={{ 
+        display: 'flex', 
+        flexDirection: 'column',
+        justifyContent: 'center',
+        padding: '2px',
+      }}
+    >
+      <button
+        onClick={() => addColumn(position)}
+        style={{
+          background: '#444',
+          border: 'none',
+          color: 'white',
+          padding: '8px 2px',
+          borderRadius: '4px',
+          cursor: 'pointer',
+          fontSize: '14px',
+          writingMode: 'vertical-rl',
+        }}
+        onMouseEnter={(e) => e.currentTarget.style.background = '#666'}
+        onMouseLeave={(e) => e.currentTarget.style.background = '#444'}
+      >
+        + Col
+      </button>
+    </div>
+  );
+
+  return (
+    <div {...attributes} style={{ margin: '10px 0' }}>
+      <Popup
+        content={addRowButton('top')}
+        position="top"
+        delay={100}
+        interactive={true}
+      >
+        <div style={{ display: 'inline-flex', alignItems: 'stretch' }}>
+          <Popup
+            content={addColumnButton('left')}
+            position="left"
+            delay={100}
+            interactive={true}
+          >
+            <div style={{ display: 'flex', alignItems: 'stretch' }}>
+              <Popup
+                content={addColumnButton('right')}
+                position="right"
+                delay={100}
+                interactive={true}
+              >
+                <div>
+                  <Popup
+                    content={addRowButton('bottom')}
+                    position="bottom"
+                    delay={100}
+                    interactive={true}
+                  >
+                    <table style={{ borderCollapse: 'collapse', width: 'auto', display: 'inline-table' }}>
+                      <tbody>
+                        {children}
+                      </tbody>
+                    </table>
+                  </Popup>
+                </div>
+              </Popup>
+            </div>
+          </Popup>
+        </div>
+      </Popup>
+    </div>
+  );
+};
+
 const Element = ({ attributes, children, element }: RenderElementProps) => {
   let style: React.CSSProperties = element.alignment
     ? { textAlign: `${element.alignment}` }
@@ -152,6 +301,20 @@ const Element = ({ attributes, children, element }: RenderElementProps) => {
       );
     case "image":
       return <ImageElement attributes={attributes} children={children} element={element} />;
+    case "table":
+      return <TableElement attributes={attributes} children={children} element={element} />;
+    case "table-row":
+      return (
+        <tr {...attributes}>
+          {children}
+        </tr>
+      );
+    case "table-cell":
+      return (
+        <td {...attributes} style={{ border: '1px solid #555', padding: '8px', minWidth: '50px' }}>
+          {children}
+        </td>
+      );
     case "header":
       return (
         <h1 {...attributes} style={style}>
@@ -221,6 +384,9 @@ const Leaf = ({ attributes, children, leaf }: RenderLeafProps) => {
   if (leaf.code){
     styledChildren = <code>{styledChildren}</code>
   }
+  if (leaf.highlight){
+    styledChildren = <mark>{styledChildren}</mark>
+  }
   const style: React.CSSProperties = {
     ...(leaf.fontSize && { fontSize: `${leaf.fontSize}px` }),
     ...(leaf.color && { color: leaf.color }),
@@ -241,6 +407,31 @@ export const insertImage = (editor: ReactEditor, url: string, size: ImageSize = 
     };
     editor.insertNode(image);
   };
+
+export const insertTable = (editor: ReactEditor, rows: number = 2, cols: number = 2) => {
+  const tableRows: CustomElement[] = [];
+  
+  for (let i = 0; i < rows; i++) {
+    const cells: CustomElement[] = [];
+    for (let j = 0; j < cols; j++) {
+      cells.push({
+        type: 'table-cell',
+        children: [{ text: '' }],
+      } as CustomElement);
+    }
+    tableRows.push({
+      type: 'table-row',
+      children: cells as unknown as CustomText[],
+    } as CustomElement);
+  }
+  
+  const table: CustomElement = {
+    type: 'table',
+    children: tableRows as unknown as CustomText[],
+  };
+  
+  editor.insertNode(table);
+};
 
 const MySlateEditor = () => {
   const [value, setValue] = useState<Descendant[]>(initialValue);

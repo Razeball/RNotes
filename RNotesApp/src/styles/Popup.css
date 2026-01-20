@@ -113,3 +113,27 @@
     opacity: 1;
   }
 }
+
+
+.table-size-grid {
+  display: grid;
+  gap: 2px;
+}
+
+.table-size-cell {
+  width: 14px;
+  height: 14px;
+  border: 1px solid #666;
+  background-color: #333;
+  cursor: pointer;
+  border-radius: 2px;
+  transition: background-color 0.1s;
+}
+
+.table-size-cell.highlighted {
+  background-color: #0078d4;
+}
+
+.table-size-cell:hover {
+  background-color: #0078d4;
+}
