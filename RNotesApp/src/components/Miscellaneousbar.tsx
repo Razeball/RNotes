@@ -1,11 +1,13 @@
-import { BaseEditor, Editor, } from 'slate'
+import { BaseEditor, Editor, Range } from 'slate'
 import { ReactEditor } from 'slate-react'
 import { HistoryEditor } from 'slate-history'
 import { Transforms, Text } from 'slate'
 import { useEffect, useState } from 'react'
 import { invoke, convertFileSrc } from "@tauri-apps/api/core";
-import { insertImage, insertTable } from '../Editor'
+import { insertImage} from '../Editor'
+import { insertTable } from './Table'
 import Popup from './Popup'
+import Modal from './Modal'
 
 export type MiscellaneousbarProps = {
     children?: React.ReactNode
@@ -15,14 +17,20 @@ export type MiscellaneousbarProps = {
 }
 export default function Miscellaneousbar({children, loadDocumentName, documentName, editor} : MiscellaneousbarProps) {
   
-  const formatOptions: { value: 'quote' | 'code' | 'crossedOut' | 'highlight', label: string, shortcut: string }[] = [
+  const formatOptions: { value: 'quote' | 'code' | 'crossedOut' | 'highlight' | 'link', label: string, shortcut: string }[] = [
     { value: 'quote', label: 'Quote', shortcut: 'Alt+Shift+Q' },
     { value: 'code', label: 'Code', shortcut: 'Alt+Shift+4' },
     { value: 'crossedOut', label: 'Crossed Out', shortcut: 'Alt+Shift+5' },
     { value: 'highlight', label: 'Highlight', shortcut: 'Alt+Shift+H' },
+    {value: 'link', label: 'Link', shortcut: 'Alt+Shift+6'}
   ];
 
   const [showFormatDropdown, setShowFormatDropdown] = useState(false);
+  const [showLinkPopup, setShowLinkPopup] = useState(false);
+  const [linkUrl, setLinkUrl] = useState('');
+  const [linkText, setLinkText] = useState('');
+  const [hasSelection, setHasSelection] = useState(false);
+  
    useEffect(() => {
           const handleKeyDown = (e: KeyboardEvent) => {
               if (e.altKey && e.shiftKey) {
@@ -39,6 +47,9 @@ export default function Miscellaneousbar({children, loadDocumentName, documentNa
                       case 'H':
                         handleFormatSelect('highlight')
                         break;
+                      case '^':
+                        handleFormatSelect('link')
+                        break;
                       default:
                           break;
                   }
@@ -49,7 +60,36 @@ export default function Miscellaneousbar({children, loadDocumentName, documentNa
           return () => window.removeEventListener("keydown", handleKeyDown);
       }, []);
 
-  const handleFormatSelect = (format: 'quote' | 'code' | 'crossedOut' | 'highlight') => {
+  const handleFormatSelect = (format: 'quote' | 'code' | 'crossedOut' | 'highlight' | 'link') => {
+    if (format === 'link') {
+
+      const [match] = Editor.nodes(editor, {
+        match: (n: any) => Text.isText(n) && n.link === true,
+        universal: true
+      });
+      
+      if (match) {
+
+        Transforms.setNodes(
+          editor,
+          { link: undefined, href: undefined },
+          { match: (n: any) => Text.isText(n) && n.link === true, split: true }
+        );
+        ReactEditor.focus(editor);
+        return;
+      }
+      
+
+      const { selection } = editor;
+      const hasText = selection && !Range.isCollapsed(selection);
+      setHasSelection(!!hasText);
+      setLinkUrl('');
+      setLinkText('');
+      setShowLinkPopup(true);
+      setShowFormatDropdown(false);
+      return;
+    }
+    
     const [match] = Editor.nodes(editor, {
       match: (n: any) => n[format] === true,
       universal: true
@@ -61,6 +101,66 @@ export default function Miscellaneousbar({children, loadDocumentName, documentNa
     )
     ReactEditor.focus(editor)
   }
+
+  const applyLink = () => {
+    if (!linkUrl) {
+      alert('Please enter a URL');
+      return;
+    }
+
+    if (hasSelection) {
+      const { selection } = editor;
+      if (selection) {
+        Transforms.setNodes(
+          editor,
+          { link: true, href: linkUrl },
+          { at: selection, match: (n: any) => Text.isText(n), split: true }
+        );
+        
+        Transforms.collapse(editor, { edge: 'end' });
+        
+        Editor.removeMark(editor, 'link');
+        Editor.removeMark(editor, 'href');
+        
+        editor.insertText(' ');
+      }
+    } else {
+      if (!linkText) {
+        alert('Please enter link text');
+        return;
+      }
+      
+      const { selection } = editor;
+      if (selection) {
+        const insertPoint = selection.anchor;
+        editor.insertText(linkText);
+        
+        const start = { path: insertPoint.path, offset: insertPoint.offset };
+        const end = { path: insertPoint.path, offset: insertPoint.offset + linkText.length };
+        
+        Transforms.setNodes(
+          editor,
+          { link: true, href: linkUrl },
+          { at: { anchor: start, focus: end }, match: (n: any) => Text.isText(n), split: true }
+        );
+        
+        Editor.removeMark(editor, 'link');
+        Editor.removeMark(editor, 'href');
+        
+        Transforms.select(editor, {
+          anchor: { path: insertPoint.path, offset: insertPoint.offset + linkText.length },
+          focus: { path: insertPoint.path, offset: insertPoint.offset + linkText.length }
+        });
+        
+        editor.insertText(' ');
+      }
+    }
+
+    setShowLinkPopup(false);
+    setLinkUrl('');
+    setLinkText('');
+    ReactEditor.focus(editor);
+  };
 
   const handleInsertImage = async () => {
     try {
@@ -273,6 +373,91 @@ export default function Miscellaneousbar({children, loadDocumentName, documentNa
           )}
         </div>
       </div>
+      <Modal
+        isOpen={showLinkPopup}
+        onClose={() => {
+          setShowLinkPopup(false);
+          setLinkUrl('');
+          setLinkText('');
+        }}
+        title="Insert Link"
+      >
+        <div style={{ marginBottom: '15px' }}>
+          <label style={{ display: 'block', marginBottom: '5px', fontSize: '14px' }}>URL:</label>
+          <input
+            type="text"
+            value={linkUrl}
+            onChange={(e) => setLinkUrl(e.target.value)}
+            placeholder="https://example.com"
+            style={{
+              width: '100%',
+              padding: '8px',
+              backgroundColor: '#1e1e1e',
+              border: '1px solid #444',
+              borderRadius: '4px',
+              color: '#fff',
+              fontSize: '14px',
+            }}
+            autoFocus
+          />
+        </div>
+        {!hasSelection && (
+          <div style={{ marginBottom: '15px' }}>
+            <label style={{ display: 'block', marginBottom: '5px', fontSize: '14px' }}>Link Text:</label>
+            <input
+              type="text"
+              value={linkText}
+              onChange={(e) => setLinkText(e.target.value)}
+              placeholder="Enter link text"
+              style={{
+                width: '100%',
+                padding: '8px',
+                backgroundColor: '#1e1e1e',
+                border: '1px solid #444',
+                borderRadius: '4px',
+                color: '#fff',
+                fontSize: '14px',
+              }}
+            />
+          </div>
+        )}
+        <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
+          <button
+            onMouseDown={(e) => {
+              e.preventDefault();
+              setShowLinkPopup(false);
+              setLinkUrl('');
+              setLinkText('');
+            }}
+            style={{
+              padding: '8px 16px',
+              backgroundColor: '#444',
+              border: 'none',
+              borderRadius: '4px',
+              color: '#fff',
+              cursor: 'pointer',
+            }}
+          >
+            Cancel
+          </button>
+          <button
+            onMouseDown={(e) => {
+              e.preventDefault();
+              applyLink();
+            }}
+            style={{
+              padding: '8px 16px',
+              backgroundColor: '#4dabf7',
+              border: 'none',
+              borderRadius: '4px',
+              color: '#fff',
+              cursor: 'pointer',
+            }}
+          >
+            Apply
+          </button>
+        </div>
+      </Modal>
     </div>
   );
 }

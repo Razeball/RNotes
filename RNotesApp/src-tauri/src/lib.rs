@@ -122,6 +122,8 @@ struct TextNode {
     #[serde(rename = "fontSize")]
     font_size: Option<u32>,
     color: Option<String>,
+    link: Option<bool>,
+    href: Option<String>,
 }
 
 struct Config {
@@ -265,6 +267,8 @@ fn open(state: tauri::State<Config>) -> Result<(Vec<Node>, String), String> {
                         crossed_out: None,
                         font_size: None,
                         color: None,
+                        link: None,
+                        href: None,
                     }],
                  }
                 })

@@ -181,7 +181,7 @@ const Toolbar = ({ editor }: ToolbarProps) => {
         if (!selection) return
         Transforms.setNodes(
             editor,
-            { bold: undefined, italic: undefined, underline: undefined, fontSize: undefined, color: undefined, code: undefined, quote: undefined, crossedOut: undefined },
+            { bold: undefined, italic: undefined, underline: undefined, fontSize: undefined, color: undefined, code: undefined, quote: undefined, crossedOut: undefined, highlight: undefined, href: undefined, link: undefined },
             { match: (n: any) => Text.isText(n), split: true }
         )
     }

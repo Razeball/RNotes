@@ -98,7 +98,7 @@ button {
   padding: 10px;
 }
 .toolbar button{
-  
+  font-size: large;
   background: #343434;
 }
 .toolbar button:hover{
@@ -177,5 +177,8 @@ button {
   .toolbar button img {
     width: 32px;
     height: 32px;
+  }
+  .toolbar button{
+    font-size: x-large;
   }
 }
