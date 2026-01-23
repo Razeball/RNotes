@@ -1,4 +1,4 @@
-use crate::document_model::{Node, TextNode, TableRow, TableCell, Alignment, ImageSize};
+use crate::document_model::{Node, TextNode, TableRow, TableCell, ListItemNode, Alignment, ImageSize};
 use std::io::{Write, Result, Error, ErrorKind};
 
 // Magic bytes and version
@@ -23,6 +23,14 @@ const NODE_TABLE_CELL: u8 = 0x0C;
 const FLAG_HAS_ALIGNMENT: u8 = 0;
 const FLAG_HAS_URL: u8 = 1;
 const FLAG_HAS_IMAGE_SIZE: u8 = 2;
+const FLAG_IMAGE_EMBEDDED: u8 = 3;
+
+// Image format constants
+const IMAGE_FORMAT_PNG: u8 = 0;
+const IMAGE_FORMAT_JPG: u8 = 1;
+const IMAGE_FORMAT_BMP: u8 = 2;
+const IMAGE_FORMAT_GIF: u8 = 3;
+const IMAGE_FORMAT_WEBP: u8 = 4;
 
 // Style flag bit positions
 const STYLE_BOLD: u8 = 0;
@@ -71,10 +79,10 @@ fn encode_node(buffer: &mut Vec<u8>, node: &Node) -> Result<()> {
             encode_standard_node(buffer, NODE_HEADER4, alignment, children)?;
         }
         Node::UList { alignment, children } => {
-            encode_standard_node(buffer, NODE_ULIST, alignment, children)?;
+            encode_list_node(buffer, NODE_ULIST, alignment, children)?;
         }
         Node::OList { alignment, children } => {
-            encode_standard_node(buffer, NODE_OLIST, alignment, children)?;
+            encode_list_node(buffer, NODE_OLIST, alignment, children)?;
         }
         Node::ListItem { alignment, children } => {
             encode_standard_node(buffer, NODE_LIST_ITEM, alignment, children)?;
@@ -123,17 +131,67 @@ fn encode_standard_node(
     Ok(())
 }
 
+fn encode_list_node(
+    buffer: &mut Vec<u8>,
+    node_type: u8,
+    alignment: &Option<Alignment>,
+    children: &[ListItemNode],
+) -> Result<()> {
+  
+    buffer.write_all(&[node_type])?;
+    
+   
+    let mut flags: u8 = 0;
+    if let Some(align) = alignment {
+        flags |= 1 << FLAG_HAS_ALIGNMENT;
+        flags |= (alignment_to_u8(align) & 0x03) << 4;
+    }
+    buffer.write_all(&[flags])?;
+    
+    
+    let children_count = children.len() as u32;
+    buffer.write_all(&children_count.to_le_bytes())?;
+    
+    
+    for list_item in children {
+      
+        let mut item_flags: u8 = 0;
+        if let Some(align) = &list_item.alignment {
+            item_flags |= 1 << FLAG_HAS_ALIGNMENT;
+            item_flags |= (alignment_to_u8(align) & 0x03) << 4;
+        }
+        buffer.write_all(&[item_flags])?;
+        
+        
+        let text_count = list_item.children.len() as u32;
+        buffer.write_all(&text_count.to_le_bytes())?;
+        
+        
+        for text_node in &list_item.children {
+            encode_text_node(buffer, text_node)?;
+        }
+    }
+    
+    Ok(())
+}
+
 fn encode_image_node(
     buffer: &mut Vec<u8>,
     url: &Option<String>,
     size: &Option<ImageSize>,
     children: &[TextNode],
 ) -> Result<()> {
-
     buffer.write_all(&[NODE_IMAGE])?;
     
+    // Check if it is possible to embed the image
+    let embedded_image = url.as_ref().and_then(|url_str| {
+        try_read_local_image(url_str)
+    });
+    
     let mut flags: u8 = 0;
-    if url.is_some() {
+    if embedded_image.is_some() {
+        flags |= 1 << FLAG_IMAGE_EMBEDDED;
+    } else if url.is_some() {
         flags |= 1 << FLAG_HAS_URL;
     }
     if size.is_some() {
@@ -141,14 +199,23 @@ fn encode_image_node(
     }
     buffer.write_all(&[flags])?;
     
-    if let Some(url_str) = url {
+
+    if let Some((format, image_data)) = embedded_image {
+
+        buffer.write_all(&[format])?;
+
+        let data_len = image_data.len() as u32;
+        buffer.write_all(&data_len.to_le_bytes())?;
+
+        buffer.write_all(&image_data)?;
+    } else if let Some(url_str) = url {
         let url_bytes = url_str.as_bytes();
         let url_len = url_bytes.len() as u16;
         buffer.write_all(&url_len.to_le_bytes())?;
         buffer.write_all(url_bytes)?;
     }
     
-    // Write image size only if there are any
+    // Write image size if present
     if let Some(img_size) = size {
         buffer.write_all(&[image_size_to_u8(img_size)])?;
     }
@@ -161,6 +228,82 @@ fn encode_image_node(
     }
     
     Ok(())
+}
+
+/// Tries to read a local image file and convert it to a suitable format for embedding
+fn try_read_local_image(url: &str) -> Option<(u8, Vec<u8>)> {
+    use std::path::Path;
+    
+    let path = Path::new(url);
+    
+    if url.starts_with("http://") || url.starts_with("https://") || url.starts_with("data:") {
+        return None;
+    }
+    
+    let image_data = std::fs::read(path).ok()?;
+    
+    let extension = path.extension()
+        .and_then(|e| e.to_str())
+        .map(|s| s.to_lowercase());
+    
+    let format = match extension.as_deref() {
+        Some("png") => IMAGE_FORMAT_PNG,
+        Some("jpg") | Some("jpeg") => IMAGE_FORMAT_JPG,
+        Some("bmp") => IMAGE_FORMAT_BMP,
+        Some("gif") => IMAGE_FORMAT_GIF,
+        Some("webp") => IMAGE_FORMAT_WEBP,
+        _ => {
+            if let Some(detected_format) = detect_image_format(&image_data) {
+                detected_format
+            } else {
+                return convert_to_png(&image_data);
+            }
+        }
+    };
+    
+    Some((format, image_data))
+}
+
+fn detect_image_format(data: &[u8]) -> Option<u8> {
+    if data.len() < 4 {
+        return None;
+    }
+    
+    // PNG: 89 50 4E 47
+    if data.starts_with(&[0x89, 0x50, 0x4E, 0x47]) {
+        return Some(IMAGE_FORMAT_PNG);
+    }
+    // JPEG: FF D8 FF
+    if data.starts_with(&[0xFF, 0xD8, 0xFF]) {
+        return Some(IMAGE_FORMAT_JPG);
+    }
+    // BMP: 42 4D
+    if data.starts_with(&[0x42, 0x4D]) {
+        return Some(IMAGE_FORMAT_BMP);
+    }
+    // GIF: 47 49 46 38
+    if data.starts_with(&[0x47, 0x49, 0x46, 0x38]) {
+        return Some(IMAGE_FORMAT_GIF);
+    }
+    // WEBP: 52 49 46 46 ... 57 45 42 50
+    if data.len() >= 12 && data.starts_with(&[0x52, 0x49, 0x46, 0x46]) && &data[8..12] == b"WEBP" {
+        return Some(IMAGE_FORMAT_WEBP);
+    }
+    
+    None
+}
+
+/// Convert unknown image format to PNG as fallback
+fn convert_to_png(data: &[u8]) -> Option<(u8, Vec<u8>)> {
+    use std::io::Cursor;
+    use image::ImageFormat;
+    
+    let img = image::load_from_memory(data).ok()?;
+    
+    let mut buffer = Cursor::new(Vec::new());
+    img.write_to(&mut buffer, ImageFormat::Png).ok()?;
+    
+    Some((IMAGE_FORMAT_PNG, buffer.into_inner()))
 }
 
 fn encode_table_node(buffer: &mut Vec<u8>, rows: &[TableRow]) -> Result<()> {

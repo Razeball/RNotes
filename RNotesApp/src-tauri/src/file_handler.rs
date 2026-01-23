@@ -17,8 +17,6 @@ fn extract_plain_text(nodes: &[Node]) -> String {
             | Node::Header2 { children, .. }
             | Node::Header3 { children, .. }
             | Node::Header4 { children, .. }
-            | Node::UList { children, .. }
-            | Node::OList { children, .. }
             | Node::ListItem { children, .. }
             | Node::Image { children, .. }
             | Node::TableCell { children, .. } => {
@@ -26,6 +24,15 @@ fn extract_plain_text(nodes: &[Node]) -> String {
                     result.push_str(&text_node.text);
                 }
                 result.push('\n');
+            }
+            Node::UList { children, .. }
+            | Node::OList { children, .. } => {
+                for list_item in children {
+                    for text_node in &list_item.children {
+                        result.push_str(&text_node.text);
+                    }
+                    result.push('\n');
+                }
             }
             Node::Table { children } => {
                 for row in children {

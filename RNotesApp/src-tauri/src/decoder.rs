@@ -1,4 +1,4 @@
-use crate::document_model::{Node, TextNode, TableRow, TableCell, Alignment, ImageSize};
+use crate::document_model::{Node, TextNode, TableRow, TableCell, ListItemNode, Alignment, ImageSize};
 use std::io::{Cursor, Read, Result, Error, ErrorKind};
 
 // Magic bytes and version
@@ -23,6 +23,14 @@ const NODE_TABLE_CELL: u8 = 0x0C;
 const FLAG_HAS_ALIGNMENT: u8 = 0;
 const FLAG_HAS_URL: u8 = 1;
 const FLAG_HAS_IMAGE_SIZE: u8 = 2;
+const FLAG_IMAGE_EMBEDDED: u8 = 3;
+
+// Image format constants
+const IMAGE_FORMAT_PNG: u8 = 0;
+const IMAGE_FORMAT_JPG: u8 = 1;
+const IMAGE_FORMAT_BMP: u8 = 2;
+const IMAGE_FORMAT_GIF: u8 = 3;
+const IMAGE_FORMAT_WEBP: u8 = 4;
 
 // Style flag bit positions
 const STYLE_BOLD: u8 = 0;
@@ -86,10 +94,10 @@ fn decode_node(cursor: &mut Cursor<&[u8]>) -> Result<Node> {
         NODE_HEADER4 => decode_standard_node(cursor, |alignment, children| {
             Node::Header4 { alignment, children }
         }),
-        NODE_ULIST => decode_standard_node(cursor, |alignment, children| {
+        NODE_ULIST => decode_list_node(cursor, |alignment, children| {
             Node::UList { alignment, children }
         }),
-        NODE_OLIST => decode_standard_node(cursor, |alignment, children| {
+        NODE_OLIST => decode_list_node(cursor, |alignment, children| {
             Node::OList { alignment, children }
         }),
         NODE_LIST_ITEM => decode_standard_node(cursor, |alignment, children| {
@@ -131,13 +139,77 @@ where
     Ok(constructor(alignment, children))
 }
 
+fn decode_list_node<F>(cursor: &mut Cursor<&[u8]>, constructor: F) -> Result<Node>
+where
+    F: FnOnce(Option<Alignment>, Vec<ListItemNode>) -> Node,
+{
+   
+    let mut flags = [0u8; 1];
+    cursor.read_exact(&mut flags)?;
+    let flags = flags[0];
+    
+   
+    let alignment = if flags & (1 << FLAG_HAS_ALIGNMENT) != 0 {
+        let align_value = (flags >> 4) & 0x03;
+        Some(u8_to_alignment(align_value))
+    } else {
+        None
+    };
+    
+    let children_count = read_u32(cursor)?;
+    
+    let mut children = Vec::with_capacity(children_count as usize);
+    for _ in 0..children_count {
+        let mut item_flags = [0u8; 1];
+        cursor.read_exact(&mut item_flags)?;
+        let item_flags = item_flags[0];
+        
+        let item_alignment = if item_flags & (1 << FLAG_HAS_ALIGNMENT) != 0 {
+            let align_value = (item_flags >> 4) & 0x03;
+            Some(u8_to_alignment(align_value))
+        } else {
+            None
+        };
+        
+        let text_count = read_u32(cursor)?;
+        
+        let mut text_nodes = Vec::with_capacity(text_count as usize);
+        for _ in 0..text_count {
+            let text_node = decode_text_node(cursor)?;
+            text_nodes.push(text_node);
+        }
+        
+
+
+        children.push(ListItemNode {
+            node_type: "list-item".to_string(),
+            alignment: item_alignment,
+            children: text_nodes,
+        });
+    }
+    
+    Ok(constructor(alignment, children))
+}
+
 fn decode_image_node(cursor: &mut Cursor<&[u8]>) -> Result<Node> {
 
     let mut flags = [0u8; 1];
     cursor.read_exact(&mut flags)?;
     let flags = flags[0];
     
-    let url = if flags & (1 << FLAG_HAS_URL) != 0 {
+    let url = if flags & (1 << FLAG_IMAGE_EMBEDDED) != 0 {
+
+        let mut format = [0u8; 1];
+        cursor.read_exact(&mut format)?;
+        let format = format[0];
+        
+        let data_len = read_u32(cursor)?;
+        
+        let mut image_data = vec![0u8; data_len as usize];
+        cursor.read_exact(&mut image_data)?;
+        
+        Some(save_embedded_image(&image_data, format)?)
+    } else if flags & (1 << FLAG_HAS_URL) != 0 {
         let url_len = read_u16(cursor)?;
         let url_str = read_utf8_string(cursor, url_len as usize)?;
         Some(url_str)
@@ -162,6 +234,32 @@ fn decode_image_node(cursor: &mut Cursor<&[u8]>) -> Result<Node> {
     }
     
     Ok(Node::Image { url, size, children })
+}
+
+/// Save an embedded image to temp directory and return the path
+fn save_embedded_image(data: &[u8], format: u8) -> Result<String> {
+    use uuid::Uuid;
+    
+    let extension = match format {
+        IMAGE_FORMAT_PNG => "png",
+        IMAGE_FORMAT_JPG => "jpg",
+        IMAGE_FORMAT_BMP => "bmp",
+        IMAGE_FORMAT_GIF => "gif",
+        IMAGE_FORMAT_WEBP => "webp",
+        _ => "png", 
+    };
+    let images_dir = std::env::temp_dir().join("rnotes_images");
+    if !images_dir.exists() {
+        std::fs::create_dir_all(&images_dir)
+            .map_err(|e| Error::new(ErrorKind::Other, format!("Failed to create images dir: {}", e)))?;
+    }
+    let filename = format!("{}.{}", Uuid::new_v4(), extension);
+    let filepath = images_dir.join(&filename);
+    
+    std::fs::write(&filepath, data)
+        .map_err(|e| Error::new(ErrorKind::Other, format!("Failed to write image: {}", e)))?;
+    
+    Ok(filepath.to_string_lossy().to_string())
 }
 
 fn decode_table_node(cursor: &mut Cursor<&[u8]>) -> Result<Node> {
@@ -486,5 +584,68 @@ mod tests {
         let invalid_data = b"RDC\x99\x00\x00\x00\x00";
         let result = decode_document(invalid_data);
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_roundtrip_list() {
+        use crate::document_model::ListItemNode;
+        
+        let original = vec![
+            Node::UList {
+                alignment: None,
+                children: vec![
+                    ListItemNode {
+                        node_type: "list-item".to_string(),
+                        alignment: None,
+                        children: vec![TextNode {
+                            text: "Item 1".to_string(),
+                            bold: Some(true),
+                            italic: None,
+                            underline: None,
+                            code: None,
+                            quote: None,
+                            crossed_out: None,
+                            font_size: None,
+                            color: None,
+                            link: None,
+                            href: None,
+                        }],
+                    },
+                    ListItemNode {
+                        node_type: "list-item".to_string(),
+                        alignment: None,
+                        children: vec![TextNode {
+                            text: "Item 2".to_string(),
+                            bold: None,
+                            italic: Some(true),
+                            underline: None,
+                            code: None,
+                            quote: None,
+                            crossed_out: None,
+                            font_size: None,
+                            color: None,
+                            link: None,
+                            href: None,
+                        }],
+                    },
+                ],
+            },
+        ];
+        
+        let encoded = encode_document(&original).expect("Encoding failed");
+        let decoded = decode_document(&encoded).expect("Decoding failed");
+        
+        assert_eq!(decoded.len(), 1);
+        
+        if let Node::UList { alignment, children } = &decoded[0] {
+            assert!(alignment.is_none());
+            assert_eq!(children.len(), 2);
+            assert_eq!(children[0].children[0].text, "Item 1");
+            assert_eq!(children[0].children[0].bold, Some(true));
+            assert_eq!(children[1].children[0].text, "Item 2");
+            assert_eq!(children[1].children[0].italic, Some(true));
+        } else {
+            panic!("Expected UList node");
+        }
     }
 }

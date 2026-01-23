@@ -31,12 +31,12 @@ pub enum Node {
     #[serde(rename = "ulist")]
     UList {
         alignment: Option<Alignment>,
-        children: Vec<TextNode>,
+        children: Vec<ListItemNode>,
     },
     #[serde(rename = "olist")]
     OList {
         alignment: Option<Alignment>,
-        children: Vec<TextNode>,
+        children: Vec<ListItemNode>,
     },
     #[serde(rename = "list-item")]
     ListItem {
@@ -74,6 +74,14 @@ pub struct TableRow {
 pub struct TableCell {
     #[serde(rename = "type")]
     pub node_type: String,
+    pub children: Vec<TextNode>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct ListItemNode {
+    #[serde(rename = "type")]
+    pub node_type: String,
+    pub alignment: Option<Alignment>,
     pub children: Vec<TextNode>,
 }
 
