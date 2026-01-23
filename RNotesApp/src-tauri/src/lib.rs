@@ -2,6 +2,8 @@ mod document_model;
 mod image;
 mod config;
 mod file_handler;
+mod encoder;
+mod decoder;
 use file_handler::{open, save, save_as};
 use config::Config;
 use image::{insert_image_from_clipboard, insert_image_from_file};
