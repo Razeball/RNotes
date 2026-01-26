@@ -1,5 +1,6 @@
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, useEffect } from "react";
 import { createEditor, Descendant, BaseEditor, Transforms, Editor } from "slate";
+
 import {
   Slate,
   Editable,
@@ -17,6 +18,7 @@ import Miscellaneousbar from "./components/Miscellaneousbar";
 import React from "react";
 import Popup from "./components/Popup";
 import { TableElement} from "./components/Table";
+
 
 export type ImageSize = "small" | "medium" | "large" | "original";
 
@@ -275,9 +277,34 @@ export const insertImage = (editor: ReactEditor, url: string, size: ImageSize = 
 
 const MySlateEditor = () => {
   const [value, setValue] = useState<Descendant[]>(initialValue);
+  const [changed, setChanged] = useState(false);
   const [key, setKey] = useState(0);
   const [documentName, setDocumentName] = useState("Document");
   const editor = useMemo(() => withHistory(withReact(createEditor())), [key]);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.ctrlKey){
+        switch (e.key){
+          case 's':
+          save();
+          break;
+          case 'o':
+            open();
+            break;
+        }
+      }
+      else if (e.ctrlKey && e.altKey && e.ctrlKey === 's'){
+        saveAs();
+      }
+    }
+    window.addEventListener("keydown", handleKeyDown)
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, []);
+  useEffect(() => {
+    setChanged(true);
+    invoke("editor_changed", {hasChanged: changed});
+  }, [value]);
 
 
   const handlePaste = useCallback(async (event: React.ClipboardEvent) => {
@@ -381,7 +408,7 @@ const MySlateEditor = () => {
       const [loadedDocument, loadedName] = await invoke<Data>("open");
       setValue(loadedDocument);
       setKey((prev) => prev + 1); // Forced restart
-      console.log(loadedName);
+      setChanged(false);
       setDocumentName(loadedName);
     } catch (error) {
       alert(`Error opening file: ${error}`);
@@ -393,19 +420,19 @@ const MySlateEditor = () => {
     <div>
       <Miscellaneousbar loadDocumentName={getDocumentName} documentName={documentName} editor={editor}>    
         <Popup
-        content="Save the current document"
+        content="Save the current document (ctr+s)"
         position="bottom"
         delay={300}>
            <button onClick={save}>Save</button>
         </Popup>
         <Popup
-        content="Save or export the current document"
+        content="Save or export the current document (ctr+alt+s)"
         position="bottom"
         delay={300}>
            <button onClick={saveAs}>Save As</button>
         </Popup>
         <Popup
-        content="Open a document"
+        content="Open a document (ctrl+o)"
         position="bottom"
         delay={300}>
            <button onClick={open}>Open</button>
@@ -419,7 +446,9 @@ const MySlateEditor = () => {
           key={key}
           editor={editor}
           initialValue={value}
-          onChange={(v) => setValue(v)}
+          onChange={(v) => {
+            setValue(v)
+          }}
         >
           <Toolbar editor={editor} />
           <Editable

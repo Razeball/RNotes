@@ -11,6 +11,7 @@
     "fs:allow-read-dir",
     "fs:allow-temp-read-recursive",
     "fs:allow-appdata-read-recursive",
-    "fs:scope-temp-recursive"
+    "fs:scope-temp-recursive",
+    "dialog:default"
   ]
 }
