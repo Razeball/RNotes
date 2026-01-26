@@ -6,8 +6,8 @@ import { useEffect, useState } from 'react'
 import { invoke, convertFileSrc } from "@tauri-apps/api/core";
 import { insertImage} from '../Editor'
 import { insertTable } from './Table'
-import Popup from './Popup'
 import Modal from './Modal'
+import ActionDropdown, { ActionDropdownItem } from './ActionDropdown'
 
 export type MiscellaneousbarProps = {
     children?: React.ReactNode
@@ -25,7 +25,6 @@ export default function Miscellaneousbar({children, loadDocumentName, documentNa
     {value: 'link', label: 'Link', shortcut: 'Alt+Shift+6'}
   ];
 
-  const [showFormatDropdown, setShowFormatDropdown] = useState(false);
   const [showLinkPopup, setShowLinkPopup] = useState(false);
   const [linkUrl, setLinkUrl] = useState('');
   const [linkText, setLinkText] = useState('');
@@ -86,7 +85,6 @@ export default function Miscellaneousbar({children, loadDocumentName, documentNa
       setLinkUrl('');
       setLinkText('');
       setShowLinkPopup(true);
-      setShowFormatDropdown(false);
       return;
     }
     
@@ -215,12 +213,41 @@ export default function Miscellaneousbar({children, loadDocumentName, documentNa
     );
   };
 
-  const [showTableSelector, setShowTableSelector] = useState(false);
-
   const handleInsertTable = (rows: number, cols: number) => {
     insertTable(editor, rows, cols);
-    setShowTableSelector(false);
     ReactEditor.focus(editor);
+  };
+
+  const insertMenuItems: ActionDropdownItem[] = [
+    { id: 'image', label: 'Image', tooltip: 'Insert an image from file', divider: true },
+    { 
+      id: 'table', 
+      label: 'Table', 
+      submenu: <TableSizeSelector onSelect={handleInsertTable} />
+    },
+  ];
+
+  const formatMenuItems: ActionDropdownItem[] = formatOptions.map((opt, index) => ({
+    id: opt.value,
+    label: opt.label,
+    shortcut: opt.shortcut,
+    tooltip: `Apply ${opt.label.toLowerCase()} formatting`,
+    divider: index < formatOptions.length - 1,
+  }));
+
+  const handleInsertAction = (actionId: string) => {
+    switch (actionId) {
+      case 'image':
+        handleInsertImage();
+        break;
+      case 'table':
+        handleInsertTable(2, 2);
+        break;
+    }
+  };
+
+  const handleFormatAction = (actionId: string) => {
+    handleFormatSelect(actionId as 'quote' | 'code' | 'crossedOut' | 'highlight' | 'link');
   };
 
   return (
@@ -235,143 +262,24 @@ export default function Miscellaneousbar({children, loadDocumentName, documentNa
       </div>
       <div style={{display: "flex", background: "#2f2f2f", padding: "4px", borderRadius: "8px", gap: "4px", marginTop: "8px"}}>
         {children}
-        <div style={{ position: 'relative', display: 'inline-block' }}>
-          <button 
-            onMouseDown={(e) => {
-              e.preventDefault();
-              setShowTableSelector(!showTableSelector);
-            }}
-          >
-            Insert
-          </button>
-          {showTableSelector && (
-            <div 
-              style={{
-                position: 'absolute',
-                top: '100%',
-                left: '0',
-                backgroundColor: 'rgba(0, 0, 0, 0.9)',
-                border: '1px solid #444',
-                borderRadius: '4px',
-                boxShadow: '0 2px 8px rgba(0, 0, 0, 0.3)',
-                zIndex: 1000,
-                minWidth: '120px',
-              }}
-              onMouseLeave={() => setShowTableSelector(false)}
-            >
-              <div
-                onMouseDown={(e) => {
-                  e.preventDefault();
-                  handleInsertImage();
-                  setShowTableSelector(false);
-                }}
-                style={{
-                  padding: '8px 16px',
-                  cursor: 'pointer',
-                  borderBottom: '1px solid #444',
-                }}
-                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#333'}
-                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
-              >
-              Image
-              </div>
-              <div style={{ position: 'relative' }}>
-                <div
-                  onMouseDown={(e) => {
-                    e.preventDefault();
-                    handleInsertTable(2, 2);
-                  }}
-                  style={{
-                    padding: '8px 16px',
-                    cursor: 'pointer',
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.backgroundColor = '#333';
-                    const selector = e.currentTarget.nextElementSibling as HTMLElement;
-                    if (selector) selector.style.display = 'block';
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.backgroundColor = 'transparent';
-                  }}
-                >
-                  <span>Table</span>
-                  <span></span>
-                </div>
-                <div
-                  style={{
-                    display: 'none',
-                    position: 'absolute',
-                    left: '100%',
-                    top: '0',
-                    backgroundColor: 'rgba(0, 0, 0, 0.9)',
-                    border: '1px solid #444',
-                    borderRadius: '4px',
-                    boxShadow: '0 2px 8px rgba(0, 0, 0, 0.3)',
-                  }}
-                  onMouseEnter={(e) => e.currentTarget.style.display = 'block'}
-                  onMouseLeave={(e) => e.currentTarget.style.display = 'none'}
-                >
-                  <TableSizeSelector onSelect={handleInsertTable} />
-                </div>
-              </div>
-            </div>
+        <ActionDropdown
+          items={insertMenuItems}
+          onSelect={handleInsertAction}
+          renderButton={(_isOpen, toggle) => (
+            <button onMouseDown={(e) => { e.preventDefault(); toggle(); }}>
+              Insert
+            </button>
           )}
-        </div>
-        <div style={{ position: 'relative', display: 'inline-block' }}>
-          <button 
-            onMouseDown={(e) => {
-              e.preventDefault();
-              setShowFormatDropdown(!showFormatDropdown);
-            }}
-          >
-            Format
-          </button>
-          {showFormatDropdown && (
-            <div 
-              style={{
-                position: 'absolute',
-                top: '100%',
-                left: '0',
-                backgroundColor: 'rgba(0, 0, 0, 0.9)',
-                border: '1px solid #444',
-                borderRadius: '4px',
-                boxShadow: '0 2px 8px rgba(0, 0, 0, 0.3)',
-                zIndex: 1000,
-                minWidth: '150px',
-              }}
-              onMouseLeave={() => setShowFormatDropdown(false)}
-            >
-              {formatOptions.map((option, index) => (
-                <Popup
-                  key={option.value}
-                  content={option.shortcut}
-                  position="right"
-                  delay={500}
-                >
-                  <div
-                    onMouseDown={(e) => {
-                      e.preventDefault();
-                      handleFormatSelect(option.value);
-                      setShowFormatDropdown(false);
-                    }}
-                    style={{
-                      padding: '8px 16px',
-                      cursor: 'pointer',
-                      borderBottom: index < formatOptions.length - 1 ? '1px solid #444' : 'none',
-                    }}
-                    onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#333'}
-                    onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
-                  >
-                    {option.label}
-                  </div>
-                </Popup>
-              ))}
-            </div>
+        />
+        <ActionDropdown
+          items={formatMenuItems}
+          onSelect={handleFormatAction}
+          renderButton={(_isOpen, toggle) => (
+            <button onMouseDown={(e) => { e.preventDefault(); toggle(); }}>
+              Format
+            </button>
           )}
-        </div>
+        />
       </div>
       <Modal
         isOpen={showLinkPopup}

@@ -18,6 +18,7 @@ import Miscellaneousbar from "./components/Miscellaneousbar";
 import React from "react";
 import Popup from "./components/Popup";
 import { TableElement} from "./components/Table";
+import ActionDropdown, { ActionDropdownItem } from "./components/ActionDropdown";
 
 
 export type ImageSize = "small" | "medium" | "large" | "original";
@@ -292,6 +293,10 @@ const MySlateEditor = () => {
           case 'o':
             open();
             break;
+          case 'n':
+            e.preventDefault();
+            newDocument();
+            break;
         }
       }
       else if (e.ctrlKey && e.altKey && e.ctrlKey === 's'){
@@ -300,7 +305,7 @@ const MySlateEditor = () => {
     }
     window.addEventListener("keydown", handleKeyDown)
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, []);
+  }, [changed]);
   useEffect(() => {
     setChanged(true);
     invoke("editor_changed", {hasChanged: changed});
@@ -415,32 +420,58 @@ const MySlateEditor = () => {
     }
   }
 
+  async function newDocument() {
+    const confirmed = await invoke<boolean>("confirm_discard_changes");
+    if (!confirmed) {
+      return;
+    }
+    setValue(initialValue);
+    setKey((prev) => prev + 1);
+    setChanged(false);
+    setDocumentName("Document");
+  }
+
+  const fileMenuItems: ActionDropdownItem[] = [
+    { id: 'new', label: 'New', tooltip: 'Create a new document', shortcut: 'Ctrl+N', divider: true },
+    { id: 'open', label: 'Open', tooltip: 'Open an existing document', shortcut: 'Ctrl+O', divider: true },
+    { id: 'save', label: 'Save', tooltip: 'Save the current document', shortcut: 'Ctrl+S' },
+    { id: 'saveAs', label: 'Save As', tooltip: 'Save or export the document', shortcut: 'Ctrl+Alt+S' },
+  ];
+
+  const handleFileAction = (actionId: string) => {
+    switch (actionId) {
+      case 'new':
+        newDocument();
+        break;
+      case 'open':
+        open();
+        break;
+      case 'save':
+        save();
+        break;
+      case 'saveAs':
+        saveAs();
+        break;
+    }
+  };
+
 
   return (
     <div>
       <Miscellaneousbar loadDocumentName={getDocumentName} documentName={documentName} editor={editor}>    
-        <Popup
-        content="Save the current document (ctr+s)"
-        position="bottom"
-        delay={300}>
-           <button onClick={save}>Save</button>
-        </Popup>
-        <Popup
-        content="Save or export the current document (ctr+alt+s)"
-        position="bottom"
-        delay={300}>
-           <button onClick={saveAs}>Save As</button>
-        </Popup>
-        <Popup
-        content="Open a document (ctrl+o)"
-        position="bottom"
-        delay={300}>
-           <button onClick={open}>Open</button>
-        </Popup>
-       
+        <ActionDropdown
+          items={fileMenuItems}
+          onSelect={handleFileAction}
+          renderButton={(_isOpen, toggle) => (
+            <button onMouseDown={(e) => { e.preventDefault(); toggle(); }}>
+              File
+            </button>
+          )}
+        />
       </Miscellaneousbar>
       <div
         style={{ border: "1px solid #ccc", padding: "20px", height: "80vh", overflowY: "auto" }}
+        onContextMenu={(e) => e.preventDefault()}
       >
         <Slate
           key={key}

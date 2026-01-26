@@ -1,4 +1,5 @@
-import { useState } from 'react'
+import { useState, useRef, useEffect } from 'react'
+import '../styles/Dropdown.css'
 
 export type DropdownOption<T> = {
     value: T;
@@ -15,41 +16,58 @@ export type DropdownProps<T> = {
 
 function Dropdown<T>({ options, selectedValue, onSelect, renderButton }: DropdownProps<T>) {
     const [isOpen, setIsOpen] = useState(false);
+    const [isAnimating, setIsAnimating] = useState(false);
+    const dropdownRef = useRef<HTMLDivElement>(null);
+
+    const handleToggle = () => {
+        if (!isOpen) {
+            setIsOpen(true);
+            setIsAnimating(true);
+        } else {
+            setIsAnimating(false);
+            setTimeout(() => setIsOpen(false), 150);
+        }
+    };
 
     const handleSelect = (value: T) => (event: React.MouseEvent) => {
         event.preventDefault();
         onSelect(value);
-        setIsOpen(false);
+        setIsAnimating(false);
+        setTimeout(() => setIsOpen(false), 150);
     };
 
+    const handleMouseLeave = () => {
+        setIsAnimating(false);
+        setTimeout(() => setIsOpen(false), 150);
+    };
+
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+                setIsAnimating(false);
+                setTimeout(() => setIsOpen(false), 150);
+            }
+        };
+
+        if (isOpen) {
+            document.addEventListener('mousedown', handleClickOutside);
+        }
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, [isOpen]);
+
     return (
-        <div style={{ position: 'relative', display: 'inline-block' }}>
-            {renderButton(selectedValue, isOpen, () => setIsOpen(!isOpen))}
+        <div ref={dropdownRef} style={{ position: 'relative', display: 'inline-block' }}>
+            {renderButton(selectedValue, isOpen, handleToggle)}
             {isOpen && (
-                <div style={{
-                    position: 'absolute',
-                    top: '100%',
-                    left: '10px',
-                    backgroundColor: '#00000050',
-                    border: '1px solid #000000ff',
-                    borderRadius: '4px',
-                    boxShadow: '0 2px 4px rgba(255, 255, 255, 0.1)',
-                    zIndex: 1000
-                }}>
+                <div 
+                    className={`dropdown-menu value-dropdown-menu ${isAnimating ? 'open' : 'closing'}`}
+                    onMouseLeave={handleMouseLeave}
+                >
                     {options.map((option, index) => (
                         <div
                             key={index}
                             onMouseDown={handleSelect(option.value)}
-                            style={{
-                                padding: '8px 16px',
-                                cursor: 'pointer',
-                                backgroundColor: selectedValue === option.value ? '#0000009f' : '#00000050',
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: '8px'
-                            }}
-                            onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#0000009f'}
-                            onMouseLeave={(e) => e.currentTarget.style.backgroundColor = selectedValue === option.value ? '#0000009f' : '#00000050'}
+                            className={`value-dropdown-item ${selectedValue === option.value ? 'selected' : ''}`}
                         >
                             {option.color && (
                                 <div style={{

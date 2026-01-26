@@ -6,7 +6,7 @@ mod encoder;
 mod decoder;
 use file_handler::{open, save, save_as};
 use config::Config;
-use tauri::{Manager, State, WindowEvent, command};
+use tauri::{Manager, State, WindowEvent, command, AppHandle};
 use tauri_plugin_dialog::{DialogExt, MessageDialogKind, MessageDialogButtons};
 use image::{insert_image_from_clipboard, insert_image_from_file};
 
@@ -14,6 +14,24 @@ use image::{insert_image_from_clipboard, insert_image_from_file};
 fn editor_changed(has_changed: bool, state: State<Config>){
     let mut changed = state.changed.write().unwrap();
     *changed = has_changed;
+}
+
+#[command]
+fn confirm_discard_changes(app: AppHandle, state: State<Config>) -> bool {
+    let has_changes = *state.changed.read().unwrap();
+    
+    if !has_changes {
+        return true; 
+    }
+    
+    let result = app.dialog()
+        .message("You have unsaved changes. Do you want to discard them and create a new document?")
+        .title("Unsaved Changes")
+        .kind(MessageDialogKind::Warning)
+        .buttons(MessageDialogButtons::OkCancel)
+        .blocking_show();
+    
+    result
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -24,7 +42,7 @@ pub fn run() {
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_dialog::init())
         .manage(Config::new())
-        .invoke_handler(tauri::generate_handler![save, open, save_as, insert_image_from_file, insert_image_from_clipboard, editor_changed])
+        .invoke_handler(tauri::generate_handler![save, open, save_as, insert_image_from_file, insert_image_from_clipboard, editor_changed, confirm_discard_changes])
         .on_window_event(|window, event|{
             if let WindowEvent::CloseRequested { api, .. } = event {
                let state = window.state::<Config>();
