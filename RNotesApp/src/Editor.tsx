@@ -8,7 +8,6 @@ import {
   RenderElementProps,
   RenderLeafProps,
   ReactEditor,
-  useSlateStatic,
 } from "slate-react";
 import { withHistory, HistoryEditor } from "slate-history";
 import Toolbar from "./components/Toolbar";
@@ -19,6 +18,8 @@ import React from "react";
 import Popup from "./components/Popup";
 import { TableElement} from "./components/Table";
 import ActionDropdown, { ActionDropdownItem } from "./components/ActionDropdown";
+import ContextMenu, { ContextMenuItem } from "./components/ContextMenu";
+import ImageElement from "./components/ImageElement";
 
 
 export type ImageSize = "small" | "medium" | "large" | "original";
@@ -41,6 +42,9 @@ export type CustomElement = {
   alignment?: "start" | "center" | "end" | "justify";
   url?: string;
   size?: ImageSize;
+  caption?: string;
+  subtitle?: string;
+  title?: string;
 };
 export type CustomText = {
   text: string;
@@ -66,6 +70,21 @@ declare module "slate" {
   }
 }
 
+
+const withImages = <T extends BaseEditor>(editor: T): T => {
+  const { isVoid, isInline } = editor;
+
+  editor.isVoid = (element) => {
+    return element.type === 'image' ? true : isVoid(element);
+  };
+
+  editor.isInline = (element) => {
+    return element.type === 'image' ? false : isInline(element);
+  };
+
+  return editor;
+};
+
 const initialValue: Descendant[] = [
   {
     type: "paragraph",
@@ -76,78 +95,6 @@ const initialValue: Descendant[] = [
     ],
   },
 ];
-
-const getImageWidth = (size?: ImageSize): string => {
-  switch (size) {
-    case "small":
-      return "25%";
-    case "medium":
-      return "50%";
-    case "large":
-      return "75%";
-    case "original":
-    default:
-      return "100%";
-  }
-};
-
-const ImageElement = ({ attributes, children, element }: RenderElementProps) => {
-  const editor = useSlateStatic();
-  const imageWidth = getImageWidth(element.size);
-  
-  const handleResize = (size: ImageSize) => {
-    const path = ReactEditor.findPath(editor, element);
-    Transforms.setNodes(editor, { size } as Partial<CustomElement>, { at: path });
-  };
-
-  const sizeButtons = (
-    <div style={{ display: 'flex', gap: '4px' }}>
-      <button 
-        className={element.size === 'small' ? 'active' : ''} 
-        onClick={() => handleResize('small')}
-      >
-        Small
-      </button>
-      <button 
-        className={element.size === 'medium' ? 'active' : ''} 
-        onClick={() => handleResize('medium')}
-      >
-        Medium
-      </button>
-      <button 
-        className={element.size === 'large' ? 'active' : ''} 
-        onClick={() => handleResize('large')}
-      >
-        Big
-      </button>
-      <button 
-        className={element.size === 'original' || !element.size ? 'active' : ''} 
-        onClick={() => handleResize('original')}
-      >
-        Original
-      </button>
-    </div>
-  );
-
-  return (
-    <div {...attributes} style={{textAlign: 'center', margin: "10px 0"}}>
-      <Popup 
-        content={sizeButtons} 
-        position="top" 
-        delay={200}
-        interactive={true}
-      >
-        <img 
-          src={element.url} 
-          alt="" 
-          style={{maxWidth: imageWidth, cursor: 'pointer'}}
-          contentEditable={false}
-        />
-      </Popup>
-      {children}
-    </div>
-  );
-};
 
 const Element = ({ attributes, children, element }: RenderElementProps) => {
   let style: React.CSSProperties = element.alignment
@@ -266,11 +213,12 @@ const Leaf = ({ attributes, children, leaf }: RenderLeafProps) => {
     </span>
   );
 };
-export const insertImage = (editor: ReactEditor, url: string, size: ImageSize = "original") => {
+export const insertImage = (editor: ReactEditor, url: string, size: ImageSize = "original", alignment: "start" | "center" | "end" | "justify" = "center") => {
     const image: CustomElement = {
       type: "image", 
       url,
       size,
+      alignment,
       children: [{text: ""}],
     };
     editor.insertNode(image);
@@ -281,7 +229,8 @@ const MySlateEditor = () => {
   const [changed, setChanged] = useState(false);
   const [key, setKey] = useState(0);
   const [documentName, setDocumentName] = useState("Document");
-  const editor = useMemo(() => withHistory(withReact(createEditor())), [key]);
+  const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
+  const editor = useMemo(() => withImages(withHistory(withReact(createEditor()))), [key]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -359,6 +308,29 @@ const MySlateEditor = () => {
   );
 
   const handleKeyDown = useCallback((event: React.KeyboardEvent) => {
+
+    if (event.key === 'Enter') {
+      const { selection } = editor;
+      if (!selection) return;
+
+      const [imageNode] = Editor.nodes(editor, {
+        match: (n: any) => n.type === 'image',
+        mode: 'lowest',
+      });
+
+      if (imageNode) {
+        event.preventDefault();
+        const [, imagePath] = imageNode;
+        const newParagraph: CustomElement = {
+          type: 'paragraph',
+          children: [{ text: '' }],
+        };
+        Transforms.insertNodes(editor, newParagraph, { at: [imagePath[0] + 1] });
+        Transforms.select(editor, [imagePath[0] + 1, 0]);
+        return;
+      }
+    }
+
     if (event.key === 'Delete' || event.key === 'Backspace') {
       const { selection } = editor;
       if (!selection) return;
@@ -455,6 +427,52 @@ const MySlateEditor = () => {
     }
   };
 
+  const handleContextMenu = (e: React.MouseEvent) => {
+    e.preventDefault();
+    setContextMenu({ x: e.clientX, y: e.clientY });
+  };
+
+  const handleCloseContextMenu = () => {
+    setContextMenu(null);
+  };
+
+  const handleCopy = () => {
+    const { selection } = editor;
+    if (selection) {
+      const selectedText = Editor.string(editor, selection);
+      navigator.clipboard.writeText(selectedText);
+    }
+    handleCloseContextMenu();
+  };
+
+  const handleCut = () => {
+    const { selection } = editor;
+    if (selection) {
+      const selectedText = Editor.string(editor, selection);
+      navigator.clipboard.writeText(selectedText);
+      Transforms.delete(editor, { at: selection });
+    }
+    handleCloseContextMenu();
+  };
+
+  const handlePasteFromContextMenu = async () => {
+    try {
+      const text = await navigator.clipboard.readText();
+      if (text) {
+        editor.insertText(text);
+      }
+    } catch (error) {
+      console.error("Error pasting text:", error);
+    }
+    handleCloseContextMenu();
+  };
+
+  const contextMenuItems: ContextMenuItem[] = [
+    { id: 'copy', label: 'Copy', onClick: handleCopy, divider: true },
+    { id: 'cut', label: 'Cut', onClick: handleCut, divider: true },
+    { id: 'paste', label: 'Paste', onClick: handlePasteFromContextMenu },
+  ];
+
 
   return (
     <div>
@@ -471,7 +489,7 @@ const MySlateEditor = () => {
       </Miscellaneousbar>
       <div
         style={{ border: "1px solid #ccc", padding: "20px", height: "80vh", overflowY: "auto" }}
-        onContextMenu={(e) => e.preventDefault()}
+        onContextMenu={handleContextMenu}
       >
         <Slate
           key={key}
@@ -492,6 +510,14 @@ const MySlateEditor = () => {
           />
         </Slate>
       </div>
+      {contextMenu && (
+        <ContextMenu
+          x={contextMenu.x}
+          y={contextMenu.y}
+          items={contextMenuItems}
+          onClose={handleCloseContextMenu}
+        />
+      )}
     </div>
   );
 };

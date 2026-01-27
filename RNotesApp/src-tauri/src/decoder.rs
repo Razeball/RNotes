@@ -24,6 +24,9 @@ const FLAG_HAS_ALIGNMENT: u8 = 0;
 const FLAG_HAS_URL: u8 = 1;
 const FLAG_HAS_IMAGE_SIZE: u8 = 2;
 const FLAG_IMAGE_EMBEDDED: u8 = 3;
+const FLAG_HAS_CAPTION: u8 = 4;
+const FLAG_HAS_SUBTITLE: u8 = 5;
+const FLAG_HAS_TITLE: u8 = 6;
 
 // Image format constants
 const IMAGE_FORMAT_PNG: u8 = 0;
@@ -224,6 +227,35 @@ fn decode_image_node(cursor: &mut Cursor<&[u8]>) -> Result<Node> {
     } else {
         None
     };
+
+    let alignment = if flags & (1 << FLAG_HAS_ALIGNMENT) != 0 {
+        let mut align_byte = [0u8; 1];
+        cursor.read_exact(&mut align_byte)?;
+        Some(u8_to_alignment(align_byte[0]))
+    } else {
+        None
+    };
+
+    let caption = if flags & (1 << FLAG_HAS_CAPTION) != 0 {
+        let cap_len = read_u16(cursor)?;
+        Some(read_utf8_string(cursor, cap_len as usize)?)
+    } else {
+        None
+    };
+
+    let subtitle = if flags & (1 << FLAG_HAS_SUBTITLE) != 0 {
+        let sub_len = read_u16(cursor)?;
+        Some(read_utf8_string(cursor, sub_len as usize)?)
+    } else {
+        None
+    };
+
+    let title = if flags & (1 << FLAG_HAS_TITLE) != 0 {
+        let title_len = read_u16(cursor)?;
+        Some(read_utf8_string(cursor, title_len as usize)?)
+    } else {
+        None
+    };
     
     let children_count = read_u32(cursor)?;
     
@@ -233,7 +265,7 @@ fn decode_image_node(cursor: &mut Cursor<&[u8]>) -> Result<Node> {
         children.push(text_node);
     }
     
-    Ok(Node::Image { url, size, children })
+    Ok(Node::Image { url, size, alignment, caption, subtitle, title, children })
 }
 
 /// Save an embedded image to temp directory and return the path
@@ -481,6 +513,10 @@ mod tests {
             Node::Image {
                 url: Some("https://example.com/image.png".to_string()),
                 size: Some(ImageSize::Large),
+                alignment: Some(Alignment::Center),
+                caption: Some("Test caption".to_string()),
+                subtitle: Some("Test subtitle".to_string()),
+                title: Some("Test title".to_string()),
                 children: vec![TextNode {
                     text: "Alt text".to_string(),
                     bold: None,
@@ -502,9 +538,13 @@ mod tests {
         
         assert_eq!(decoded.len(), 1);
         
-        if let Node::Image { url, size, children } = &decoded[0] {
+        if let Node::Image { url, size, alignment, caption, subtitle, title, children } = &decoded[0] {
             assert_eq!(url, &Some("https://example.com/image.png".to_string()));
             assert!(matches!(size, Some(ImageSize::Large)));
+            assert!(matches!(alignment, Some(Alignment::Center)));
+            assert_eq!(caption, &Some("Test caption".to_string()));
+            assert_eq!(subtitle, &Some("Test subtitle".to_string()));
+            assert_eq!(title, &Some("Test title".to_string()));
             assert_eq!(children[0].text, "Alt text");
         } else {
             panic!("Expected Image node");

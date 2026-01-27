@@ -47,6 +47,10 @@ pub enum Node {
     Image {
         url: Option<String>,
         size: Option<ImageSize>,
+        alignment: Option<Alignment>,
+        caption: Option<String>,
+        subtitle: Option<String>,
+        title: Option<String>,
         children: Vec<TextNode>,
     },
     #[serde(rename = "table")]

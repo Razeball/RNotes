@@ -24,6 +24,9 @@ const FLAG_HAS_ALIGNMENT: u8 = 0;
 const FLAG_HAS_URL: u8 = 1;
 const FLAG_HAS_IMAGE_SIZE: u8 = 2;
 const FLAG_IMAGE_EMBEDDED: u8 = 3;
+const FLAG_HAS_CAPTION: u8 = 4;
+const FLAG_HAS_SUBTITLE: u8 = 5;
+const FLAG_HAS_TITLE: u8 = 6;
 
 // Image format constants
 const IMAGE_FORMAT_PNG: u8 = 0;
@@ -87,8 +90,8 @@ fn encode_node(buffer: &mut Vec<u8>, node: &Node) -> Result<()> {
         Node::ListItem { alignment, children } => {
             encode_standard_node(buffer, NODE_LIST_ITEM, alignment, children)?;
         }
-        Node::Image { url, size, children } => {
-            encode_image_node(buffer, url, size, children)?;
+        Node::Image { url, size, alignment, caption, subtitle, title, children } => {
+            encode_image_node(buffer, url, size, alignment, caption, subtitle, title, children)?;
         }
         Node::Table { children } => {
             encode_table_node(buffer, children)?;
@@ -179,6 +182,10 @@ fn encode_image_node(
     buffer: &mut Vec<u8>,
     url: &Option<String>,
     size: &Option<ImageSize>,
+    alignment: &Option<Alignment>,
+    caption: &Option<String>,
+    subtitle: &Option<String>,
+    title: &Option<String>,
     children: &[TextNode],
 ) -> Result<()> {
     buffer.write_all(&[NODE_IMAGE])?;
@@ -196,6 +203,18 @@ fn encode_image_node(
     }
     if size.is_some() {
         flags |= 1 << FLAG_HAS_IMAGE_SIZE;
+    }
+    if alignment.is_some() {
+        flags |= 1 << FLAG_HAS_ALIGNMENT;
+    }
+    if caption.is_some() {
+        flags |= 1 << FLAG_HAS_CAPTION;
+    }
+    if subtitle.is_some() {
+        flags |= 1 << FLAG_HAS_SUBTITLE;
+    }
+    if title.is_some() {
+        flags |= 1 << FLAG_HAS_TITLE;
     }
     buffer.write_all(&[flags])?;
     
@@ -218,6 +237,35 @@ fn encode_image_node(
     // Write image size if present
     if let Some(img_size) = size {
         buffer.write_all(&[image_size_to_u8(img_size)])?;
+    }
+
+    // Write alignment if present
+    if let Some(align) = alignment {
+        buffer.write_all(&[alignment_to_u8(align)])?;
+    }
+
+    // Write caption if present
+    if let Some(cap) = caption {
+        let cap_bytes = cap.as_bytes();
+        let cap_len = cap_bytes.len() as u16;
+        buffer.write_all(&cap_len.to_le_bytes())?;
+        buffer.write_all(cap_bytes)?;
+    }
+
+    // Write subtitle if present
+    if let Some(sub) = subtitle {
+        let sub_bytes = sub.as_bytes();
+        let sub_len = sub_bytes.len() as u16;
+        buffer.write_all(&sub_len.to_le_bytes())?;
+        buffer.write_all(sub_bytes)?;
+    }
+
+    // Write title if present
+    if let Some(t) = title {
+        let t_bytes = t.as_bytes();
+        let t_len = t_bytes.len() as u16;
+        buffer.write_all(&t_len.to_le_bytes())?;
+        buffer.write_all(t_bytes)?;
     }
     
     let children_count = children.len() as u32;
