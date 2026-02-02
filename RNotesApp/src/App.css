@@ -90,14 +90,17 @@ input,
 button {
   outline: none;
 }
-.toolbar{
+.toolbar {
   background: #343434;
   align-items: center;
-  justify-content: space-between;
+  justify-content: center;
   display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
   padding: 10px;
+  border-bottom: 1px solid #555;
 }
-.toolbar button{
+.toolbar button {
   font-size: large;
   background: #343434;
 }
@@ -112,6 +115,47 @@ button {
 .toolbar button img{
   width: 20px;
   height: 20px;
+}
+.editor-wrapper {
+  display: flex;
+  justify-content: center;
+  background-color: #1a1a1a;
+  min-height: 80vh;
+  padding: 20px 0;
+}
+
+.editor-container {
+  width: 80%;
+  max-width: 90%;
+  background-color: #2f2f2f;
+  border: 1px solid #555;
+  border-radius: 4px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.editor-content {
+  padding: 20px 40px;
+  min-height: 60vh;
+}
+
+
+.editor-content h1[id],
+.editor-content h2[id],
+.editor-content h3[id],
+.editor-content h4[id] {
+  scroll-margin-top: 20px;
+}
+
+
+.editor-content a[href^="#"] {
+  color: #4dabf7;
+  text-decoration: none;
+  border-bottom: 1px dashed #4dabf7;
+}
+
+.editor-content a[href^="#"]:hover {
+  color: #74c0fc;
+  border-bottom-style: solid;
 }
 
 
@@ -180,5 +224,157 @@ button {
   }
   .toolbar button{
     font-size: x-large;
+  }
+}
+.status-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 4px 20px;
+  background-color: #1e1e1e;
+  border-top: 1px solid #333;
+  font-size: 12px;
+  color: #888;
+  min-height: 24px;
+}
+
+.status-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.status-label {
+  color: #666;
+}
+
+.status-value {
+  color: #ccc;
+  font-weight: 500;
+}
+
+.status-saved {
+  padding: 2px 8px;
+  border-radius: 3px;
+  font-weight: 500;
+}
+
+.status-saved.saved {
+  color: #4caf50;
+}
+
+.status-saved.unsaved {
+  color: #ff9800;
+}
+
+
+@page {
+  margin: 20mm;
+  margin-top: 15mm;
+  margin-bottom: 15mm;
+}
+
+@media print {
+  html {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  * {
+    background: white !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  .miscellaneous-bar,
+  .toolbar,
+  .context-menu,
+  .status-bar,
+  .editor-wrapper {
+    display: none !important;
+    visibility: hidden !important;
+  }
+
+  .editor-wrapper {
+    display: block !important;
+    visibility: visible !important;
+    background: white !important;
+    padding: 0 !important;
+  }
+
+  .editor-container {
+    display: block !important;
+    visibility: visible !important;
+    border: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    height: auto !important;
+    overflow: visible !important;
+    background: white !important;
+    box-shadow: none !important;
+  }
+
+  .editor-content {
+    display: block !important;
+    visibility: visible !important;
+    position: static !important;
+    width: 100% !important;
+    height: auto !important;
+    padding: 20px !important;
+    margin: 0 !important;
+    overflow: visible !important;
+    background: white !important;
+  }
+  
+  .editor-content * {
+    visibility: visible !important;
+    color: black !important;
+    background: transparent !important;
+  }
+
+  .editor-content mark {
+    background-color: yellow !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  .editor-content img {
+    max-width: 100% !important;
+    height: auto !important;
+    page-break-inside: avoid;
+  }
+
+  .editor-content table {
+    page-break-inside: avoid;
+    border-collapse: collapse;
+    width: 100%;
+  }
+
+  .editor-content td,
+  .editor-content th {
+    border: 1px solid #000 !important;
+    padding: 8px !important;
+  }
+
+  .editor-content h1,
+  .editor-content h2,
+  .editor-content h3,
+  .editor-content h4 {
+    page-break-after: avoid;
+    
+  }
+
+  .editor-content p,
+  .editor-content li {
+    page-break-inside: avoid;
+    orphans: 3;
+    widows: 3;
+  }
+
+  .editor-content a {
+    
+    text-decoration: underline !important;
   }
 }

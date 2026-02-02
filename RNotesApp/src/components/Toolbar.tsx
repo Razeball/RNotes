@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react'
-import { BaseEditor, Editor, Transforms, Text, Range, Element as SlateElement } from 'slate'
+import { BaseEditor, Editor, Transforms, Text, Range, Element as SlateElement, Node } from 'slate'
 import { ReactEditor } from 'slate-react'
 import { HistoryEditor } from 'slate-history'
 import Dropdown, { DropdownOption } from './Dropdown'
 import Popup from './Popup'
+import Modal from './Modal'
 
 
 type ToolbarProps = {
@@ -13,6 +14,10 @@ type ToolbarProps = {
 const Toolbar = ({ editor }: ToolbarProps) => {
     const [fontSize, setFontSize] = useState<string>('16')
     const [textColor, setTextColor] = useState<string>('black')
+    const [showLinkModal, setShowLinkModal] = useState(false)
+    const [showHeaderLinkModal, setShowHeaderLinkModal] = useState(false)
+    const [linkUrl, setLinkUrl] = useState('')
+    const [headers, setHeaders] = useState<{ id: string; text: string; type: string }[]>([])
     
 
     const colorOptions: DropdownOption<'red' | 'blue' | 'white' | 'black' | 'green'>[] = [
@@ -338,6 +343,99 @@ const Toolbar = ({ editor }: ToolbarProps) => {
         ReactEditor.focus(editor)
     }
 
+    const generateId = (text: string) => {
+        return text
+            .toLowerCase()
+            .replace(/[^a-z0-9\s]/g, '')
+            .replace(/\s+/g, '-')
+            .substring(0, 50)
+    }
+
+    const getHeaders = () => {
+        const headerTypes = ['header', 'header2', 'header3', 'header4']
+        const foundHeaders: { id: string; text: string; type: string }[] = []
+        
+        for (const [node, path] of Node.nodes(editor)) {
+            if (SlateElement.isElement(node) && headerTypes.includes(node.type)) {
+                const text = Node.string(node)
+                const id = node.id || generateId(text)
+                
+                if (!node.id && text) {
+                    Transforms.setNodes(editor, { id }, { at: path })
+                }
+                
+                if (text) {
+                    foundHeaders.push({
+                        id,
+                        text,
+                        type: node.type
+                    })
+                }
+            }
+        }
+        
+        return foundHeaders
+    }
+
+    const insertHeaderLink = (headerId: string) => {
+        const { selection } = editor
+        if (selection && !Range.isCollapsed(selection)) {
+            Transforms.setNodes(
+                editor,
+                { link: true, href: `#${headerId}` },
+                { at: selection, match: (n: any) => Text.isText(n), split: true }
+            )
+        }
+        setShowHeaderLinkModal(false)
+        ReactEditor.focus(editor)
+    }
+
+    const insertLink = () => {
+        if (!linkUrl) return
+        const { selection } = editor
+        if (selection && !Range.isCollapsed(selection)) {
+            Transforms.setNodes(
+                editor,
+                { link: true, href: linkUrl },
+                { at: selection, match: (n: any) => Text.isText(n), split: true }
+            )
+        }
+        setShowLinkModal(false)
+        setLinkUrl('')
+        ReactEditor.focus(editor)
+    }
+
+    const linkActions = {
+        openLinkModal: () => {
+            const { selection } = editor
+            if (!selection || Range.isCollapsed(selection)) {
+                alert('Please select text to create a link')
+                return
+            }
+            setLinkUrl('')
+            setShowLinkModal(true)
+        },
+        openHeaderLinkModal: () => {
+            const { selection } = editor
+            if (!selection || Range.isCollapsed(selection)) {
+                alert('Please select text to create a link')
+                return
+            }
+            const foundHeaders = getHeaders()
+            setHeaders(foundHeaders)
+            setShowHeaderLinkModal(true)
+        },
+        removeLink: () => {
+            Transforms.setNodes(
+                editor,
+                { link: undefined, href: undefined },
+                { match: (n: any) => Text.isText(n), split: true }
+            )
+        }
+    }
+
+    ;(editor as any).linkActions = linkActions
+
     return (
         <div className='toolbar'>
             <Popup
@@ -431,6 +529,61 @@ const Toolbar = ({ editor }: ToolbarProps) => {
                     />
                 )}
             />
+
+            {/* External Link Modal */}
+            <Modal isOpen={showLinkModal} onClose={() => setShowLinkModal(false)} title="Insert Link">
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                    <input
+                        type="url"
+                        value={linkUrl}
+                        onChange={(e) => setLinkUrl(e.target.value)}
+                        placeholder="https://example.com"
+                        style={{ padding: '8px', borderRadius: '4px', border: '1px solid #555' }}
+                        autoFocus
+                    />
+                    <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
+                        <button onClick={() => setShowLinkModal(false)}>Cancel</button>
+                        <button onClick={insertLink} style={{ backgroundColor: '#4dabf7' }}>Insert</button>
+                    </div>
+                </div>
+            </Modal>
+
+            {/* Header Link Modal */}
+            <Modal isOpen={showHeaderLinkModal} onClose={() => setShowHeaderLinkModal(false)} title="Link to Header">
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', maxHeight: '300px', overflowY: 'auto' }}>
+                    {headers.length === 0 ? (
+                        <p style={{ color: '#888' }}>No headers found in the document. Create headers first.</p>
+                    ) : (
+                        headers.map((header, index) => (
+                            <button
+                                key={index}
+                                onClick={() => insertHeaderLink(header.id)}
+                                style={{
+                                    padding: '10px',
+                                    textAlign: 'left',
+                                    backgroundColor: '#2f2f2f',
+                                    border: '1px solid #555',
+                                    borderRadius: '4px',
+                                    cursor: 'pointer',
+                                    paddingLeft: header.type === 'header2' ? '20px' : 
+                                                 header.type === 'header3' ? '40px' : 
+                                                 header.type === 'header4' ? '60px' : '10px'
+                                }}
+                            >
+                                <span style={{ color: '#888', marginRight: '10px' }}>
+                                    {header.type === 'header' ? 'H1' : 
+                                     header.type === 'header2' ? 'H2' : 
+                                     header.type === 'header3' ? 'H3' : 'H4'}
+                                </span>
+                                {header.text}
+                            </button>
+                        ))
+                    )}
+                    <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end', marginTop: '10px' }}>
+                        <button onClick={() => setShowHeaderLinkModal(false)}>Cancel</button>
+                    </div>
+                </div>
+            </Modal>
         </div>
     )
 }

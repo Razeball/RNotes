@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback, useEffect } from "react";
+import { useState, useMemo, useCallback, useEffect, useRef } from "react";
 import { createEditor, Descendant, BaseEditor, Transforms, Editor } from "slate";
 
 import {
@@ -20,6 +20,7 @@ import { TableElement} from "./components/Table";
 import ActionDropdown, { ActionDropdownItem } from "./components/ActionDropdown";
 import ContextMenu, { ContextMenuItem } from "./components/ContextMenu";
 import ImageElement from "./components/ImageElement";
+import StatusBar from "./components/StatusBar";
 
 
 export type ImageSize = "small" | "medium" | "large" | "original";
@@ -45,6 +46,7 @@ export type CustomElement = {
   caption?: string;
   subtitle?: string;
   title?: string;
+  id?: string;
 };
 export type CustomText = {
   text: string;
@@ -125,25 +127,25 @@ const Element = ({ attributes, children, element }: RenderElementProps) => {
       );
     case "header":
       return (
-        <h1 {...attributes} style={style}>
+        <h1 {...attributes} id={element.id} style={style}>
           {children}
         </h1>
       );
     case "header2":
       return (
-        <h2 {...attributes} style={style}>
+        <h2 {...attributes} id={element.id} style={style}>
           {children}
         </h2>
       );
     case "header3":
       return (
-        <h3 {...attributes} style={style}>
+        <h3 {...attributes} id={element.id} style={style}>
           {children}
         </h3>
       );
     case "header4":
       return (
-        <h4 {...attributes} style={style}>
+        <h4 {...attributes} id={element.id} style={style}>
           {children}
         </h4>
       );
@@ -196,9 +198,35 @@ const Leaf = ({ attributes, children, leaf }: RenderLeafProps) => {
     styledChildren = <mark>{styledChildren}</mark>
   }
   if (leaf.link && leaf.href){
+    const isInternalLink = leaf.href.startsWith('#');
+    
+    const handleClick = (e: React.MouseEvent) => {
+      if (isInternalLink) {
+        e.preventDefault();
+        const targetId = leaf.href!.substring(1);
+        const targetElement = document.getElementById(targetId);
+        if (targetElement) {
+          targetElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      }
+    };
+
     styledChildren = (
-      <Popup content={leaf.href} position="bottom" delay={300}>
-        <a href={leaf.href} target="_blank" rel="noopener noreferrer" style={{color: '#4dabf7', textDecoration: 'underline'}}>{styledChildren}</a>
+      <Popup content={isInternalLink ? `Go to: ${leaf.href}` : leaf.href} position="bottom" delay={300}>
+        <a 
+          href={leaf.href} 
+          target={isInternalLink ? undefined : "_blank"} 
+          rel={isInternalLink ? undefined : "noopener noreferrer"} 
+          onClick={handleClick}
+          style={{
+            color: '#4dabf7', 
+            textDecoration: isInternalLink ? 'none' : 'underline',
+            borderBottom: isInternalLink ? '1px dashed #4dabf7' : 'none',
+            cursor: 'pointer',
+          }}
+        >
+          {styledChildren}
+        </a>
       </Popup>
     )
   }
@@ -230,6 +258,9 @@ const MySlateEditor = () => {
   const [key, setKey] = useState(0);
   const [documentName, setDocumentName] = useState("Document");
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
+  const [cursorPosition, setCursorPosition] = useState({ line: 1, column: 1 });
+  const [characterCount, setCharacterCount] = useState(0);
+  const isInitialMount = useRef(true);
   const editor = useMemo(() => withImages(withHistory(withReact(createEditor()))), [key]);
 
   useEffect(() => {
@@ -246,6 +277,10 @@ const MySlateEditor = () => {
             e.preventDefault();
             newDocument();
             break;
+          case 'p':
+            e.preventDefault();
+            print();
+            break;
         }
       }
       else if (e.ctrlKey && e.altKey && e.ctrlKey === 's'){
@@ -255,9 +290,17 @@ const MySlateEditor = () => {
     window.addEventListener("keydown", handleKeyDown)
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [changed]);
+
   useEffect(() => {
+    invoke("editor_changed", { hasChanged: changed });
+  }, [changed]);
+
+  useEffect(() => {
+    if (isInitialMount.current) {
+      isInitialMount.current = false;
+      return;
+    }
     setChanged(true);
-    invoke("editor_changed", {hasChanged: changed});
   }, [value]);
 
 
@@ -306,6 +349,43 @@ const MySlateEditor = () => {
     (props: RenderLeafProps) => <Leaf {...props} />,
     []
   );
+
+  const calculateCharacterCount = useCallback((nodes: Descendant[]): number => {
+    let count = 0;
+    const countText = (node: any) => {
+      if ('text' in node) {
+        count += node.text.length;
+      } else if ('children' in node) {
+        node.children.forEach(countText);
+      }
+    };
+    nodes.forEach(countText);
+    return count;
+  }, []);
+
+  const updateCursorPosition = useCallback(() => {
+    const { selection } = editor;
+    if (!selection) {
+      setCursorPosition({ line: 1, column: 1 });
+      return;
+    }
+
+    const [start] = Editor.edges(editor, selection);
+    const path = start.path;
+    
+    let line = 1;
+    for (let i = 0; i < path[0]; i++) {
+      line++;
+    }
+    
+    const column = start.offset + 1;
+    
+    setCursorPosition({ line, column });
+  }, [editor]);
+
+  useEffect(() => {
+    setCharacterCount(calculateCharacterCount(value));
+  }, [value, calculateCharacterCount]);
 
   const handleKeyDown = useCallback((event: React.KeyboardEvent) => {
 
@@ -376,13 +456,25 @@ const MySlateEditor = () => {
 
   async function save() {
     alert(await invoke("save", { document: value, documentName:  documentName}));
+    setChanged(false);
   }
   async function saveAs() {
     alert(await invoke("save_as", { document: value, documentName:  documentName}));
+    setChanged(false);
+  }
+  async function print() {
+    try {
+      await invoke("save", { document: value, documentName: documentName });
+      setChanged(false);
+      window.print();
+    } catch (error) {
+      console.error("Error printing:", error);
+    }
   }
   async function open() {
     try {
       const [loadedDocument, loadedName] = await invoke<Data>("open");
+      isInitialMount.current = true; 
       setValue(loadedDocument);
       setKey((prev) => prev + 1); // Forced restart
       setChanged(false);
@@ -397,6 +489,7 @@ const MySlateEditor = () => {
     if (!confirmed) {
       return;
     }
+    isInitialMount.current = true; 
     setValue(initialValue);
     setKey((prev) => prev + 1);
     setChanged(false);
@@ -407,7 +500,8 @@ const MySlateEditor = () => {
     { id: 'new', label: 'New', tooltip: 'Create a new document', shortcut: 'Ctrl+N', divider: true },
     { id: 'open', label: 'Open', tooltip: 'Open an existing document', shortcut: 'Ctrl+O', divider: true },
     { id: 'save', label: 'Save', tooltip: 'Save the current document', shortcut: 'Ctrl+S' },
-    { id: 'saveAs', label: 'Save As', tooltip: 'Save or export the document', shortcut: 'Ctrl+Alt+S' },
+    { id: 'saveAs', label: 'Save As', tooltip: 'Save or export the document', shortcut: 'Ctrl+Alt+S', divider: true },
+    { id: 'print', label: 'Print', tooltip: 'Print the document', shortcut: 'Ctrl+P' },
   ];
 
   const handleFileAction = (actionId: string) => {
@@ -423,6 +517,9 @@ const MySlateEditor = () => {
         break;
       case 'saveAs':
         saveAs();
+        break;
+      case 'print':
+        print();
         break;
     }
   };
@@ -467,56 +564,96 @@ const MySlateEditor = () => {
     handleCloseContextMenu();
   };
 
+  const handleInsertLink = () => {
+    handleCloseContextMenu();
+    const linkActions = (editor as any).linkActions;
+    if (linkActions) {
+      linkActions.openLinkModal();
+    }
+  };
+
+  const handleLinkToHeader = () => {
+    handleCloseContextMenu();
+    const linkActions = (editor as any).linkActions;
+    if (linkActions) {
+      linkActions.openHeaderLinkModal();
+    }
+  };
+
+  const handleRemoveLink = () => {
+    handleCloseContextMenu();
+    const linkActions = (editor as any).linkActions;
+    if (linkActions) {
+      linkActions.removeLink();
+    }
+  };
+
   const contextMenuItems: ContextMenuItem[] = [
-    { id: 'copy', label: 'Copy', onClick: handleCopy, divider: true },
-    { id: 'cut', label: 'Cut', onClick: handleCut, divider: true },
-    { id: 'paste', label: 'Paste', onClick: handlePasteFromContextMenu },
+    { id: 'copy', label: 'Copy', onClick: handleCopy },
+    { id: 'cut', label: 'Cut', onClick: handleCut },
+    { id: 'paste', label: 'Paste', onClick: handlePasteFromContextMenu, divider: true },
+    { id: 'insertLink', label: 'Insert Link', onClick: handleInsertLink },
+    { id: 'linkToHeader', label: 'Link to Header', onClick: handleLinkToHeader },
+    { id: 'removeLink', label: 'Remove Link', onClick: handleRemoveLink },
   ];
 
 
   return (
     <div>
-      <Miscellaneousbar loadDocumentName={getDocumentName} documentName={documentName} editor={editor}>    
-        <ActionDropdown
+      <div className="miscellaneous-bar">
+        <Miscellaneousbar loadDocumentName={getDocumentName} documentName={documentName} editor={editor}>    
+          <ActionDropdown
           items={fileMenuItems}
           onSelect={handleFileAction}
           renderButton={(_isOpen, toggle) => (
             <button onMouseDown={(e) => { e.preventDefault(); toggle(); }}>
-              File
-            </button>
-          )}
-        />
-      </Miscellaneousbar>
-      <div
-        style={{ border: "1px solid #ccc", padding: "20px", height: "80vh", overflowY: "auto" }}
-        onContextMenu={handleContextMenu}
-      >
-        <Slate
-          key={key}
-          editor={editor}
-          initialValue={value}
-          onChange={(v) => {
-            setValue(v)
-          }}
-        >
-          <Toolbar editor={editor} />
-          <Editable
-            style={{ height: "80%", paddingLeft: "10px", overflowY: "auto" }}
-            renderElement={renderElement}
-            renderLeaf={renderLeaf}
-            placeholder="Start Writing something..."
-            onPaste={handlePaste}
-            onKeyDown={handleKeyDown}
+                File
+              </button>
+            )}
           />
-        </Slate>
+        </Miscellaneousbar>
       </div>
+      <div className="editor-wrapper" onContextMenu={handleContextMenu}>
+        <div className="editor-container">
+          <Slate
+            key={key}
+            editor={editor}
+            initialValue={value}
+            onChange={(v) => {
+              setValue(v)
+              updateCursorPosition()
+            }}
+          >
+            <div className="toolbar">
+              <Toolbar editor={editor} />
+            </div>
+            <div className="editor-content">
+              <Editable
+                renderElement={renderElement}
+                renderLeaf={renderLeaf}
+                placeholder="Start Writing something..."
+                onPaste={handlePaste}
+                onKeyDown={handleKeyDown}
+              />
+            </div>
+          </Slate>
+        </div>
+      </div>
+      <StatusBar
+        characterCount={characterCount}
+        line={cursorPosition.line}
+        column={cursorPosition.column}
+        isSaved={!changed}
+      />
       {contextMenu && (
-        <ContextMenu
-          x={contextMenu.x}
-          y={contextMenu.y}
-          items={contextMenuItems}
-          onClose={handleCloseContextMenu}
-        />
+        <div className="context-menu">
+          <ContextMenu
+            x={contextMenu.x}
+            y={contextMenu.y}
+            items={contextMenuItems}
+            onClose={handleCloseContextMenu}
+          />
+        </div>
       )}
     </div>
   );
