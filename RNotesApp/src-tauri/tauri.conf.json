@@ -14,7 +14,8 @@
       {
         "title": "rnotesapp",
         "width": 1000,
-        "height": 600
+        "height": 600,
+        "devtools": false
       }
     ],
     "security": {

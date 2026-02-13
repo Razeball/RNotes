@@ -1,0 +1,130 @@
+.tab-bar {
+  display: flex;
+  align-items: center;
+  background-color: #1e1e1e;
+  border-bottom: 1px solid #333;
+  padding: 0 8px;
+  height: 36px;
+  gap: 4px;
+}
+
+.tabs-container {
+  display: flex;
+  flex: 1;
+  overflow-x: auto;
+  gap: 2px;
+}
+
+.tabs-container::-webkit-scrollbar {
+  height: 4px;
+}
+
+.tabs-container::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.tabs-container::-webkit-scrollbar-thumb {
+  background: #555;
+  border-radius: 2px;
+}
+
+.tab {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  background-color: #2d2d2d;
+  border: 1px solid #333;
+  border-bottom: none;
+  border-radius: 6px 6px 0 0;
+  cursor: pointer;
+  min-width: 100px;
+  max-width: 200px;
+  transition: background-color 0.15s ease;
+}
+
+.tab:hover {
+  background-color: #3d3d3d;
+}
+
+.tab.active {
+  background-color: #2f2f2f;
+  border-color: #555;
+  border-bottom: 1px solid #2f2f2f;
+  margin-bottom: -1px;
+}
+
+.tab-name {
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: 13px;
+  color: #aaa;
+}
+
+.tab.active .tab-name {
+  color: #fff;
+}
+
+.modified-indicator {
+  color: #ff9800;
+  margin-right: 4px;
+  font-size: 10px;
+}
+
+.tab-close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 4px;
+  background: transparent;
+  border: none;
+  color: #888;
+  font-size: 16px;
+  cursor: pointer;
+  padding: 0;
+  line-height: 1;
+  transition: all 0.15s ease;
+  box-shadow: none;
+}
+
+.tab-close:hover {
+  background-color: #555;
+  color: #fff;
+  border: none;
+}
+
+.tab-close:active {
+  background-color: #666;
+  border: none;
+}
+
+.new-tab-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 4px;
+  background-color: transparent;
+  border: 1px solid transparent;
+  color: #888;
+  font-size: 20px;
+  cursor: pointer;
+  padding: 0;
+  transition: all 0.15s ease;
+  box-shadow: none;
+}
+
+.new-tab-button:hover {
+  background-color: #3d3d3d;
+  color: #fff;
+  border-color: #555;
+}
+
+.new-tab-button:active {
+  background-color: #4d4d4d;
+}

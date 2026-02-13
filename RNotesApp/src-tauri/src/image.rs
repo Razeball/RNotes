@@ -26,7 +26,9 @@ pub fn get_images_dir(save_path: &PathBuf) -> Result<PathBuf, String> {
 
 #[tauri::command]
 pub fn insert_image_from_file(state: tauri::State<Config>) -> Result<String, String> {
-    let save_path = state.save_path.read().unwrap();
+    let active_tab = state.active_tab.read().unwrap().clone();
+    let tab_info = state.get_tab_info(&active_tab);
+    let save_path = tab_info.map(|t| t.save_path).unwrap_or_default();
     
     if let Some(source_path) = FileDialog::new()
         .set_title("Select Image")
@@ -55,7 +57,9 @@ pub fn insert_image_from_file(state: tauri::State<Config>) -> Result<String, Str
 
 #[tauri::command]
 pub fn insert_image_from_clipboard(state: tauri::State<Config>) -> Result<String, String> {
-    let save_path = state.save_path.read().unwrap();
+    let active_tab = state.active_tab.read().unwrap().clone();
+    let tab_info = state.get_tab_info(&active_tab);
+    let save_path = tab_info.map(|t| t.save_path).unwrap_or_default();
     
     let mut clipboard = Clipboard::new()
         .map_err(|e| format!("Error accessing clipboard: {}", e))?;

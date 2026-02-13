@@ -21,6 +21,7 @@ import ActionDropdown, { ActionDropdownItem } from "./components/ActionDropdown"
 import ContextMenu, { ContextMenuItem } from "./components/ContextMenu";
 import ImageElement from "./components/ImageElement";
 import StatusBar from "./components/StatusBar";
+import TabBar, { Tab } from "./components/TabBar";
 
 
 export type ImageSize = "small" | "medium" | "large" | "original";
@@ -252,19 +253,39 @@ export const insertImage = (editor: ReactEditor, url: string, size: ImageSize = 
     editor.insertNode(image);
   };
 
+interface TabData {
+  id: string;
+  name: string;
+  value: Descendant[];
+  changed: boolean;
+  key: number;
+}
+
 const MySlateEditor = () => {
-  const [value, setValue] = useState<Descendant[]>(initialValue);
-  const [changed, setChanged] = useState(false);
-  const [key, setKey] = useState(0);
-  const [documentName, setDocumentName] = useState("Document");
+  const [tabs, setTabs] = useState<TabData[]>([
+    { id: 'tab-1', name: 'Document', value: initialValue, changed: false, key: 0 }
+  ]);
+  const [activeTabId, setActiveTabId] = useState('tab-1');
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
   const [cursorPosition, setCursorPosition] = useState({ line: 1, column: 1 });
   const [characterCount, setCharacterCount] = useState(0);
+  const [tabCounter, setTabCounter] = useState(1);
   const isInitialMount = useRef(true);
-  const editor = useMemo(() => withImages(withHistory(withReact(createEditor()))), [key]);
+
+  const activeTab = tabs.find(t => t.id === activeTabId) || tabs[0];
+  const editor = useMemo(() => withImages(withHistory(withReact(createEditor()))), [activeTab?.key]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'F12' || 
+          (e.ctrlKey && e.shiftKey && e.key === 'I') ||
+          (e.ctrlKey && e.shiftKey && e.key === 'J') ||
+          (e.ctrlKey && e.shiftKey && e.key === 'C') ||
+          (e.ctrlKey && e.key === 'u')) {
+        e.preventDefault();
+        return;
+      }
+
       if (e.ctrlKey){
         switch (e.key){
           case 's':
@@ -281,27 +302,49 @@ const MySlateEditor = () => {
             e.preventDefault();
             print();
             break;
+          case 't':
+            e.preventDefault();
+            handleNewTab();
+            break;
+          case 'w':
+            e.preventDefault();
+            handleTabClose(activeTabId);
+            break;
         }
       }
       else if (e.ctrlKey && e.altKey && e.ctrlKey === 's'){
         saveAs();
       }
     }
-    window.addEventListener("keydown", handleKeyDown)
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [changed]);
+
+
+    const handleContextMenu = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+
+      if (!target.closest('.editor-wrapper')) {
+        e.preventDefault();
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    window.addEventListener("contextmenu", handleContextMenu);
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+      window.removeEventListener("contextmenu", handleContextMenu);
+    };
+  }, [activeTabId, tabs]);
 
   useEffect(() => {
-    invoke("editor_changed", { hasChanged: changed });
-  }, [changed]);
+    invoke("editor_changed", { hasChanged: activeTab.changed, tabId: activeTabId });
+  }, [activeTab.changed, activeTabId]);
 
   useEffect(() => {
     if (isInitialMount.current) {
       isInitialMount.current = false;
       return;
     }
-    setChanged(true);
-  }, [value]);
+    updateTab({ changed: true });
+  }, [activeTab.value]);
 
 
   const handlePaste = useCallback(async (event: React.ClipboardEvent) => {
@@ -384,8 +427,8 @@ const MySlateEditor = () => {
   }, [editor]);
 
   useEffect(() => {
-    setCharacterCount(calculateCharacterCount(value));
-  }, [value, calculateCharacterCount]);
+    setCharacterCount(calculateCharacterCount(activeTab.value));
+  }, [activeTab.value, calculateCharacterCount]);
 
   const handleKeyDown = useCallback((event: React.KeyboardEvent) => {
 
@@ -451,50 +494,112 @@ const MySlateEditor = () => {
   type Data = [Descendant[], string];
 
   const getDocumentName = (name: string) => {
-    setDocumentName(name);
+    updateTab({ name });
+  };
+
+  const updateTab = (updates: Partial<TabData>) => {
+    setTabs(prev => prev.map(tab => 
+      tab.id === activeTabId ? { ...tab, ...updates } : tab
+    ));
+  };
+
+  const handleTabClick = (tabId: string) => {
+    isInitialMount.current = true;
+    setActiveTabId(tabId);
+  };
+
+  const handleTabClose = async (tabId: string) => {
+    const tabToClose = tabs.find(t => t.id === tabId);
+    if (!tabToClose) return;
+
+    if (tabToClose.changed) {
+      const confirmed = await invoke<boolean>("confirm_close_tab", { tabId });
+      if (!confirmed) return;
+    }
+
+    await invoke("remove_tab", { tabId });
+
+    if (tabs.length === 1) {
+      const newTabId = `tab-${tabCounter + 1}`;
+      setTabCounter(prev => prev + 1);
+      await invoke("create_tab", { tabId: newTabId });
+      setTabs([{ id: newTabId, name: 'Document', value: initialValue, changed: false, key: 0 }]);
+      setActiveTabId(newTabId);
+      isInitialMount.current = true;
+    } else {
+      const newTabs = tabs.filter(t => t.id !== tabId);
+      setTabs(newTabs);
+      if (activeTabId === tabId) {
+        isInitialMount.current = true;
+        setActiveTabId(newTabs[newTabs.length - 1].id);
+      }
+    }
+  };
+
+  const handleNewTab = async () => {
+    const newTabId = `tab-${tabCounter + 1}`;
+    setTabCounter(prev => prev + 1);
+    await invoke("create_tab", { tabId: newTabId });
+    const newTab: TabData = {
+      id: newTabId,
+      name: 'Document',
+      value: initialValue,
+      changed: true,
+      key: Date.now()
+    };
+    setTabs(prev => [...prev, newTab]);
+    isInitialMount.current = true;
+    setActiveTabId(newTabId);
+
+    await invoke("editor_changed", { hasChanged: true, tabId: newTabId });
   };
 
   async function save() {
-    alert(await invoke("save", { document: value, documentName:  documentName}));
-    setChanged(false);
+    alert(await invoke("save_tab", { document: activeTab.value, documentName: activeTab.name, tabId: activeTabId }));
+    updateTab({ changed: false });
   }
+
   async function saveAs() {
-    alert(await invoke("save_as", { document: value, documentName:  documentName}));
-    setChanged(false);
+    alert(await invoke("save_tab_as", { document: activeTab.value, documentName: activeTab.name, tabId: activeTabId }));
+    updateTab({ changed: false });
   }
+
   async function print() {
     try {
-      await invoke("save", { document: value, documentName: documentName });
-      setChanged(false);
+      await invoke("save_tab", { document: activeTab.value, documentName: activeTab.name, tabId: activeTabId });
+      updateTab({ changed: false });
       window.print();
     } catch (error) {
       console.error("Error printing:", error);
     }
   }
+
   async function open() {
     try {
-      const [loadedDocument, loadedName] = await invoke<Data>("open");
-      isInitialMount.current = true; 
-      setValue(loadedDocument);
-      setKey((prev) => prev + 1); // Forced restart
-      setChanged(false);
-      setDocumentName(loadedName);
+      const [loadedDocument, loadedName] = await invoke<Data>("open_in_tab", { tabId: activeTabId });
+      isInitialMount.current = true;
+      updateTab({ 
+        value: loadedDocument, 
+        name: loadedName, 
+        changed: false,
+        key: Date.now()
+      });
     } catch (error) {
-      alert(`Error opening file: ${error}`);
+      if (error !== "The operation was cancelled") {
+        alert(`Error opening file: ${error}`);
+      }
     }
   }
 
   async function newDocument() {
-    const confirmed = await invoke<boolean>("confirm_discard_changes");
-    if (!confirmed) {
-      return;
-    }
-    isInitialMount.current = true; 
-    setValue(initialValue);
-    setKey((prev) => prev + 1);
-    setChanged(false);
-    setDocumentName("Document");
+    await handleNewTab();
   }
+
+  const tabBarTabs: Tab[] = tabs.map(t => ({
+    id: t.id,
+    name: t.name,
+    isModified: t.changed
+  }));
 
   const fileMenuItems: ActionDropdownItem[] = [
     { id: 'new', label: 'New', tooltip: 'Create a new document', shortcut: 'Ctrl+N', divider: true },
@@ -600,8 +705,15 @@ const MySlateEditor = () => {
 
   return (
     <div>
+      <TabBar
+        tabs={tabBarTabs}
+        activeTabId={activeTabId}
+        onTabClick={handleTabClick}
+        onTabClose={handleTabClose}
+        onNewTab={handleNewTab}
+      />
       <div className="miscellaneous-bar">
-        <Miscellaneousbar loadDocumentName={getDocumentName} documentName={documentName} editor={editor}>    
+        <Miscellaneousbar loadDocumentName={getDocumentName} documentName={activeTab.name} editor={editor}>    
           <ActionDropdown
           items={fileMenuItems}
           onSelect={handleFileAction}
@@ -616,12 +728,12 @@ const MySlateEditor = () => {
       <div className="editor-wrapper" onContextMenu={handleContextMenu}>
         <div className="editor-container">
           <Slate
-            key={key}
+            key={activeTab.key}
             editor={editor}
-            initialValue={value}
+            initialValue={activeTab.value}
             onChange={(v) => {
-              setValue(v)
-              updateCursorPosition()
+              updateTab({ value: v });
+              updateCursorPosition();
             }}
           >
             <div className="toolbar">
@@ -643,7 +755,7 @@ const MySlateEditor = () => {
         characterCount={characterCount}
         line={cursorPosition.line}
         column={cursorPosition.column}
-        isSaved={!changed}
+        isSaved={!activeTab.changed}
       />
       {contextMenu && (
         <div className="context-menu">
