@@ -461,8 +461,7 @@ button {
   .toolbar,
   .context-menu,
   .status-bar,
-  .tab-bar,
-  .editor-wrapper {
+  .tab-bar {
     display: none !important;
     visibility: hidden !important;
   }
@@ -487,6 +486,7 @@ button {
     background: white !important;
     box-shadow: none !important;
   }
+
 
   .editor-content {
     display: block !important;
@@ -535,7 +535,6 @@ button {
   .editor-content h3,
   .editor-content h4 {
     page-break-after: avoid;
-    
   }
 
   .editor-content p,
@@ -546,7 +545,108 @@ button {
   }
 
   .editor-content a {
-    
     text-decoration: underline !important;
+  }
+
+
+  .pv-scroll-area {
+    display: block !important;
+    visibility: visible !important;
+    background: white !important;
+    padding: 0 !important;
+    overflow: visible !important;
+    height: auto !important;
+  }
+
+  .pv-page-frame {
+    display: block !important;
+    visibility: visible !important;
+    background: white !important;
+    border: none !important;
+    box-shadow: none !important;
+    border-radius: 0 !important;
+    width: 100% !important;
+  }
+
+  .pv-editor-surface {
+    display: block !important;
+    visibility: visible !important;
+    background: white !important;
+    padding: 0 !important;
+    overflow: visible !important;
+  }
+
+  .pv-editor-surface [data-slate-editor="true"] {
+    min-height: auto !important;
+  }
+
+  .pv-editor-surface * {
+    visibility: visible !important;
+    color: black !important;
+    background: transparent !important;
+  }
+
+  .pv-editor-surface mark {
+    background-color: yellow !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  .pv-editor-surface img {
+    max-width: 100% !important;
+    height: auto !important;
+    page-break-inside: avoid;
+  }
+
+  .pv-editor-surface table {
+    page-break-inside: avoid;
+    border-collapse: collapse;
+    width: 100%;
+  }
+
+  .pv-editor-surface td,
+  .pv-editor-surface th {
+    border: 1px solid #000 !important;
+    padding: 8px !important;
+  }
+
+  .pv-editor-surface h1,
+  .pv-editor-surface h2,
+  .pv-editor-surface h3,
+  .pv-editor-surface h4 {
+    page-break-after: avoid;
+  }
+
+  .pv-editor-surface p,
+  .pv-editor-surface li {
+    page-break-inside: avoid;
+    orphans: 3;
+    widows: 3;
+  }
+
+  .pv-editor-surface a {
+    text-decoration: underline !important;
+  }
+
+
+  .pv-break-spacer,
+  .pv-break-gap,
+  .pv-break-label,
+  .pv-break-bottom-margin,
+  .pv-break-top-margin,
+  .pv-header,
+  .pv-footer,
+  .pv-page-count-label {
+    display: none !important;
+    visibility: hidden !important;
+  }
+
+  .pv-editor-surface [data-slate-editor="true"] > * {
+    margin-top: 0 !important;
+  }
+
+  .pv-editor-surface [data-page-start="true"] {
+    page-break-before: always !important;
+    break-before: page !important;
   }
 }

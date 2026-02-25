@@ -22,6 +22,8 @@ import ContextMenu, { ContextMenuItem } from "./components/ContextMenu";
 import ImageElement from "./components/ImageElement";
 import StatusBar from "./components/StatusBar";
 import TabBar, { Tab } from "./components/TabBar";
+import Settings, { AppSettings, defaultSettings, ViewMode } from "./components/Settings";
+import PageView from "./components/PageView";
 
 
 export type ImageSize = "small" | "medium" | "large" | "original";
@@ -253,17 +255,30 @@ export const insertImage = (editor: ReactEditor, url: string, size: ImageSize = 
     editor.insertNode(image);
   };
 
+interface DocumentMeta {
+  view_mode: 'notepad' | 'document';
+  header_enabled: boolean;
+  footer_enabled: boolean;
+  header_text: string;
+  footer_text: string;
+}
+
 interface TabData {
   id: string;
   name: string;
   value: Descendant[];
   changed: boolean;
   key: number;
+  viewMode: ViewMode;
+  headerEnabled: boolean;
+  footerEnabled: boolean;
+  headerText: string;
+  footerText: string;
 }
 
 const MySlateEditor = () => {
   const [tabs, setTabs] = useState<TabData[]>([
-    { id: 'tab-1', name: 'Document', value: initialValue, changed: false, key: 0 }
+    { id: 'tab-1', name: 'Document', value: initialValue, changed: false, key: 0, viewMode: 'notepad', headerEnabled: false, footerEnabled: false, headerText: '', footerText: '' }
   ]);
   const [activeTabId, setActiveTabId] = useState('tab-1');
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
@@ -271,9 +286,26 @@ const MySlateEditor = () => {
   const [characterCount, setCharacterCount] = useState(0);
   const [tabCounter, setTabCounter] = useState(1);
   const isInitialMount = useRef(true);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [settings, setSettings] = useState<AppSettings>(defaultSettings);
+  const [typeSpeed, setTypeSpeed] = useState<number | null>(null);
+  const [pageCount, setPageCount] = useState(1);
+  const typingStartTime = useRef<number | null>(null);
+  const totalCharsTyped = useRef<number>(0);
 
   const activeTab = tabs.find(t => t.id === activeTabId) || tabs[0];
   const editor = useMemo(() => withImages(withHistory(withReact(createEditor()))), [activeTab?.key]);
+
+  useEffect(() => {
+    invoke<any>("get_settings").then((loaded) => {
+      setSettings({
+        autoSaveEnabled: loaded.auto_save_enabled,
+        autoSaveInterval: loaded.auto_save_interval,
+        showUnsavedWarning: loaded.show_unsaved_warning,
+        showTypeSpeed: loaded.show_type_speed,
+      });
+    }).catch(() => {});
+  }, []);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -345,6 +377,56 @@ const MySlateEditor = () => {
     }
     updateTab({ changed: true });
   }, [activeTab.value]);
+
+  useEffect(() => {
+    if (!settings.autoSaveEnabled) return;
+    const intervalMs = settings.autoSaveInterval * 60 * 1000;
+    const timer = setInterval(async () => {
+      if (!activeTab.changed) return;
+      try {
+        const isSaved = await invoke<boolean>("is_tab_saved_to_disk", { tabId: activeTabId });
+        if (isSaved) {
+          await invoke("save_tab", { document: activeTab.value, documentName: activeTab.name, tabId: activeTabId, meta: buildMeta() });
+          updateTab({ changed: false });
+        }
+      } catch (err) {
+        console.error("Auto-save failed:", err);
+      }
+    }, intervalMs);
+    return () => clearInterval(timer);
+  }, [settings.autoSaveEnabled, settings.autoSaveInterval, activeTab.changed, activeTab.value, activeTab.name, activeTabId]);
+
+  useEffect(() => {
+    if (!settings.showTypeSpeed) {
+      setTypeSpeed(null);
+      typingStartTime.current = null;
+      totalCharsTyped.current = 0;
+      return;
+    }
+    const interval = setInterval(() => {
+      if (typingStartTime.current === null || totalCharsTyped.current === 0) {
+        setTypeSpeed(0);
+        return;
+      }
+      const elapsedMinutes = (Date.now() - typingStartTime.current) / 60000;
+      if (elapsedMinutes < 0.05) {
+        setTypeSpeed(0);
+        return;
+      }
+      const wpm = Math.round((totalCharsTyped.current / 5) / elapsedMinutes);
+      setTypeSpeed(wpm);
+    }, 2000);
+    return () => clearInterval(interval);
+  }, [settings.showTypeSpeed]);
+
+  const trackKeystroke = useCallback(() => {
+    if (settings.showTypeSpeed) {
+      if (typingStartTime.current === null) {
+        typingStartTime.current = Date.now();
+      }
+      totalCharsTyped.current += 1;
+    }
+  }, [settings.showTypeSpeed]);
 
 
   const handlePaste = useCallback(async (event: React.ClipboardEvent) => {
@@ -491,7 +573,7 @@ const MySlateEditor = () => {
     }
   }, [editor]);
 
-  type Data = [Descendant[], string];
+  type Data = [Descendant[], string, DocumentMeta];
 
   const getDocumentName = (name: string) => {
     updateTab({ name });
@@ -505,6 +587,9 @@ const MySlateEditor = () => {
 
   const handleTabClick = (tabId: string) => {
     isInitialMount.current = true;
+    typingStartTime.current = null;
+    totalCharsTyped.current = 0;
+    setTypeSpeed(settings.showTypeSpeed ? 0 : null);
     setActiveTabId(tabId);
   };
 
@@ -512,7 +597,7 @@ const MySlateEditor = () => {
     const tabToClose = tabs.find(t => t.id === tabId);
     if (!tabToClose) return;
 
-    if (tabToClose.changed) {
+    if (tabToClose.changed && settings.showUnsavedWarning) {
       const confirmed = await invoke<boolean>("confirm_close_tab", { tabId });
       if (!confirmed) return;
     }
@@ -523,7 +608,7 @@ const MySlateEditor = () => {
       const newTabId = `tab-${tabCounter + 1}`;
       setTabCounter(prev => prev + 1);
       await invoke("create_tab", { tabId: newTabId });
-      setTabs([{ id: newTabId, name: 'Document', value: initialValue, changed: false, key: 0 }]);
+      setTabs([{ id: newTabId, name: 'Document', value: initialValue, changed: false, key: 0, viewMode: 'notepad', headerEnabled: false, footerEnabled: false, headerText: '', footerText: '' }]);
       setActiveTabId(newTabId);
       isInitialMount.current = true;
     } else {
@@ -545,7 +630,12 @@ const MySlateEditor = () => {
       name: 'Document',
       value: initialValue,
       changed: true,
-      key: Date.now()
+      key: Date.now(),
+      viewMode: 'notepad',
+      headerEnabled: false,
+      footerEnabled: false,
+      headerText: '',
+      footerText: '',
     };
     setTabs(prev => [...prev, newTab]);
     isInitialMount.current = true;
@@ -554,19 +644,27 @@ const MySlateEditor = () => {
     await invoke("editor_changed", { hasChanged: true, tabId: newTabId });
   };
 
+  const buildMeta = (): DocumentMeta => ({
+    view_mode: activeTab.viewMode,
+    header_enabled: activeTab.headerEnabled,
+    footer_enabled: activeTab.footerEnabled,
+    header_text: activeTab.headerText,
+    footer_text: activeTab.footerText,
+  });
+
   async function save() {
-    alert(await invoke("save_tab", { document: activeTab.value, documentName: activeTab.name, tabId: activeTabId }));
+    alert(await invoke("save_tab", { document: activeTab.value, documentName: activeTab.name, tabId: activeTabId, meta: buildMeta() }));
     updateTab({ changed: false });
   }
 
   async function saveAs() {
-    alert(await invoke("save_tab_as", { document: activeTab.value, documentName: activeTab.name, tabId: activeTabId }));
+    alert(await invoke("save_tab_as", { document: activeTab.value, documentName: activeTab.name, tabId: activeTabId, meta: buildMeta() }));
     updateTab({ changed: false });
   }
 
   async function print() {
     try {
-      await invoke("save_tab", { document: activeTab.value, documentName: activeTab.name, tabId: activeTabId });
+      await invoke("save_tab", { document: activeTab.value, documentName: activeTab.name, tabId: activeTabId, meta: buildMeta() });
       updateTab({ changed: false });
       window.print();
     } catch (error) {
@@ -576,13 +674,18 @@ const MySlateEditor = () => {
 
   async function open() {
     try {
-      const [loadedDocument, loadedName] = await invoke<Data>("open_in_tab", { tabId: activeTabId });
+      const [loadedDocument, loadedName, meta] = await invoke<Data>("open_in_tab", { tabId: activeTabId });
       isInitialMount.current = true;
       updateTab({ 
         value: loadedDocument, 
         name: loadedName, 
         changed: false,
-        key: Date.now()
+        key: Date.now(),
+        viewMode: meta.view_mode === 'document' ? 'document' : 'notepad',
+        headerEnabled: meta.header_enabled,
+        footerEnabled: meta.footer_enabled,
+        headerText: meta.header_text,
+        footerText: meta.footer_text,
       });
     } catch (error) {
       if (error !== "The operation was cancelled") {
@@ -606,7 +709,8 @@ const MySlateEditor = () => {
     { id: 'open', label: 'Open', tooltip: 'Open an existing document', shortcut: 'Ctrl+O', divider: true },
     { id: 'save', label: 'Save', tooltip: 'Save the current document', shortcut: 'Ctrl+S' },
     { id: 'saveAs', label: 'Save As', tooltip: 'Save or export the document', shortcut: 'Ctrl+Alt+S', divider: true },
-    { id: 'print', label: 'Print', tooltip: 'Print the document', shortcut: 'Ctrl+P' },
+    { id: 'print', label: 'Print', tooltip: 'Print the document', shortcut: 'Ctrl+P', divider: true },
+    { id: 'settings', label: 'Settings', tooltip: 'Open application settings' },
   ];
 
   const handleFileAction = (actionId: string) => {
@@ -625,6 +729,9 @@ const MySlateEditor = () => {
         break;
       case 'print':
         print();
+        break;
+      case 'settings':
+        setSettingsOpen(true);
         break;
     }
   };
@@ -739,15 +846,37 @@ const MySlateEditor = () => {
             <div className="toolbar">
               <Toolbar editor={editor} />
             </div>
-            <div className="editor-content">
-              <Editable
+            {activeTab.viewMode === 'document' ? (
+              <PageView
                 renderElement={renderElement}
                 renderLeaf={renderLeaf}
-                placeholder="Start Writing something..."
                 onPaste={handlePaste}
-                onKeyDown={handleKeyDown}
+                onKeyDown={(e) => {
+                  handleKeyDown(e);
+                  if (e.key.length === 1) trackKeystroke();
+                }}
+                headerEnabled={activeTab.headerEnabled}
+                footerEnabled={activeTab.footerEnabled}
+                headerText={activeTab.headerText}
+                footerText={activeTab.footerText}
+                onHeaderTextChange={(text) => updateTab({ headerText: text })}
+                onFooterTextChange={(text) => updateTab({ footerText: text })}
+                onPageCountChange={setPageCount}
               />
-            </div>
+            ) : (
+              <div className="editor-content">
+                <Editable
+                  renderElement={renderElement}
+                  renderLeaf={renderLeaf}
+                  placeholder="Start Writing something..."
+                  onPaste={handlePaste}
+                  onKeyDown={(e) => {
+                    handleKeyDown(e);
+                    if (e.key.length === 1) trackKeystroke();
+                  }}
+                />
+              </div>
+            )}
           </Slate>
         </div>
       </div>
@@ -756,6 +885,33 @@ const MySlateEditor = () => {
         line={cursorPosition.line}
         column={cursorPosition.column}
         isSaved={!activeTab.changed}
+        typeSpeed={typeSpeed}
+        showTypeSpeed={settings.showTypeSpeed}
+        pageCount={activeTab.viewMode === 'document' ? pageCount : undefined}
+      />
+      <Settings
+        isOpen={settingsOpen}
+        onClose={() => setSettingsOpen(false)}
+        settings={settings}
+        onSettingsChange={setSettings}
+        onRequestSave={async () => {
+          try {
+            const isSaved = await invoke<boolean>("is_tab_saved_to_disk", { tabId: activeTabId });
+            if (isSaved) return true;
+            const result = await invoke<string>("save_tab", { document: activeTab.value, documentName: activeTab.name, tabId: activeTabId, meta: buildMeta() });
+            if (result === "The operation was cancelled") return false;
+            updateTab({ changed: false });
+            return true;
+          } catch {
+            return false;
+          }
+        }}
+        viewMode={activeTab.viewMode}
+        onViewModeChange={(mode) => updateTab({ viewMode: mode })}
+        headerEnabled={activeTab.headerEnabled}
+        footerEnabled={activeTab.footerEnabled}
+        onHeaderEnabledChange={(enabled) => updateTab({ headerEnabled: enabled })}
+        onFooterEnabledChange={(enabled) => updateTab({ footerEnabled: enabled })}
       />
       {contextMenu && (
         <div className="context-menu">

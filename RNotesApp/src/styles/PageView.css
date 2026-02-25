@@ -1,0 +1,173 @@
+
+.pv-scroll-area {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  overflow-y: auto;
+  height: 100%;
+  padding: 24px 0;
+  background-color: #1a1a1a;
+}
+
+
+.pv-page-frame {
+  background-color: #2a2a2a;
+  border: 1px solid #555;
+  border-radius: 4px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+  flex-shrink: 0;
+}
+
+
+.pv-editor-surface {
+  position: relative;
+  box-sizing: border-box;
+}
+
+.pv-editor-surface [data-slate-editor="true"] {
+  outline: none;
+  line-height: 1.8;
+  font-size: 16px;
+}
+
+.pv-editor-surface [data-slate-placeholder="true"] {
+  color: #666 !important;
+  opacity: 1 !important;
+  font-style: italic;
+}
+
+
+.pv-header {
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 96px;
+  border-bottom: 1px dashed #3a3a3a;
+  cursor: default;
+  box-sizing: border-box;
+}
+
+.pv-header.editing {
+  border-bottom-color: #4dabf7;
+}
+
+.pv-header-text {
+  font-size: 11px;
+  color: #555;
+  font-style: italic;
+  text-align: center;
+  width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pv-header-input {
+  width: 100%;
+  background: transparent !important;
+  border: none !important;
+  border-bottom: 1px solid #4dabf7 !important;
+  color: #e0e0e0 !important;
+  font-size: 11px !important;
+  text-align: center;
+  padding: 2px 6px !important;
+  outline: none !important;
+  box-shadow: none !important;
+  border-radius: 0 !important;
+}
+
+.pv-footer {
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 96px;
+  border-top: 1px dashed #3a3a3a;
+  cursor: default;
+  box-sizing: border-box;
+}
+
+.pv-footer.editing {
+  border-top-color: #4dabf7;
+}
+
+.pv-footer-text {
+  font-size: 11px;
+  color: #555;
+  font-style: italic;
+  text-align: center;
+  width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pv-footer-input {
+  width: 100%;
+  background: transparent !important;
+  border: none !important;
+  border-bottom: 1px solid #4dabf7 !important;
+  color: #e0e0e0 !important;
+  font-size: 11px !important;
+  text-align: center;
+  padding: 2px 6px !important;
+  outline: none !important;
+  box-shadow: none !important;
+  border-radius: 0 !important;
+}
+
+
+.pv-break-spacer {
+  position: absolute;
+  left: 0;
+  right: 0;
+  pointer-events: none;
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+}
+
+
+.pv-break-bottom-margin {
+  height: 1px;
+  background-color: #555;
+  flex-shrink: 0;
+}
+
+.pv-break-top-margin {
+  height: 1px;
+  background-color: #555;
+  flex-shrink: 0;
+}
+
+
+.pv-break-gap {
+  flex: 1;
+  background-color: #1a1a1a;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+}
+
+.pv-break-label {
+  font-size: 10px;
+  color: #666;
+  white-space: nowrap;
+  user-select: none;
+}
+
+
+.pv-page-count-label {
+  text-align: center;
+  font-size: 10px;
+  color: #555;
+  padding: 6px 0;
+  user-select: none;
+}
+
+.view-mode-options {
+  display: flex;
+  gap: 6px;
+}

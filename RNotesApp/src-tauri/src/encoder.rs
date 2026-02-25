@@ -1,9 +1,9 @@
-use crate::document_model::{Node, TextNode, TableRow, TableCell, ListItemNode, Alignment, ImageSize};
+use crate::document_model::{Node, TextNode, TableRow, TableCell, ListItemNode, Alignment, ImageSize, DocumentMeta, ViewMode};
 use std::io::{Write, Result, Error, ErrorKind};
 
 // Magic bytes and version
 const MAGIC: &[u8; 3] = b"RDC";
-const VERSION: u8 = 1;
+const VERSION: u8 = 2;
 
 // Node type constants
 const NODE_PARAGRAPH: u8 = 0x01;
@@ -45,12 +45,39 @@ const STYLE_CROSSED_OUT: u8 = 5;
 const STYLE_LINK: u8 = 6;
 
 /// Encodes a document to the binary .rdocx format
+#[allow(dead_code)]
 pub fn encode_document(nodes: &[Node]) -> Result<Vec<u8>> {
+    encode_document_with_meta(nodes, &DocumentMeta::default())
+}
+
+
+pub fn encode_document_with_meta(nodes: &[Node], meta: &DocumentMeta) -> Result<Vec<u8>> {
     let mut buffer = Vec::new();
       
     buffer.write_all(MAGIC)?;
     
     buffer.write_all(&[VERSION])?;
+
+
+    let view_mode_byte: u8 = match meta.view_mode {
+        ViewMode::Notepad => 0,
+        ViewMode::Document => 1,
+    };
+    buffer.write_all(&[view_mode_byte])?;
+
+    let mut meta_flags: u8 = 0;
+    if meta.header_enabled { meta_flags |= 1; }
+    if meta.footer_enabled { meta_flags |= 2; }
+    buffer.write_all(&[meta_flags])?;
+
+
+    let header_bytes = meta.header_text.as_bytes();
+    buffer.write_all(&(header_bytes.len() as u16).to_le_bytes())?;
+    buffer.write_all(header_bytes)?;
+
+    let footer_bytes = meta.footer_text.as_bytes();
+    buffer.write_all(&(footer_bytes.len() as u16).to_le_bytes())?;
+    buffer.write_all(footer_bytes)?;
     
     // Write node count (u32 little-endian)
     let node_count = nodes.len() as u32;

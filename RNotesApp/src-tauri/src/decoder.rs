@@ -1,9 +1,8 @@
-use crate::document_model::{Node, TextNode, TableRow, TableCell, ListItemNode, Alignment, ImageSize};
+use crate::document_model::{Node, TextNode, TableRow, TableCell, ListItemNode, Alignment, ImageSize, DocumentMeta, ViewMode};
 use std::io::{Cursor, Read, Result, Error, ErrorKind};
 
 // Magic bytes and version
 const MAGIC: &[u8; 3] = b"RDC";
-const EXPECTED_VERSION: u8 = 1;
 
 // Node type constants
 const NODE_PARAGRAPH: u8 = 0x01;
@@ -45,7 +44,14 @@ const STYLE_CROSSED_OUT: u8 = 5;
 const STYLE_LINK: u8 = 6;
 
 /// Decodes a binary .rdocx document into a Vec<Node>
+#[allow(dead_code)]
 pub fn decode_document(data: &[u8]) -> Result<Vec<Node>> {
+    let (nodes, _meta) = decode_document_with_meta(data)?;
+    Ok(nodes)
+}
+
+
+pub fn decode_document_with_meta(data: &[u8]) -> Result<(Vec<Node>, DocumentMeta)> {
     let mut cursor = Cursor::new(data);
     
     // Read and verify magic bytes
@@ -55,15 +61,48 @@ pub fn decode_document(data: &[u8]) -> Result<Vec<Node>> {
         return Err(Error::new(ErrorKind::InvalidData, "Invalid magic bytes: not a valid .rdocx file"));
     }
     
-    // Read and verify version
+    // Read version
     let mut version = [0u8; 1];
     cursor.read_exact(&mut version)?;
-    if version[0] != EXPECTED_VERSION {
+    let version = version[0];
+
+    if version != 1 && version != 2 {
         return Err(Error::new(
             ErrorKind::InvalidData, 
-            format!("Unsupported version: {} (expected {})", version[0], EXPECTED_VERSION)
+            format!("Unsupported version: {} (expected 1 or 2)", version)
         ));
     }
+
+    // Read metadata if v2
+    let meta = if version >= 2 {
+        let mut view_mode_byte = [0u8; 1];
+        cursor.read_exact(&mut view_mode_byte)?;
+        let view_mode = match view_mode_byte[0] {
+            1 => ViewMode::Document,
+            _ => ViewMode::Notepad,
+        };
+
+        let mut meta_flags_byte = [0u8; 1];
+        cursor.read_exact(&mut meta_flags_byte)?;
+        let header_enabled = meta_flags_byte[0] & 1 != 0;
+        let footer_enabled = meta_flags_byte[0] & 2 != 0;
+
+        let header_len = read_u16(&mut cursor)?;
+        let header_text = read_utf8_string(&mut cursor, header_len as usize)?;
+
+        let footer_len = read_u16(&mut cursor)?;
+        let footer_text = read_utf8_string(&mut cursor, footer_len as usize)?;
+
+        DocumentMeta {
+            view_mode,
+            header_enabled,
+            footer_enabled,
+            header_text,
+            footer_text,
+        }
+    } else {
+        DocumentMeta::default()
+    };
     
     let node_count = read_u32(&mut cursor)?;
     
@@ -73,7 +112,7 @@ pub fn decode_document(data: &[u8]) -> Result<Vec<Node>> {
         nodes.push(node);
     }
     
-    Ok(nodes)
+    Ok((nodes, meta))
 }
 
 fn decode_node(cursor: &mut Cursor<&[u8]>) -> Result<Node> {

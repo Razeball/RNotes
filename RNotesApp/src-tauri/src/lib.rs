@@ -5,7 +5,7 @@ mod file_handler;
 mod encoder;
 mod decoder;
 use file_handler::{open, save, save_as, open_in_tab, save_tab, save_tab_as};
-use config::Config;
+use config::{Config, AppSettings};
 use tauri::{Manager, State, WindowEvent, command, AppHandle};
 use tauri_plugin_dialog::{DialogExt, MessageDialogKind, MessageDialogButtons};
 use image::{insert_image_from_clipboard, insert_image_from_file};
@@ -31,11 +31,31 @@ fn is_tab_changed(tab_id: String, state: State<Config>) -> bool {
 }
 
 #[command]
+fn is_tab_saved_to_disk(tab_id: String, state: State<Config>) -> bool {
+    state.is_tab_saved_to_disk(&tab_id)
+}
+
+#[command]
+fn get_settings(state: State<Config>) -> AppSettings {
+    state.get_settings()
+}
+
+#[command]
+fn update_settings(settings: AppSettings, state: State<Config>) {
+    state.update_settings(settings);
+}
+
+#[command]
 fn confirm_discard_changes(app: AppHandle, state: State<Config>) -> bool {
     let has_changes = state.has_any_unsaved_changes();
     
     if !has_changes {
         return true; 
+    }
+
+    let settings = state.get_settings();
+    if !settings.show_unsaved_warning {
+        return true;
     }
     
     let result = app.dialog()
@@ -53,6 +73,11 @@ fn confirm_close_tab(app: AppHandle, tab_id: String, state: State<Config>) -> bo
     let has_changes = state.is_tab_changed(&tab_id);
     
     if !has_changes {
+        return true;
+    }
+
+    let settings = state.get_settings();
+    if !settings.show_unsaved_warning {
         return true;
     }
     
@@ -79,11 +104,18 @@ pub fn run() {
             save_tab, open_in_tab, save_tab_as,
             insert_image_from_file, insert_image_from_clipboard, 
             editor_changed, confirm_discard_changes,
-            create_tab, remove_tab, is_tab_changed, confirm_close_tab
+            create_tab, remove_tab, is_tab_changed, confirm_close_tab,
+            is_tab_saved_to_disk, get_settings, update_settings
         ])
         .on_window_event(|window, event|{
             if let WindowEvent::CloseRequested { api, .. } = event {
                let state = window.state::<Config>();
+               let settings = state.get_settings();
+
+               if !settings.show_unsaved_warning {
+                   return;
+               }
+
                let unsaved_count = state.count_unsaved_tabs();
                 
                if unsaved_count > 0 {

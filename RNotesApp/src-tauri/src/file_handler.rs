@@ -1,9 +1,18 @@
-use crate::document_model::{Node, TextNode};
+use crate::document_model::{Node, TextNode, DocumentMeta};
 use crate::config::Config;
-use crate::encoder::encode_document;
-use crate::decoder::decode_document;
+use crate::encoder::encode_document_with_meta;
+use crate::decoder::decode_document_with_meta;
 use rfd::FileDialog;
 use std::path::PathBuf;
+use serde::{Serialize, Deserialize};
+
+
+#[derive(Serialize, Deserialize)]
+struct JsonDocumentWrapper {
+    #[serde(default)]
+    meta: DocumentMeta,
+    nodes: Vec<Node>,
+}
 
 
 fn extract_plain_text(nodes: &[Node]) -> String {
@@ -60,19 +69,21 @@ fn extract_plain_text(nodes: &[Node]) -> String {
 }
 
 #[tauri::command]
-pub fn save(document: Vec<Node>, document_name: String, state: tauri::State<Config>) -> Result<String, String> {
+pub fn save(document: Vec<Node>, document_name: String, meta: Option<DocumentMeta>, state: tauri::State<Config>) -> Result<String, String> {
     println!("Received document with {} nodes", document.len());
+    let doc_meta = meta.unwrap_or_default();
     let active_tab = state.active_tab.read().unwrap().clone();
     let tab_info = state.get_tab_info(&active_tab);
     
     if let Some(info) = tab_info {
         let save_path = info.save_path;
-        let json_str = serde_json::to_string_pretty(&document)
+        let wrapper = JsonDocumentWrapper { meta: doc_meta.clone(), nodes: document.clone() };
+        let json_str = serde_json::to_string_pretty(&wrapper)
             .map_err(|e| format!("Serialize error: {}", e))?;
         if !save_path.as_os_str().is_empty() {
             match save_path.extension().and_then(|e| e.to_str()) {
                 Some("rdocx") => {
-                    let binary_data = encode_document(&document)
+                    let binary_data = encode_document_with_meta(&document, &doc_meta)
                         .map_err(|e| format!("Encode error: {}", e))?;
                     std::fs::write(&save_path, binary_data).expect("There was an error trying to save");
                 }
@@ -88,35 +99,39 @@ pub fn save(document: Vec<Node>, document_name: String, state: tauri::State<Conf
             return Ok(format!("file saved successfully in {:?}", &save_path));
         }
         else {
-            return create_file_for_tab(extract_plain_text(&document), json_str, &document, document_name, &active_tab, &state);
+            return create_file_for_tab(extract_plain_text(&document), json_str, &document, &doc_meta, document_name, &active_tab, &state);
         }
     }
     Err("Tab not found".to_string())
 }
 
 #[tauri::command]
-pub fn save_as(document: Vec<Node>, document_name: String, state: tauri::State<Config>) -> Result<String, String>{
+pub fn save_as(document: Vec<Node>, document_name: String, meta: Option<DocumentMeta>, state: tauri::State<Config>) -> Result<String, String>{
     println!("Received document with {} nodes", document.len());
-    let json_str = serde_json::to_string_pretty(&document)
+    let doc_meta = meta.unwrap_or_default();
+    let wrapper = JsonDocumentWrapper { meta: doc_meta.clone(), nodes: document.clone() };
+    let json_str = serde_json::to_string_pretty(&wrapper)
         .map_err(|e| format!("Serialize error: {}", e))?;
     let active_tab = state.active_tab.read().unwrap().clone();
-    return create_file_for_tab(extract_plain_text(&document), json_str, &document, document_name, &active_tab, &state);
+    return create_file_for_tab(extract_plain_text(&document), json_str, &document, &doc_meta, document_name, &active_tab, &state);
 }
 
 #[tauri::command]
-pub fn save_tab(document: Vec<Node>, document_name: String, tab_id: String, state: tauri::State<Config>) -> Result<String, String> {
+pub fn save_tab(document: Vec<Node>, document_name: String, tab_id: String, meta: Option<DocumentMeta>, state: tauri::State<Config>) -> Result<String, String> {
+    let doc_meta = meta.unwrap_or_default();
     println!("Saving tab {} with {} nodes", tab_id, document.len());
     let tab_info = state.get_tab_info(&tab_id);
     
     if let Some(info) = tab_info {
         let save_path = info.save_path;
-        let json_str = serde_json::to_string_pretty(&document)
+        let wrapper = JsonDocumentWrapper { meta: doc_meta.clone(), nodes: document.clone() };
+        let json_str = serde_json::to_string_pretty(&wrapper)
             .map_err(|e| format!("Serialize error: {}", e))?;
         
         if !save_path.as_os_str().is_empty() {
             match save_path.extension().and_then(|e| e.to_str()) {
                 Some("rdocx") => {
-                    let binary_data = encode_document(&document)
+                    let binary_data = encode_document_with_meta(&document, &doc_meta)
                         .map_err(|e| format!("Encode error: {}", e))?;
                     std::fs::write(&save_path, binary_data).expect("There was an error trying to save");
                 }
@@ -131,22 +146,24 @@ pub fn save_tab(document: Vec<Node>, document_name: String, tab_id: String, stat
             println!("Tab {} saved successfully in {:?}", tab_id, &save_path);
             return Ok(format!("file saved successfully in {:?}", &save_path));
         } else {
-            return create_file_for_tab(extract_plain_text(&document), json_str, &document, document_name, &tab_id, &state);
+            return create_file_for_tab(extract_plain_text(&document), json_str, &document, &doc_meta, document_name, &tab_id, &state);
         }
     }
     Err("Tab not found".to_string())
 }
 
 #[tauri::command]
-pub fn save_tab_as(document: Vec<Node>, document_name: String, tab_id: String, state: tauri::State<Config>) -> Result<String, String> {
+pub fn save_tab_as(document: Vec<Node>, document_name: String, tab_id: String, meta: Option<DocumentMeta>, state: tauri::State<Config>) -> Result<String, String> {
+    let doc_meta = meta.unwrap_or_default();
     println!("Save as for tab {} with {} nodes", tab_id, document.len());
-    let json_str = serde_json::to_string_pretty(&document)
+    let wrapper = JsonDocumentWrapper { meta: doc_meta.clone(), nodes: document.clone() };
+    let json_str = serde_json::to_string_pretty(&wrapper)
         .map_err(|e| format!("Serialize error: {}", e))?;
-    return create_file_for_tab(extract_plain_text(&document), json_str, &document, document_name, &tab_id, &state);
+    return create_file_for_tab(extract_plain_text(&document), json_str, &document, &doc_meta, document_name, &tab_id, &state);
 }
 
 #[tauri::command]
-pub fn open_in_tab(tab_id: String, state: tauri::State<Config>) -> Result<(Vec<Node>, String), String> {
+pub fn open_in_tab(tab_id: String, state: tauri::State<Config>) -> Result<(Vec<Node>, String, DocumentMeta), String> {
     if let Some(mut path) = FileDialog::new()
         .set_title("Open File")
         .set_directory(".")
@@ -165,7 +182,7 @@ pub fn open_in_tab(tab_id: String, state: tauri::State<Config>) -> Result<(Vec<N
     }
 }
 
-fn load_file_from_path(path: &mut PathBuf) -> Result<(Vec<Node>, String), String> {
+fn load_file_from_path(path: &mut PathBuf) -> Result<(Vec<Node>, String, DocumentMeta), String> {
     match path.extension().and_then(|e| e.to_str()) {
         Some("rdocx") => {
             let content = std::fs::read(&path)
@@ -173,12 +190,12 @@ fn load_file_from_path(path: &mut PathBuf) -> Result<(Vec<Node>, String), String
             
             println!("File Open: {:?}", path);
             
-            let document = decode_document(&content)
+            let (document, meta) = decode_document_with_meta(&content)
                 .map_err(|e| format!("Error decoding .rdocx: {}", e))?;
 
             let file_name = path.file_stem().unwrap();
             let str_file_name = file_name.to_string_lossy().to_string();
-            return Ok((document, str_file_name));
+            return Ok((document, str_file_name, meta));
         }
         Some("txt") => {
             let content = std::fs::read_to_string(&path)
@@ -204,7 +221,7 @@ fn load_file_from_path(path: &mut PathBuf) -> Result<(Vec<Node>, String), String
             
             let file_name = path.file_stem().unwrap();
             let str_file_name = file_name.to_string_lossy().to_string();
-            return Ok((document, str_file_name));
+            return Ok((document, str_file_name, DocumentMeta::default()));
         }
         Some("json") => {
             let content = std::fs::read_to_string(&path)
@@ -212,24 +229,29 @@ fn load_file_from_path(path: &mut PathBuf) -> Result<(Vec<Node>, String), String
             
             println!("File Open: {:?}", path);
             
-            let document: Vec<Node> = serde_json::from_str(&content)
-                .map_err(|e| format!("Error parsing JSON: {}", e))?;
+            let (document, meta) = if let Ok(wrapper) = serde_json::from_str::<JsonDocumentWrapper>(&content) {
+                (wrapper.nodes, wrapper.meta)
+            } else {
+                let nodes: Vec<Node> = serde_json::from_str(&content)
+                    .map_err(|e| format!("Error parsing JSON: {}", e))?;
+                (nodes, DocumentMeta::default())
+            };
 
             let file_name = path.file_stem().unwrap();
             let str_file_name = file_name.to_string_lossy().to_string();
-            return Ok((document, str_file_name));
+            return Ok((document, str_file_name, meta));
         }
         _ => {
             let content = std::fs::read(&path)
                 .map_err(|e| format!("Error reading file: {}", e))?;
             
             if content.len() >= 3 && &content[0..3] == b"RDC" {
-                let document = decode_document(&content)
+                let (document, meta) = decode_document_with_meta(&content)
                     .map_err(|e| format!("Error decoding .rdocx: {}", e))?;
 
                 let file_name = path.file_stem().unwrap();
                 let str_file_name = file_name.to_string_lossy().to_string();
-                return Ok((document, str_file_name));
+                return Ok((document, str_file_name, meta));
             }
             
             path.set_extension("json");
@@ -238,17 +260,22 @@ fn load_file_from_path(path: &mut PathBuf) -> Result<(Vec<Node>, String), String
             
             println!("File Open: {:?}", path);
             
-            let document: Vec<Node> = serde_json::from_str(&content)
-                .map_err(|e| format!("Error parsing JSON: {}", e))?;
+            let (document, meta) = if let Ok(wrapper) = serde_json::from_str::<JsonDocumentWrapper>(&content) {
+                (wrapper.nodes, wrapper.meta)
+            } else {
+                let nodes: Vec<Node> = serde_json::from_str(&content)
+                    .map_err(|e| format!("Error parsing JSON: {}", e))?;
+                (nodes, DocumentMeta::default())
+            };
 
             let file_name = path.file_stem().unwrap();
             let str_file_name = file_name.to_string_lossy().to_string();
-            return Ok((document, str_file_name));
+            return Ok((document, str_file_name, meta));
         }
     }
 }
 
-fn create_file_for_tab(document_text: String, json_str: String, document: &[Node], document_name: String, tab_id: &str, state: &tauri::State<Config>) -> Result<String, String> {
+fn create_file_for_tab(document_text: String, json_str: String, document: &[Node], meta: &DocumentMeta, document_name: String, tab_id: &str, state: &tauri::State<Config>) -> Result<String, String> {
     if let Some(mut path) = FileDialog::new()
         .set_title("Save File")
         .set_directory(".")
@@ -260,7 +287,7 @@ fn create_file_for_tab(document_text: String, json_str: String, document: &[Node
     { 
         match path.extension().and_then(|e| e.to_str()) {
             Some("rdocx") => {
-                let binary_data = encode_document(document)
+                let binary_data = encode_document_with_meta(document, meta)
                     .map_err(|e| format!("Encode error: {}", e))?;
                 state.set_tab_path(tab_id, path.clone());
                 state.set_tab_changed(tab_id, false);
@@ -281,7 +308,7 @@ fn create_file_for_tab(document_text: String, json_str: String, document: &[Node
             }
             _ => {
                 path.set_extension("rdocx");
-                let binary_data = encode_document(document)
+                let binary_data = encode_document_with_meta(document, meta)
                     .map_err(|e| format!("Encode error: {}", e))?;
                 state.set_tab_path(tab_id, path.clone());
                 state.set_tab_changed(tab_id, false);
@@ -295,7 +322,7 @@ fn create_file_for_tab(document_text: String, json_str: String, document: &[Node
     }
 }
 #[tauri::command]
-pub fn open(state: tauri::State<Config>) -> Result<(Vec<Node>, String), String> {
+pub fn open(state: tauri::State<Config>) -> Result<(Vec<Node>, String, DocumentMeta), String> {
     let active_tab = state.active_tab.read().unwrap().clone();
     
     if let Some(mut path) = FileDialog::new()

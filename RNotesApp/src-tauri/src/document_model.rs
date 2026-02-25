@@ -1,6 +1,45 @@
 use serde::{Serialize, Deserialize};
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
+#[serde(rename_all = "lowercase")]
+pub enum ViewMode {
+    Notepad,
+    Document,
+}
+
+impl Default for ViewMode {
+    fn default() -> Self {
+        ViewMode::Notepad
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct DocumentMeta {
+    #[serde(default)]
+    pub view_mode: ViewMode,
+    #[serde(default)]
+    pub header_enabled: bool,
+    #[serde(default)]
+    pub footer_enabled: bool,
+    #[serde(default)]
+    pub header_text: String,
+    #[serde(default)]
+    pub footer_text: String,
+}
+
+impl Default for DocumentMeta {
+    fn default() -> Self {
+        DocumentMeta {
+            view_mode: ViewMode::Notepad,
+            header_enabled: false,
+            footer_enabled: false,
+            header_text: String::new(),
+            footer_text: String::new(),
+        }
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(tag = "type")]
 pub enum Node {
     #[serde(rename = "paragraph")]
@@ -67,21 +106,21 @@ pub enum Node {
     },
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct TableRow {
     #[serde(rename = "type")]
     pub node_type: String,
     pub children: Vec<TableCell>,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct TableCell {
     #[serde(rename = "type")]
     pub node_type: String,
     pub children: Vec<TextNode>,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct ListItemNode {
     #[serde(rename = "type")]
     pub node_type: String,
@@ -89,7 +128,7 @@ pub struct ListItemNode {
     pub children: Vec<TextNode>,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "lowercase")]
 pub enum ImageSize {
     Small,
@@ -98,7 +137,7 @@ pub enum ImageSize {
     Original,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "lowercase")]
 pub enum Alignment {
     Start,
@@ -107,7 +146,7 @@ pub enum Alignment {
     Justify,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct TextNode {
     pub text: String,
     pub bold: Option<bool>,

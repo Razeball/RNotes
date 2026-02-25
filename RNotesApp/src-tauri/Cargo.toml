@@ -28,4 +28,5 @@ rfd = "0.14"
 uuid = { version = "1", features = ["v4"] }
 image = "0.25"
 arboard = "3"
+dirs = "5"
 
