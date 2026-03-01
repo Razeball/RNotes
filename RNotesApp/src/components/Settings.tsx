@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import Modal from './Modal';
 import '../styles/Settings.css';
 import { invoke } from '@tauri-apps/api/core';
@@ -34,6 +34,21 @@ interface SettingsProps {
 }
 
 const Settings: React.FC<SettingsProps> = ({ isOpen, onClose, settings, onSettingsChange, onRequestSave, viewMode, onViewModeChange, headerEnabled, footerEnabled, onHeaderEnabledChange, onFooterEnabledChange }) => {
+  const [expandedLicense, setExpandedLicense] = useState<string | null>(null);
+
+  const licenses = [
+    {
+      name: 'Arimo',
+      type: 'Apache License 2.0',
+      description: 'An innovative, refreshing sans serif design that is metrically compatible with Arial.',
+    },
+    {
+      name: 'Tinos',
+      type: 'Apache License 2.0',
+      description: 'A serif typeface that is metrically compatible with Times New Roman.',
+    },
+  ];
+
   const updateSetting = <K extends keyof AppSettings>(key: K, value: AppSettings[K]) => {
     const newSettings = { ...settings, [key]: value };
     onSettingsChange(newSettings);
@@ -188,6 +203,92 @@ const Settings: React.FC<SettingsProps> = ({ isOpen, onClose, settings, onSettin
               </div>
             </>
           )}
+        </div>
+
+        <div className="settings-section">
+          <div className="settings-row">
+            <div className="settings-info">
+              <span className="settings-label">Licenses</span>
+              <span className="settings-description">
+                Open source licenses for fonts and libraries used in this application
+              </span>
+            </div>
+          </div>
+          {licenses.map((license) => (
+            <div key={license.name} className="license-entry">
+              <button
+                className="license-header"
+                onClick={() => setExpandedLicense(expandedLicense === license.name ? null : license.name)}
+              >
+                <div className="license-header-info">
+                  <span className="license-name">{license.name}</span>
+                  <span className="license-type">{license.type}</span>
+                </div>
+                <span className={`license-chevron ${expandedLicense === license.name ? 'expanded' : ''}`}>&#9654;</span>
+              </button>
+              {expandedLicense === license.name && (
+                <div className="license-content">
+                  <p className="license-description">{license.description}</p>
+                  <pre className="license-text">{`Apache License
+Version 2.0, January 2004
+http://www.apache.org/licenses/
+
+TERMS AND CONDITIONS FOR USE, REPRODUCTION, AND DISTRIBUTION
+
+1. Definitions.
+
+"License" shall mean the terms and conditions for use, reproduction, and distribution as defined by Sections 1 through 9 of this document.
+
+"Licensor" shall mean the copyright owner or entity authorized by the copyright owner that is granting the License.
+
+"Legal Entity" shall mean the union of the acting entity and all other entities that control, are controlled by, or are under common control with that entity.
+
+"You" (or "Your") shall mean an individual or Legal Entity exercising permissions granted by this License.
+
+"Source" form shall mean the preferred form for making modifications, including but not limited to software source code, documentation source, and configuration files.
+
+"Object" form shall mean any form resulting from mechanical transformation or translation of a Source form.
+
+"Work" shall mean the work of authorship, whether in Source or Object form, made available under the License.
+
+"Derivative Works" shall mean any work, whether in Source or Object form, that is based on (or derived from) the Work.
+
+"Contribution" shall mean any work of authorship, including the original version of the Work and any modifications or additions to that Work or Derivative Works thereof, that is intentionally submitted to the Licensor for inclusion in the Work by the copyright owner.
+
+"Contributor" shall mean Licensor and any individual or Legal Entity on behalf of whom a Contribution has been received by Licensor and subsequently incorporated within the Work.
+
+2. Grant of Copyright License. Subject to the terms and conditions of this License, each Contributor hereby grants to You a perpetual, worldwide, non-exclusive, no-charge, royalty-free, irrevocable copyright license to reproduce, prepare Derivative Works of, publicly display, publicly perform, sublicense, and distribute the Work and such Derivative Works in Source or Object form.
+
+3. Grant of Patent License. Subject to the terms and conditions of this License, each Contributor hereby grants to You a perpetual, worldwide, non-exclusive, no-charge, royalty-free, irrevocable patent license to make, have made, use, offer to sell, sell, import, and otherwise transfer the Work.
+
+4. Redistribution. You may reproduce and distribute copies of the Work or Derivative Works thereof in any medium, with or without modifications, and in Source or Object form, provided that You meet the following conditions:
+
+(a) You must give any other recipients of the Work or Derivative Works a copy of this License; and
+(b) You must cause any modified files to carry prominent notices stating that You changed the files; and
+(c) You must retain, in the Source form of any Derivative Works that You distribute, all copyright, patent, trademark, and attribution notices from the Source form of the Work; and
+(d) If the Work includes a "NOTICE" text file as part of its distribution, then any Derivative Works that You distribute must include a readable copy of the attribution notices contained within such NOTICE file.
+
+5. Submission of Contributions. Unless You explicitly state otherwise, any Contribution intentionally submitted for inclusion in the Work by You to the Licensor shall be under the terms and conditions of this License.
+
+6. Trademarks. This License does not grant permission to use the trade names, trademarks, service marks, or product names of the Licensor.
+
+7. Disclaimer of Warranty. Unless required by applicable law or agreed to in writing, Licensor provides the Work on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+
+8. Limitation of Liability. In no event and under no legal theory shall any Contributor be liable to You for damages, including any direct, indirect, special, incidental, or consequential damages of any character arising as a result of this License or out of the use or inability to use the Work.
+
+9. Accepting Warranty or Additional Liability. While redistributing the Work or Derivative Works thereof, You may choose to offer, and charge a fee for, acceptance of support, warranty, indemnity, or other liability obligations and/or rights consistent with this License.
+
+END OF TERMS AND CONDITIONS
+
+Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in compliance with the License. You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the specific language governing permissions and limitations under the License.`}</pre>
+                </div>
+              )}
+            </div>
+          ))}
         </div>
       </div>
     </Modal>

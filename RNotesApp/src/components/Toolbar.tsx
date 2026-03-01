@@ -1,23 +1,70 @@
-import { useState, useEffect } from 'react'
-import { BaseEditor, Editor, Transforms, Text, Range, Element as SlateElement, Node } from 'slate'
+import { useState, useEffect, useRef } from 'react'
+import { Editor, Text, Range } from 'slate'
 import { ReactEditor } from 'slate-react'
-import { HistoryEditor } from 'slate-history'
 import Dropdown, { DropdownOption } from './Dropdown'
 import Popup from './Popup'
 import Modal from './Modal'
+import {
+    EditorInstance,
+    EditorWithLinkActions,
+    toggleBold,
+    toggleItalic,
+    toggleUnderline,
+    eraseFormatting as eraseFormattingAction,
+    setAlignment,
+    changeTextStyle as changeTextStyleAction,
+    toggleUnorderedList,
+    toggleOrderedList,
+    setFontSize as applyFontSize,
+    setColor as applyColor,
+    setFontFamily as applyFontFamily,
+    insertLinkMark,
+    removeLink,
+    getHeaders as getHeadersAction,
+} from '../editorActions'
 
 
 type ToolbarProps = {
-    editor: BaseEditor & ReactEditor & HistoryEditor
+    editor: EditorInstance
 }
 
 const Toolbar = ({ editor }: ToolbarProps) => {
     const [fontSize, setFontSize] = useState<string>('16')
     const [textColor, setTextColor] = useState<string>('black')
+    const [fontFamily, setFontFamily] = useState<string>('Arial')
+    const [fontSearch, setFontSearch] = useState<string>('Arial')
+    const [showFontDropdown, setShowFontDropdown] = useState(false)
+    const [isFontDropdownAnimating, setIsFontDropdownAnimating] = useState(false)
+    const [isFontSearching, setIsFontSearching] = useState(false)
+    const fontDropdownRef = useRef<HTMLDivElement>(null)
     const [showLinkModal, setShowLinkModal] = useState(false)
     const [showHeaderLinkModal, setShowHeaderLinkModal] = useState(false)
     const [linkUrl, setLinkUrl] = useState('')
     const [headers, setHeaders] = useState<{ id: string; text: string; type: string }[]>([])
+
+    const availableFonts = [
+        'Arial',
+        'Times New Roman',
+        'Courier New',
+        'Georgia',
+        'Verdana',
+        'Helvetica',
+        'Trebuchet MS',
+        'Comic Sans MS',
+        'Impact',
+        'Lucida Console',
+        'Arimo',
+        'Google Sans Code',
+        'Jacquard 12',
+        'Roboto Flex',
+        'Tinos',
+    ]
+
+    const filteredFonts = isFontSearching && fontSearch.trim() !== ''
+        ? availableFonts.filter(f =>
+            f.toLowerCase().includes(fontSearch.toLowerCase())
+        )
+        : availableFonts
     
 
     const colorOptions: DropdownOption<'red' | 'blue' | 'white' | 'black' | 'green'>[] = [
@@ -66,7 +113,10 @@ const Toolbar = ({ editor }: ToolbarProps) => {
                     }
                     if ('color' in marks && marks.color !== undefined) {
                         setTextColor(marks.color)
-                        return
+                    }
+                    if ('fontFamily' in marks && marks.fontFamily !== undefined) {
+                        setFontFamily(marks.fontFamily)
+                        setFontSearch(marks.fontFamily)
                     }
                 }
 
@@ -77,6 +127,7 @@ const Toolbar = ({ editor }: ToolbarProps) => {
 
                 const fontSizes = new Set<number>()
                 const colors = new Set<string>()
+                const fontFamilies = new Set<string>()
                 
                 for (const [node] of textNodesWithSize) {
                     if (Text.isText(node)) {
@@ -90,6 +141,11 @@ const Toolbar = ({ editor }: ToolbarProps) => {
                         } else {
                             colors.add('black')
                         }
+                        if (node.fontFamily !== undefined) {
+                            fontFamilies.add(node.fontFamily)
+                        } else {
+                            fontFamilies.add('Arial')
+                        }
                     }
                 }
 
@@ -99,6 +155,18 @@ const Toolbar = ({ editor }: ToolbarProps) => {
                     setFontSize(String(Array.from(fontSizes)[0]))
                 } else {
                     setFontSize('16')
+                }
+
+                if (fontFamilies.size > 1) {
+                    setFontFamily('')
+                    setFontSearch('')
+                } else if (fontFamilies.size === 1) {
+                    const ff = Array.from(fontFamilies)[0]
+                    setFontFamily(ff)
+                    setFontSearch(ff)
+                } else {
+                    setFontFamily('Arial')
+                    setFontSearch('Arial')
                 }
 
                 if (colors.size === 1) {
@@ -121,16 +189,16 @@ const Toolbar = ({ editor }: ToolbarProps) => {
             if (e.ctrlKey) {
                 switch (e.key) {
                     case 'b':
-                        toggleBold()
+                        toggleBold(editor)
                         break;
                     case 'i':
-                        toogleItalic()
+                        toggleItalic(editor)
                         break;  
                     case 'u':
-                        toogleUnderline()
+                        toggleUnderline(editor)
                         break;
                     case "\\":
-                        eraseFormatting()
+                        eraseFormattingAction(editor)
                         break;
                     default:
                         break;
@@ -142,152 +210,58 @@ const Toolbar = ({ editor }: ToolbarProps) => {
         return () => window.removeEventListener("keydown", handleKeyDown);
     }, []);
     
-    const toggleBold = (event?: React.MouseEvent) => {
-        event?.preventDefault() 
-        const [match] = Editor.nodes(editor, {
-            match: (n: any) => n.bold === true, 
-            universal: true
-        })
-        Transforms.setNodes(
-            editor,
-            { bold: match ? undefined : true },
-            { match: (n: any) => Text.isText(n), split: true }
-        )
+    const handleToggleBold = (event?: React.MouseEvent) => {
+        event?.preventDefault()
+        toggleBold(editor)
     }
 
-    const toogleItalic = (event?: React.MouseEvent) => {
+    const handleToggleItalic = (event?: React.MouseEvent) => {
         event?.preventDefault()
-        const [match] = Editor.nodes(editor, {
-            match: (n: any) => n.italic === true, 
-            universal: true
-        })
-        Transforms.setNodes(
-            editor,
-            { italic: match ? undefined : true },
-            { match: (n: any) => Text.isText(n), split: true }
-        )
+        toggleItalic(editor)
     }
 
-    const toogleUnderline = (event?: React.MouseEvent) => {
+    const handleToggleUnderline = (event?: React.MouseEvent) => {
         event?.preventDefault()
-        const [match] = Editor.nodes(editor, {
-            match: (n: any) => n.underline === true, 
-            universal: true
-        })
-        Transforms.setNodes(
-            editor,
-            { underline: match ? undefined : true },
-            { match: (n: any) => Text.isText(n), split: true }
-        )
+        toggleUnderline(editor)
     }
-    const eraseFormatting = (event?: React.MouseEvent) => {
+
+    const handleEraseFormatting = (event?: React.MouseEvent) => {
         event?.preventDefault()
-        const { selection } = editor
-        if (!selection) return
-        Transforms.setNodes(
-            editor,
-            { bold: undefined, italic: undefined, underline: undefined, fontSize: undefined, color: undefined, code: undefined, quote: undefined, crossedOut: undefined, highlight: undefined, href: undefined, link: undefined },
-            { match: (n: any) => Text.isText(n), split: true }
-        )
+        eraseFormattingAction(editor)
     }
 
     const alignStart = (event: React.MouseEvent) => {
         event.preventDefault()
-        Transforms.setNodes(
-            editor,
-            { alignment: 'start' },
-            { match: n => SlateElement.isElement(n) }
-        )
+        setAlignment(editor, 'start')
     }
 
     const alignCenter = (event: React.MouseEvent) => {
         event.preventDefault()
-        Transforms.setNodes(
-            editor,
-            { alignment: 'center' },
-            { match: n => SlateElement.isElement(n) }
-        )
+        setAlignment(editor, 'center')
     }
 
     const alignEnd = (event: React.MouseEvent) => {
         event.preventDefault()
-        Transforms.setNodes(
-            editor,
-            { alignment: 'end' },
-            { match: n => SlateElement.isElement(n) }
-        )
+        setAlignment(editor, 'end')
     }
 
     const alignJustify = (event: React.MouseEvent) => {
         event.preventDefault()
-        Transforms.setNodes(
-            editor,
-            { alignment: 'justify' },
-            { match: n => SlateElement.isElement(n) }
-        )
+        setAlignment(editor, 'justify')
     }
 
     const changeTextStyle = (style: 'paragraph' | 'header' | 'header2' | 'header3' | 'header4') => {
-        Transforms.setNodes(
-            editor,
-            { type: style },
-            { match: n => SlateElement.isElement(n) }
-        )
-        ReactEditor.focus(editor)
+        changeTextStyleAction(editor, style)
     }
 
     const makeUnorderedList = (event: React.MouseEvent) => {
         event.preventDefault()
-        const { selection } = editor
-        if (!selection) return
-
-        const [match] = Editor.nodes(editor, {
-            match: n => SlateElement.isElement(n) && (n.type === 'ulist' || n.type === 'olist')
-        })
-
-        if (match) {
-            Transforms.unwrapNodes(editor, {
-                match: n => SlateElement.isElement(n) && (n.type === 'ulist' || n.type === 'olist'),
-                split: true
-            })
-            Transforms.setNodes(editor, { type: 'paragraph' }, {
-                match: n => SlateElement.isElement(n) && n.type === 'list-item'
-            })
-        } else {
-            Transforms.setNodes(editor, { type: 'list-item' }, {
-                match: n => SlateElement.isElement(n) && n.type === 'paragraph'
-            })
-            Transforms.wrapNodes(editor, { type: 'ulist', children: [] }, {
-                match: n => SlateElement.isElement(n) && n.type === 'list-item'
-            })
-        }
+        toggleUnorderedList(editor)
     }
 
     const makeOrderedList = (event: React.MouseEvent) => {
         event.preventDefault()
-        const { selection } = editor
-        if (!selection) return
-
-        const [match] = Editor.nodes(editor, {
-            match: n => SlateElement.isElement(n) && (n.type === 'ulist' || n.type === 'olist')
-        })
-
-        if (match) {
-            Transforms.unwrapNodes(editor, {
-                match: n => SlateElement.isElement(n) && (n.type === 'ulist' || n.type === 'olist'),
-                split: true
-            })
-            Transforms.setNodes(editor, { type: 'paragraph' }, {
-                match: n => SlateElement.isElement(n) && n.type === 'list-item'
-            })
-        } else {
-            Transforms.setNodes(editor, { type: 'list-item' }, {
-                match: n => SlateElement.isElement(n) && n.type === 'paragraph'
-            })
-            Transforms.wrapNodes(editor, { type: 'olist', children: [] }, {
-                match: n => SlateElement.isElement(n) && n.type === 'list-item'
-            })
-        }
+        toggleOrderedList(editor)
     }
 
     const handleFontSizeChange = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -296,110 +270,99 @@ const Toolbar = ({ editor }: ToolbarProps) => {
         
         if (value && !isNaN(Number(value))) {
             const numSize = Number(value)
-            const { selection } = editor
-            if (selection) {
-                if (!Range.isCollapsed(selection)) {
-                    Transforms.setNodes(
-                        editor,
-                        { fontSize: numSize },
-                        { at: selection, match: (n: any) => Text.isText(n), split: true }
-                    )
-                }
-                Editor.addMark(editor, 'fontSize', numSize)
-                ReactEditor.focus(editor)
-            }
+            applyFontSize(editor, numSize)
+            ReactEditor.focus(editor)
         }
     }
 
     const handleSelectSize = (size: number) => {
         setFontSize(String(size))
-        const { selection } = editor
-        if (selection) {
-            if (!Range.isCollapsed(selection)) {
-                Transforms.setNodes(
-                    editor,
-                    { fontSize: size },
-                    { at: selection, match: (n: any) => Text.isText(n), split: true }
-                )
-            }
-            Editor.addMark(editor, 'fontSize', size)
-        }
+        applyFontSize(editor, size)
         ReactEditor.focus(editor)
     }
+
+    const handleSelectFont = (font: string) => {
+        setFontFamily(font)
+        setFontSearch(font)
+        applyFontFamily(editor, font)
+        closeFontDropdown()
+        ReactEditor.focus(editor)
+    }
+
+    const handleFontSearchChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+        const value = event.target.value
+        setFontSearch(value)
+        setIsFontSearching(true)
+        if (!showFontDropdown) {
+            setShowFontDropdown(true)
+            setIsFontDropdownAnimating(true)
+        }
+    }
+
+    const handleFontSearchBlur = () => {
+        setTimeout(() => {
+            if (!fontSearch.trim()) {
+                handleSelectFont('Arial')
+                return
+            }
+            const match = availableFonts.find(f => f.toLowerCase() === fontSearch.toLowerCase())
+            if (match) {
+                handleSelectFont(match)
+            } else {
+                handleSelectFont('Arial')
+            }
+        }, 200)
+    }
+
+    const handleFontSearchKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+        if (e.key === 'Enter') {
+            e.preventDefault()
+            if (!fontSearch.trim()) {
+                handleSelectFont('Arial')
+                return
+            }
+            const match = availableFonts.find(f => f.toLowerCase() === fontSearch.toLowerCase())
+            if (match) {
+                handleSelectFont(match)
+            } else {
+                handleSelectFont('Arial')
+            }
+        }
+    }
+
+    const closeFontDropdown = () => {
+        setIsFontDropdownAnimating(false)
+        setIsFontSearching(false)
+        setTimeout(() => setShowFontDropdown(false), 150)
+    }
+
+    useEffect(() => {
+        const handleClickOutsideFont = (event: MouseEvent) => {
+            if (fontDropdownRef.current && !fontDropdownRef.current.contains(event.target as globalThis.Node)) {
+                closeFontDropdown()
+            }
+        }
+        if (showFontDropdown) {
+            document.addEventListener('mousedown', handleClickOutsideFont)
+        }
+        return () => document.removeEventListener('mousedown', handleClickOutsideFont)
+    }, [showFontDropdown])
 
     const handleSelectColor = (color: 'red' | 'blue' | 'white' | 'black' | 'green') => {
         setTextColor(color)
-        const { selection } = editor
-        if (selection) {
-            if (!Range.isCollapsed(selection)) {
-                Transforms.setNodes(
-                    editor,
-                    { color: color },
-                    { at: selection, match: (n: any) => Text.isText(n), split: true }
-                )
-            }
-            Editor.addMark(editor, 'color', color)
-        }
+        applyColor(editor, color)
         ReactEditor.focus(editor)
     }
 
-    const generateId = (text: string) => {
-        return text
-            .toLowerCase()
-            .replace(/[^a-z0-9\s]/g, '')
-            .replace(/\s+/g, '-')
-            .substring(0, 50)
-    }
-
-    const getHeaders = () => {
-        const headerTypes = ['header', 'header2', 'header3', 'header4']
-        const foundHeaders: { id: string; text: string; type: string }[] = []
-        
-        for (const [node, path] of Node.nodes(editor)) {
-            if (SlateElement.isElement(node) && headerTypes.includes(node.type)) {
-                const text = Node.string(node)
-                const id = node.id || generateId(text)
-                
-                if (!node.id && text) {
-                    Transforms.setNodes(editor, { id }, { at: path })
-                }
-                
-                if (text) {
-                    foundHeaders.push({
-                        id,
-                        text,
-                        type: node.type
-                    })
-                }
-            }
-        }
-        
-        return foundHeaders
-    }
-
     const insertHeaderLink = (headerId: string) => {
-        const { selection } = editor
-        if (selection && !Range.isCollapsed(selection)) {
-            Transforms.setNodes(
-                editor,
-                { link: true, href: `#${headerId}` },
-                { at: selection, match: (n: any) => Text.isText(n), split: true }
-            )
-        }
+        insertLinkMark(editor, `#${headerId}`)
         setShowHeaderLinkModal(false)
         ReactEditor.focus(editor)
     }
 
     const insertLink = () => {
         if (!linkUrl) return
-        const { selection } = editor
-        if (selection && !Range.isCollapsed(selection)) {
-            Transforms.setNodes(
-                editor,
-                { link: true, href: linkUrl },
-                { at: selection, match: (n: any) => Text.isText(n), split: true }
-            )
-        }
+        insertLinkMark(editor, linkUrl)
         setShowLinkModal(false)
         setLinkUrl('')
         ReactEditor.focus(editor)
@@ -421,20 +384,16 @@ const Toolbar = ({ editor }: ToolbarProps) => {
                 alert('Please select text to create a link')
                 return
             }
-            const foundHeaders = getHeaders()
+            const foundHeaders = getHeadersAction(editor)
             setHeaders(foundHeaders)
             setShowHeaderLinkModal(true)
         },
         removeLink: () => {
-            Transforms.setNodes(
-                editor,
-                { link: undefined, href: undefined },
-                { match: (n: any) => Text.isText(n), split: true }
-            )
+            removeLink(editor)
         }
     }
 
-    ;(editor as any).linkActions = linkActions
+    ;(editor as EditorWithLinkActions).linkActions = linkActions
 
     return (
         <div className='toolbar'>
@@ -442,25 +401,25 @@ const Toolbar = ({ editor }: ToolbarProps) => {
             content="Ctrl+b"
             position="bottom"
             delay={300}>
-            <button onMouseDown={toggleBold}><b>B</b></button>
+            <button onMouseDown={handleToggleBold}><b>B</b></button>
             </Popup>
             <Popup
             content="Ctrl+i"
             position="bottom"
             delay={300}>
-            <button onMouseDown={toogleItalic}><i>I</i></button>
+            <button onMouseDown={handleToggleItalic}><i>I</i></button>
             </Popup>
             <Popup
             content="Ctrl+u"
             position="bottom"
             delay={300}>
-            <button onMouseDown={toogleUnderline}><u>U</u></button>
+            <button onMouseDown={handleToggleUnderline}><u>U</u></button>
             </Popup>
             <Popup
             content="Ctrl+\"
             position="bottom"
             delay={300}>
-            <button onMouseDown={eraseFormatting}><img src='NoFormat.svg'/></button>
+            <button onMouseDown={handleEraseFormatting}><img src='NoFormat.svg'/></button>
             </Popup>
             <button onMouseDown={alignStart}><img src="Left.svg" alt="" /></button>
             <button onMouseDown={alignCenter}><img src="Center.svg" alt="" /></button>
@@ -529,6 +488,59 @@ const Toolbar = ({ editor }: ToolbarProps) => {
                     />
                 )}
             />
+
+            {/* Font Selector */}
+            <div ref={fontDropdownRef} style={{ position: 'relative', display: 'inline-block' }}>
+                <input
+                    type="text"
+                    value={fontSearch}
+                    onChange={handleFontSearchChange}
+                    onBlur={handleFontSearchBlur}
+                    onKeyDown={handleFontSearchKeyDown}
+                    onFocus={(e) => {
+                        e.target.select()
+                        setIsFontSearching(false)
+                        setShowFontDropdown(true)
+                        setIsFontDropdownAnimating(true)
+                    }}
+                    onMouseDown={(e) => e.stopPropagation()}
+                    style={{ width: '130px', marginLeft: '10px', fontFamily: fontFamily || 'Arial' }}
+                    placeholder="Font"
+                />
+                {showFontDropdown && (
+                    <div
+                        className={`dropdown-menu value-dropdown-menu ${isFontDropdownAnimating ? 'open' : 'closing'}`}
+                        style={{ maxHeight: '200px', overflowY: 'auto', width: '200px' }}
+                        onMouseLeave={() => closeFontDropdown()}
+                    >
+                        {filteredFonts.length === 0 ? (
+                            <div style={{ padding: '8px 16px', color: '#888', fontSize: '13px' }}>
+                                No matching font found
+                            </div>
+                        ) : (
+                            (() => {
+                                const sortedFonts = fontFamily && !isFontSearching
+                                    ? [fontFamily, ...filteredFonts.filter(f => f !== fontFamily)]
+                                    : filteredFonts
+                                return sortedFonts.map((font) => (
+                                    <div
+                                        key={font}
+                                        onMouseDown={(e) => {
+                                            e.preventDefault()
+                                            handleSelectFont(font)
+                                        }}
+                                        className={`value-dropdown-item ${fontFamily === font ? 'selected' : ''}`}
+                                        style={{ fontFamily: font, display: 'flex', alignItems: 'center', gap: '8px' }}
+                                    >
+                                        <span style={{ width: '16px', flexShrink: 0 }}>{fontFamily === font ? '✓' : ''}</span>
+                                        <span>{font}</span>
+                                    </div>
+                                ))
+                            })()
+                        )}
+                    </div>
+                )}
+            </div>
 
             {/* External Link Modal */}
             <Modal isOpen={showLinkModal} onClose={() => setShowLinkModal(false)} title="Insert Link">

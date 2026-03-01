@@ -66,10 +66,10 @@ pub fn decode_document_with_meta(data: &[u8]) -> Result<(Vec<Node>, DocumentMeta
     cursor.read_exact(&mut version)?;
     let version = version[0];
 
-    if version != 1 && version != 2 {
+    if version != 1 && version != 2 && version != 3 {
         return Err(Error::new(
             ErrorKind::InvalidData, 
-            format!("Unsupported version: {} (expected 1 or 2)", version)
+            format!("Unsupported version: {} (expected 1, 2, or 3)", version)
         ));
     }
 
@@ -108,52 +108,52 @@ pub fn decode_document_with_meta(data: &[u8]) -> Result<(Vec<Node>, DocumentMeta
     
     let mut nodes = Vec::with_capacity(node_count as usize);
     for _ in 0..node_count {
-        let node = decode_node(&mut cursor)?;
+        let node = decode_node(&mut cursor, version)?;
         nodes.push(node);
     }
     
     Ok((nodes, meta))
 }
 
-fn decode_node(cursor: &mut Cursor<&[u8]>) -> Result<Node> {
+fn decode_node(cursor: &mut Cursor<&[u8]>, version: u8) -> Result<Node> {
 
     let mut node_type = [0u8; 1];
     cursor.read_exact(&mut node_type)?;
     
     match node_type[0] {
-        NODE_PARAGRAPH => decode_standard_node(cursor, |alignment, children| {
+        NODE_PARAGRAPH => decode_standard_node(cursor, version, |alignment, children| {
             Node::Paragraph { alignment, children }
         }),
-        NODE_HEADER => decode_standard_node(cursor, |alignment, children| {
+        NODE_HEADER => decode_standard_node(cursor, version, |alignment, children| {
             Node::Header { alignment, children }
         }),
-        NODE_HEADER2 => decode_standard_node(cursor, |alignment, children| {
+        NODE_HEADER2 => decode_standard_node(cursor, version, |alignment, children| {
             Node::Header2 { alignment, children }
         }),
-        NODE_HEADER3 => decode_standard_node(cursor, |alignment, children| {
+        NODE_HEADER3 => decode_standard_node(cursor, version, |alignment, children| {
             Node::Header3 { alignment, children }
         }),
-        NODE_HEADER4 => decode_standard_node(cursor, |alignment, children| {
+        NODE_HEADER4 => decode_standard_node(cursor, version, |alignment, children| {
             Node::Header4 { alignment, children }
         }),
-        NODE_ULIST => decode_list_node(cursor, |alignment, children| {
+        NODE_ULIST => decode_list_node(cursor, version, |alignment, children| {
             Node::UList { alignment, children }
         }),
-        NODE_OLIST => decode_list_node(cursor, |alignment, children| {
+        NODE_OLIST => decode_list_node(cursor, version, |alignment, children| {
             Node::OList { alignment, children }
         }),
-        NODE_LIST_ITEM => decode_standard_node(cursor, |alignment, children| {
+        NODE_LIST_ITEM => decode_standard_node(cursor, version, |alignment, children| {
             Node::ListItem { alignment, children }
         }),
-        NODE_IMAGE => decode_image_node(cursor),
-        NODE_TABLE => decode_table_node(cursor),
-        NODE_TABLE_ROW => decode_table_row_node(cursor),
-        NODE_TABLE_CELL => decode_table_cell_node(cursor),
+        NODE_IMAGE => decode_image_node(cursor, version),
+        NODE_TABLE => decode_table_node(cursor, version),
+        NODE_TABLE_ROW => decode_table_row_node(cursor, version),
+        NODE_TABLE_CELL => decode_table_cell_node(cursor, version),
         _ => Err(Error::new(ErrorKind::InvalidData, format!("Unknown node type: 0x{:02X}", node_type[0]))),
     }
 }
 
-fn decode_standard_node<F>(cursor: &mut Cursor<&[u8]>, constructor: F) -> Result<Node>
+fn decode_standard_node<F>(cursor: &mut Cursor<&[u8]>, version: u8, constructor: F) -> Result<Node>
 where
     F: FnOnce(Option<Alignment>, Vec<TextNode>) -> Node,
 {
@@ -174,14 +174,14 @@ where
     
     let mut children = Vec::with_capacity(children_count as usize);
     for _ in 0..children_count {
-        let text_node = decode_text_node(cursor)?;
+        let text_node = decode_text_node(cursor, version)?;
         children.push(text_node);
     }
     
     Ok(constructor(alignment, children))
 }
 
-fn decode_list_node<F>(cursor: &mut Cursor<&[u8]>, constructor: F) -> Result<Node>
+fn decode_list_node<F>(cursor: &mut Cursor<&[u8]>, version: u8, constructor: F) -> Result<Node>
 where
     F: FnOnce(Option<Alignment>, Vec<ListItemNode>) -> Node,
 {
@@ -217,7 +217,7 @@ where
         
         let mut text_nodes = Vec::with_capacity(text_count as usize);
         for _ in 0..text_count {
-            let text_node = decode_text_node(cursor)?;
+            let text_node = decode_text_node(cursor, version)?;
             text_nodes.push(text_node);
         }
         
@@ -233,7 +233,7 @@ where
     Ok(constructor(alignment, children))
 }
 
-fn decode_image_node(cursor: &mut Cursor<&[u8]>) -> Result<Node> {
+fn decode_image_node(cursor: &mut Cursor<&[u8]>, version: u8) -> Result<Node> {
 
     let mut flags = [0u8; 1];
     cursor.read_exact(&mut flags)?;
@@ -300,7 +300,7 @@ fn decode_image_node(cursor: &mut Cursor<&[u8]>) -> Result<Node> {
     
     let mut children = Vec::with_capacity(children_count as usize);
     for _ in 0..children_count {
-        let text_node = decode_text_node(cursor)?;
+        let text_node = decode_text_node(cursor, version)?;
         children.push(text_node);
     }
     
@@ -333,7 +333,7 @@ fn save_embedded_image(data: &[u8], format: u8) -> Result<String> {
     Ok(filepath.to_string_lossy().to_string())
 }
 
-fn decode_table_node(cursor: &mut Cursor<&[u8]>) -> Result<Node> {
+fn decode_table_node(cursor: &mut Cursor<&[u8]>, version: u8) -> Result<Node> {
 
     let mut _flags = [0u8; 1];
     cursor.read_exact(&mut _flags)?;
@@ -342,29 +342,29 @@ fn decode_table_node(cursor: &mut Cursor<&[u8]>) -> Result<Node> {
     
     let mut children = Vec::with_capacity(row_count as usize);
     for _ in 0..row_count {
-        let row = decode_table_row_inner(cursor)?;
+        let row = decode_table_row_inner(cursor, version)?;
         children.push(row);
     }
     
     Ok(Node::Table { children })
 }
 
-fn decode_table_row_node(cursor: &mut Cursor<&[u8]>) -> Result<Node> {
+fn decode_table_row_node(cursor: &mut Cursor<&[u8]>, version: u8) -> Result<Node> {
 
     let mut _flags = [0u8; 1];
     cursor.read_exact(&mut _flags)?;
     
-    let row = decode_table_row_inner(cursor)?;
+    let row = decode_table_row_inner(cursor, version)?;
     Ok(Node::TableRow { children: row.children })
 }
 
-fn decode_table_row_inner(cursor: &mut Cursor<&[u8]>) -> Result<TableRow> {
+fn decode_table_row_inner(cursor: &mut Cursor<&[u8]>, version: u8) -> Result<TableRow> {
 
     let cell_count = read_u32(cursor)?;
 
     let mut children = Vec::with_capacity(cell_count as usize);
     for _ in 0..cell_count {
-        let cell = decode_table_cell_inner(cursor)?;
+        let cell = decode_table_cell_inner(cursor, version)?;
         children.push(cell);
     }
     
@@ -374,20 +374,20 @@ fn decode_table_row_inner(cursor: &mut Cursor<&[u8]>) -> Result<TableRow> {
     })
 }
 
-fn decode_table_cell_node(cursor: &mut Cursor<&[u8]>) -> Result<Node> {
+fn decode_table_cell_node(cursor: &mut Cursor<&[u8]>, version: u8) -> Result<Node> {
     let mut _flags = [0u8; 1];
     cursor.read_exact(&mut _flags)?;
     
-    let cell = decode_table_cell_inner(cursor)?;
+    let cell = decode_table_cell_inner(cursor, version)?;
     Ok(Node::TableCell { children: cell.children })
 }
 
-fn decode_table_cell_inner(cursor: &mut Cursor<&[u8]>) -> Result<TableCell> {
+fn decode_table_cell_inner(cursor: &mut Cursor<&[u8]>, version: u8) -> Result<TableCell> {
     let text_node_count = read_u32(cursor)?;
     
     let mut children = Vec::with_capacity(text_node_count as usize);
     for _ in 0..text_node_count {
-        let text_node = decode_text_node(cursor)?;
+        let text_node = decode_text_node(cursor, version)?;
         children.push(text_node);
     }
     
@@ -397,7 +397,7 @@ fn decode_table_cell_inner(cursor: &mut Cursor<&[u8]>) -> Result<TableCell> {
     })
 }
 
-fn decode_text_node(cursor: &mut Cursor<&[u8]>) -> Result<TextNode> {
+fn decode_text_node(cursor: &mut Cursor<&[u8]>, version: u8) -> Result<TextNode> {
 
     let mut style_flags = [0u8; 1];
     cursor.read_exact(&mut style_flags)?;
@@ -426,6 +426,18 @@ fn decode_text_node(cursor: &mut Cursor<&[u8]>) -> Result<TextNode> {
     } else {
         None
     };
+
+    let font_family = if version >= 3 {
+        let mut font_family_len = [0u8; 1];
+        cursor.read_exact(&mut font_family_len)?;
+        if font_family_len[0] > 0 {
+            Some(read_utf8_string(cursor, font_family_len[0] as usize)?)
+        } else {
+            None
+        }
+    } else {
+        None
+    };
     
     let text = read_utf8_string(cursor, text_len as usize)?;
     
@@ -449,6 +461,7 @@ fn decode_text_node(cursor: &mut Cursor<&[u8]>) -> Result<TextNode> {
         color,
         link,
         href,
+        font_family,
     })
 }
 
@@ -524,6 +537,7 @@ mod tests {
                     color: Some("#FF0000".to_string()),
                     link: None,
                     href: None,
+                    font_family: None,
                 }],
             },
         ];
@@ -568,6 +582,7 @@ mod tests {
                     color: None,
                     link: None,
                     href: None,
+                    font_family: None,
                 }],
             },
         ];
@@ -612,6 +627,7 @@ mod tests {
                                     color: None,
                                     link: None,
                                     href: None,
+                                    font_family: None,
                                 }],
                             },
                             TableCell {
@@ -628,6 +644,7 @@ mod tests {
                                     color: None,
                                     link: None,
                                     href: None,
+                                    font_family: None,
                                 }],
                             },
                         ],
@@ -688,6 +705,7 @@ mod tests {
                             color: None,
                             link: None,
                             href: None,
+                            font_family: None,
                         }],
                     },
                     ListItemNode {
@@ -705,6 +723,7 @@ mod tests {
                             color: None,
                             link: None,
                             href: None,
+                            font_family: None,
                         }],
                     },
                 ],

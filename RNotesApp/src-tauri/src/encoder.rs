@@ -3,7 +3,7 @@ use std::io::{Write, Result, Error, ErrorKind};
 
 // Magic bytes and version
 const MAGIC: &[u8; 3] = b"RDC";
-const VERSION: u8 = 2;
+const VERSION: u8 = 3;
 
 // Node type constants
 const NODE_PARAGRAPH: u8 = 0x01;
@@ -491,6 +491,14 @@ fn encode_text_node(buffer: &mut Vec<u8>, text_node: &TextNode) -> Result<()> {
     buffer.write_all(&[color_len as u8])?;
     buffer.write_all(color_bytes)?;
     
+    let font_family_bytes = text_node.font_family.as_ref().map(|s| s.as_bytes()).unwrap_or(&[]);
+    let font_family_len = font_family_bytes.len();
+    if font_family_len > u8::MAX as usize {
+        return Err(Error::new(ErrorKind::InvalidData, "Font family string too long for u8 length"));
+    }
+    buffer.write_all(&[font_family_len as u8])?;
+    buffer.write_all(font_family_bytes)?;
+
     buffer.write_all(text_bytes)?;
     
     Ok(())
@@ -536,6 +544,7 @@ mod tests {
                     color: None,
                     link: None,
                     href: None,
+                    font_family: None,
                 }],
             },
         ];

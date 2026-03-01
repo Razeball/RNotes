@@ -214,6 +214,7 @@ fn load_file_from_path(path: &mut PathBuf) -> Result<(Vec<Node>, String, Documen
                     color: None,
                     link: None,
                     href: None,
+                    font_family: None,
                 }],
              }
             })

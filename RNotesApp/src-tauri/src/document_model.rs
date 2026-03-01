@@ -161,4 +161,6 @@ pub struct TextNode {
     pub color: Option<String>,
     pub link: Option<bool>,
     pub href: Option<String>,
+    #[serde(rename = "fontFamily")]
+    pub font_family: Option<String>,
 }

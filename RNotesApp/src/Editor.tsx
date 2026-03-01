@@ -24,6 +24,7 @@ import StatusBar from "./components/StatusBar";
 import TabBar, { Tab } from "./components/TabBar";
 import Settings, { AppSettings, defaultSettings, ViewMode } from "./components/Settings";
 import PageView from "./components/PageView";
+import { EditorWithLinkActions, removeLink as removeLinkAction } from "./editorActions";
 
 
 export type ImageSize = "small" | "medium" | "large" | "original";
@@ -64,6 +65,7 @@ export type CustomText = {
   fontSize?: number;
   crossedOut?: boolean;
   color?: "red" | "blue" | "white" | "black" | "green";
+  fontFamily?: string;
 };
 
 
@@ -237,6 +239,7 @@ const Leaf = ({ attributes, children, leaf }: RenderLeafProps) => {
     ...(leaf.fontSize && { fontSize: `${leaf.fontSize}px` }),
     ...(leaf.color && { color: leaf.color }),
     ...(leaf.crossedOut && {textDecoration: "line-through"}),
+    ...(leaf.fontFamily && { fontFamily: leaf.fontFamily }),
   };
   return (
     <span {...attributes} style={style}>
@@ -778,7 +781,7 @@ const MySlateEditor = () => {
 
   const handleInsertLink = () => {
     handleCloseContextMenu();
-    const linkActions = (editor as any).linkActions;
+    const linkActions = (editor as EditorWithLinkActions).linkActions;
     if (linkActions) {
       linkActions.openLinkModal();
     }
@@ -786,7 +789,7 @@ const MySlateEditor = () => {
 
   const handleLinkToHeader = () => {
     handleCloseContextMenu();
-    const linkActions = (editor as any).linkActions;
+    const linkActions = (editor as EditorWithLinkActions).linkActions;
     if (linkActions) {
       linkActions.openHeaderLinkModal();
     }
@@ -794,10 +797,7 @@ const MySlateEditor = () => {
 
   const handleRemoveLink = () => {
     handleCloseContextMenu();
-    const linkActions = (editor as any).linkActions;
-    if (linkActions) {
-      linkActions.removeLink();
-    }
+    removeLinkAction(editor);
   };
 
   const contextMenuItems: ContextMenuItem[] = [

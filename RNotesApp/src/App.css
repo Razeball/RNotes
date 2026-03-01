@@ -1,3 +1,95 @@
+/* Custom Font Faces */
+@font-face {
+  font-family: 'Arimo';
+  src: url('/fonts/Arimo/static/Arimo-Regular.ttf') format('truetype');
+  font-weight: 400;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: 'Arimo';
+  src: url('/fonts/Arimo/static/Arimo-Bold.ttf') format('truetype');
+  font-weight: 700;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: 'Arimo';
+  src: url('/fonts/Arimo/static/Arimo-Italic.ttf') format('truetype');
+  font-weight: 400;
+  font-style: italic;
+}
+
+@font-face {
+  font-family: 'Arimo';
+  src: url('/fonts/Arimo/static/Arimo-BoldItalic.ttf') format('truetype');
+  font-weight: 700;
+  font-style: italic;
+}
+
+@font-face {
+  font-family: 'Google Sans Code';
+  src: url('/fonts/Google_Sans_Code/static/GoogleSansCode-Regular.ttf') format('truetype');
+  font-weight: 400;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: 'Google Sans Code';
+  src: url('/fonts/Google_Sans_Code/static/GoogleSansCode-Bold.ttf') format('truetype');
+  font-weight: 700;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: 'Google Sans Code';
+  src: url('/fonts/Google_Sans_Code/static/GoogleSansCode-Italic.ttf') format('truetype');
+  font-weight: 400;
+  font-style: italic;
+}
+
+@font-face {
+  font-family: 'Jacquard 12';
+  src: url('/fonts/Jacquard_12/Jacquard12-Regular.ttf') format('truetype');
+  font-weight: 400;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: 'Roboto Flex';
+  src: url('/fonts/Roboto_Flex/RobotoFlex-VariableFont_GRAD,XOPQ,XTRA,YOPQ,YTAS,YTDE,YTFI,YTLC,YTUC,opsz,slnt,wdth,wght.ttf') format('truetype');
+  font-weight: 100 1000;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: 'Tinos';
+  src: url('/fonts/Tinos/Tinos-Regular.ttf') format('truetype');
+  font-weight: 400;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: 'Tinos';
+  src: url('/fonts/Tinos/Tinos-Bold.ttf') format('truetype');
+  font-weight: 700;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: 'Tinos';
+  src: url('/fonts/Tinos/Tinos-Italic.ttf') format('truetype');
+  font-weight: 400;
+  font-style: italic;
+}
+
+@font-face {
+  font-family: 'Tinos';
+  src: url('/fonts/Tinos/Tinos-BoldItalic.ttf') format('truetype');
+  font-weight: 700;
+  font-style: italic;
+}
+
 .logo.vite:hover {
   filter: drop-shadow(0 0 2em #747bff);
 }
