@@ -12,6 +12,8 @@
     "fs:allow-temp-read-recursive",
     "fs:allow-appdata-read-recursive",
     "fs:scope-temp-recursive",
-    "dialog:default"
+    "dialog:default",
+    "updater:default",
+    "process:allow-restart"
   ]
 }
