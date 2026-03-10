@@ -1,8 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "rnotesapp",
-  "version": "0.2.0",
-  "identifier": "com.said5.rnotesapp",
+  "version": "0.2.1",
+  "identifier": "com.razeball.rnotesapp",
   "build": {
     "beforeDevCommand": "npm run dev",
     "devUrl": "http://localhost:1420",
