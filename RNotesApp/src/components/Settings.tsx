@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Modal from './Modal';
 import '../styles/Settings.css';
 import { invoke } from '@tauri-apps/api/core';
+import { getVersion } from '@tauri-apps/api/app';
 import type { PageSize } from '../models/pageModel';
 export type ViewMode = 'notepad' | 'document';
 
@@ -37,6 +38,11 @@ interface SettingsProps {
 
 const Settings: React.FC<SettingsProps> = ({ isOpen, onClose, settings, onSettingsChange, onRequestSave, viewMode, onViewModeChange, headerEnabled, footerEnabled, onHeaderEnabledChange, onFooterEnabledChange }) => {
   const [expandedLicense, setExpandedLicense] = useState<string | null>(null);
+  const [appVersion, setAppVersion] = useState('');
+
+  useEffect(() => {
+    getVersion().then(setAppVersion).catch(() => {});
+  }, []);
 
   const licenses = [
     {
@@ -311,6 +317,10 @@ Unless required by applicable law or agreed to in writing, software distributed 
               )}
             </div>
           ))}
+        </div>
+
+        <div className="settings-version">
+          v{appVersion}
         </div>
       </div>
     </Modal>
