@@ -206,3 +206,11 @@
   margin: 0;
   font-family: 'Google Sans Code', monospace;
 }
+
+.settings-version {
+  text-align: right;
+  font-size: 11px;
+  color: #666;
+  padding-top: 12px;
+  margin-top: 4px;
+}

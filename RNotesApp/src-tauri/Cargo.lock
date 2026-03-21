@@ -3784,7 +3784,7 @@ dependencies = [
 
 [[package]]
 name = "rnotesapp"
-version = "0.2.2"
+version = "0.2.3"
 dependencies = [
  "arboard",
  "dirs 5.0.1",
