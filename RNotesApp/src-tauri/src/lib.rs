@@ -4,7 +4,9 @@ mod config;
 mod file_handler;
 mod encoder;
 mod decoder;
-use file_handler::{open, save, save_as, open_in_tab, save_tab, save_tab_as};
+mod pdf_export;
+use file_handler::{open, save, save_as, open_in_tab, save_tab, save_tab_as, export_to_file};
+use pdf_export::{export_to_pdf, print_pdf};
 use config::{Config, AppSettings};
 use tauri::{Manager, State, WindowEvent, command, AppHandle};
 use tauri_plugin_dialog::{DialogExt, MessageDialogKind, MessageDialogButtons};
@@ -107,7 +109,9 @@ pub fn run() {
             insert_image_from_file, insert_image_from_clipboard, 
             editor_changed, confirm_discard_changes,
             create_tab, remove_tab, is_tab_changed, confirm_close_tab,
-            is_tab_saved_to_disk, get_settings, update_settings
+            is_tab_saved_to_disk, get_settings, update_settings,
+            export_to_pdf, print_pdf,
+            export_to_file
         ])
         .on_window_event(|window, event|{
             if let WindowEvent::CloseRequested { api, .. } = event {

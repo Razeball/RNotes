@@ -531,11 +531,7 @@ button {
 }
 
 
-@page {
-  margin: 20mm;
-  margin-top: 15mm;
-  margin-bottom: 15mm;
-}
+
 
 @media print {
   html {
@@ -563,6 +559,8 @@ button {
     visibility: visible !important;
     background: white !important;
     padding: 0 !important;
+    height: auto !important;
+    overflow: visible !important;
   }
 
   .editor-container {
@@ -726,6 +724,8 @@ button {
   .pv-break-label,
   .pv-break-bottom-margin,
   .pv-break-top-margin,
+  .pv-break-footer,
+  .pv-break-header,
   .pv-header,
   .pv-footer,
   .pv-page-count-label {
@@ -735,6 +735,7 @@ button {
 
   .pv-editor-surface [data-slate-editor="true"] > * {
     margin-top: 0 !important;
+    margin-bottom: 0 !important;
   }
 
   .pv-editor-surface [data-page-start="true"] {

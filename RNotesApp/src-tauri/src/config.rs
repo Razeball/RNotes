@@ -9,6 +9,12 @@ pub struct AppSettings {
     pub auto_save_interval: u32,
     pub show_unsaved_warning: bool,
     pub show_type_speed: bool,
+    #[serde(default = "default_page_size")]
+    pub page_size: String,
+}
+
+fn default_page_size() -> String {
+    "letter".to_string()
 }
 
 impl Default for AppSettings {
@@ -18,6 +24,7 @@ impl Default for AppSettings {
             auto_save_interval: 5,
             show_unsaved_warning: true,
             show_type_speed: false,
+            page_size: default_page_size(),
         }
     }
 }

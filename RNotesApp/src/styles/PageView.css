@@ -29,6 +29,10 @@
   line-height: 1.8;
   font-size: 16px;
 }
+.pv-editor-surface [data-slate-editor="true"] > * {
+  margin-top: 0;
+  margin-bottom: 0;
+}
 
 .pv-editor-surface [data-slate-placeholder="true"] {
   color: #666 !important;
@@ -122,23 +126,24 @@
   position: absolute;
   left: 0;
   right: 0;
-  pointer-events: none;
+  pointer-events: auto;
   z-index: 5;
   display: flex;
   flex-direction: column;
+  cursor: default;
 }
 
 
 .pv-break-bottom-margin {
-  height: 1px;
-  background-color: #555;
   flex-shrink: 0;
+  background-color: #2a2a2a;
+  border-top: 1px solid #444;
 }
 
 .pv-break-top-margin {
-  height: 1px;
-  background-color: #555;
   flex-shrink: 0;
+  background-color: #2a2a2a;
+  border-bottom: 1px solid #444;
 }
 
 
@@ -148,7 +153,6 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  position: relative;
 }
 
 .pv-break-label {
@@ -156,6 +160,39 @@
   color: #666;
   white-space: nowrap;
   user-select: none;
+}
+
+
+.pv-break-footer,
+.pv-break-header {
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 96px;
+  flex-shrink: 0;
+  background-color: #2a2a2a;
+  box-sizing: border-box;
+}
+
+.pv-break-footer {
+  border-top: 1px dashed #3a3a3a;
+}
+
+.pv-break-header {
+  border-bottom: 1px dashed #3a3a3a;
+}
+
+.pv-break-footer-text,
+.pv-break-header-text {
+  font-size: 11px;
+  color: #555;
+  font-style: italic;
+  text-align: center;
+  width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 

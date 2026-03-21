@@ -1,15 +1,11 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { Editable, RenderElementProps, RenderLeafProps } from 'slate-react';
+import { getPageModel, getContentHeight, type PageSize } from '../models/pageModel';
 import '../styles/PageView.css';
 
-const PAGE_WIDTH = 816;
-const PAGE_PADDING_X = 96;
-const PAGE_PADDING_TOP = 60;
-const PAGE_PADDING_BOTTOM = 60;
 const HEADER_HEIGHT = 32;
 const FOOTER_HEIGHT = 32;
-const BREAK_GAP = 40;
-const BASE_PAGE_CONTENT_HEIGHT = 1056 - PAGE_PADDING_TOP - PAGE_PADDING_BOTTOM; 
+const VISUAL_GAP = 24;
 
 interface BreakInfo {
   visualY: number;
@@ -20,8 +16,6 @@ interface BreakInfo {
 interface PageViewProps {
   renderElement: (props: RenderElementProps) => React.JSX.Element;
   renderLeaf: (props: RenderLeafProps) => React.JSX.Element;
-  onPaste: (event: React.ClipboardEvent) => void;
-  onKeyDown: (event: React.KeyboardEvent) => void;
   headerEnabled: boolean;
   footerEnabled: boolean;
   headerText: string;
@@ -29,13 +23,12 @@ interface PageViewProps {
   onHeaderTextChange: (text: string) => void;
   onFooterTextChange: (text: string) => void;
   onPageCountChange: (count: number) => void;
+  pageSize: PageSize;
 }
 
 const PageView: React.FC<PageViewProps> = ({
   renderElement,
   renderLeaf,
-  onPaste,
-  onKeyDown,
   headerEnabled,
   footerEnabled,
   headerText,
@@ -43,23 +36,29 @@ const PageView: React.FC<PageViewProps> = ({
   onHeaderTextChange,
   onFooterTextChange,
   onPageCountChange,
+  pageSize,
 }) => {
+  const model = getPageModel(pageSize);
+  const headerH = headerEnabled ? HEADER_HEIGHT : 0;
+  const footerH = footerEnabled ? FOOTER_HEIGHT : 0;
+  const pageContentHeight = getContentHeight(model, headerH, footerH);
+
+  
+  const breakTotalHeight = footerH + model.marginBottom + VISUAL_GAP + model.marginTop + headerH;
+
   const surfaceRef = useRef<HTMLDivElement>(null);
   const observerRef = useRef<MutationObserver | null>(null);
   const adjustingRef = useRef(false);
   const pageCountRef = useRef(1);
   const breakInfosRef = useRef<string>('[]');
-  const minHeightRef = useRef(BASE_PAGE_CONTENT_HEIGHT);
+  const minHeightRef = useRef(pageContentHeight);
+  const rafRef = useRef<number>(0);
 
   const [pageCount, setPageCount] = useState(1);
   const [breakInfos, setBreakInfos] = useState<BreakInfo[]>([]);
-  const [editableMinHeight, setEditableMinHeight] = useState(BASE_PAGE_CONTENT_HEIGHT);
+  const [editableMinHeight, setEditableMinHeight] = useState(pageContentHeight);
   const [editingHeader, setEditingHeader] = useState(false);
   const [editingFooter, setEditingFooter] = useState(false);
-
-  const pageContentHeight = BASE_PAGE_CONTENT_HEIGHT
-    - (headerEnabled ? HEADER_HEIGHT : 0)
-    - (footerEnabled ? FOOTER_HEIGHT : 0);
 
   const reconnectObserver = useCallback(() => {
     if (surfaceRef.current && observerRef.current) {
@@ -85,76 +84,59 @@ const PageView: React.FC<PageViewProps> = ({
       return;
     }
 
+    
+    const computedStyle = getComputedStyle(editable);
+    const lineHeight = parseFloat(computedStyle.lineHeight) || 28.8;
+    const linesPerPage = Math.floor(pageContentHeight / lineHeight);
+    const usablePageHeight = linesPerPage * lineHeight;
+
     const children = Array.from(editable.children) as HTMLElement[];
 
+    
     for (const child of children) {
       if (child.dataset.pvGap) {
         child.style.marginTop = '';
         delete child.dataset.pvGap;
       }
-      if (child.dataset.pageStart) {
-        delete child.dataset.pageStart;
-      }
+      delete child.dataset.pageStart;
     }
-
-    let totalContentHeight = 0;
-    for (const child of children) {
-      totalContentHeight += child.offsetHeight;
-    }
-
-    const newPageCount = Math.max(
-      1,
-      Math.ceil(totalContentHeight / pageContentHeight)
-    );
-
 
     const newBreaks: BreakInfo[] = [];
-    let cumulativeMargin = 0;
+    
+    let pageStartY = model.marginTop;
+    
+    let contentOnPage = 0;
 
-    if (newPageCount > 1) {
-      let contentY = 0;
+    for (const child of children) {
+      const h = child.offsetHeight;
+      if (h === 0) continue;
 
-      for (const child of children) {
-        const h = child.offsetHeight;
-        if (h === 0) continue;
+      if (contentOnPage + h > usablePageHeight && contentOnPage > 0) {
+        
+        const spaceLeft = usablePageHeight - contentOnPage;
+        const gap = spaceLeft + breakTotalHeight;
 
-        const currentPage = Math.floor(contentY / pageContentHeight);
-        const pageBoundary = (currentPage + 1) * pageContentHeight;
+        child.style.marginTop = gap + 'px';
+        child.dataset.pvGap = '1';
+        child.dataset.pageStart = 'true';
 
-        if (contentY + h > pageBoundary && currentPage < newPageCount - 1) {
-          if (h <= pageContentHeight) {
+        const breakY = pageStartY + usablePageHeight;
+        newBreaks.push({
+          visualY: breakY,
+          pageAbove: newBreaks.length + 1,
+          pageBelow: newBreaks.length + 2,
+        });
 
-            const spaceLeft = pageBoundary - contentY;
-            const gap = spaceLeft + BREAK_GAP;
-
-            child.style.marginTop = gap + 'px';
-            child.dataset.pvGap = '1';
-            child.dataset.pageStart = 'true';
-
-            newBreaks.push({
-              visualY: PAGE_PADDING_TOP + pageBoundary + cumulativeMargin,
-              pageAbove: currentPage + 1,
-              pageBelow: currentPage + 2,
-            });
-
-            cumulativeMargin += gap;
-            contentY = pageBoundary + h;
-          } else {
-            newBreaks.push({
-              visualY: PAGE_PADDING_TOP + pageBoundary + cumulativeMargin,
-              pageAbove: currentPage + 1,
-              pageBelow: currentPage + 2,
-            });
-            contentY += h;
-          }
-        } else {
-          contentY += h;
-        }
+        pageStartY = breakY + breakTotalHeight;
+        contentOnPage = 0;
       }
+
+      contentOnPage += h;
     }
 
-
-    const newMinHeight = newPageCount * pageContentHeight + cumulativeMargin;
+    const newPageCount = newBreaks.length + 1;
+    
+    const newMinHeight = (pageStartY - model.marginTop) + usablePageHeight;
 
     if (newPageCount !== pageCountRef.current) {
       pageCountRef.current = newPageCount;
@@ -175,12 +157,17 @@ const PageView: React.FC<PageViewProps> = ({
 
     adjustingRef.current = false;
     reconnectObserver();
-  }, [pageContentHeight, onPageCountChange, reconnectObserver]);
+  }, [pageContentHeight, breakTotalHeight, model.marginTop, onPageCountChange, reconnectObserver]);
 
+  
+  const scheduleRecalculate = useCallback(() => {
+    cancelAnimationFrame(rafRef.current);
+    rafRef.current = requestAnimationFrame(() => recalculate());
+  }, [recalculate]);
 
   useEffect(() => {
     recalculate();
-    const observer = new MutationObserver(() => recalculate());
+    const observer = new MutationObserver(() => scheduleRecalculate());
     observerRef.current = observer;
     if (surfaceRef.current) {
       observer.observe(surfaceRef.current, {
@@ -189,18 +176,21 @@ const PageView: React.FC<PageViewProps> = ({
         characterData: true,
       });
     }
-    return () => observer.disconnect();
-  }, [recalculate]);
+    return () => {
+      observer.disconnect();
+      cancelAnimationFrame(rafRef.current);
+    };
+  }, [recalculate, scheduleRecalculate]);
 
   useEffect(() => {
-    const ro = new ResizeObserver(() => recalculate());
+    const ro = new ResizeObserver(() => scheduleRecalculate());
     if (surfaceRef.current) ro.observe(surfaceRef.current);
     return () => ro.disconnect();
-  }, [recalculate]);
+  }, [scheduleRecalculate]);
 
   return (
     <div className="pv-scroll-area" data-view-mode="document">
-      <div className="pv-page-frame" style={{ width: PAGE_WIDTH }}>
+      <div className="pv-page-frame" style={{ width: model.widthPx }}>
         {headerEnabled && (
           <div
             className={`pv-header ${editingHeader ? 'editing' : ''}`}
@@ -230,33 +220,48 @@ const PageView: React.FC<PageViewProps> = ({
           ref={surfaceRef}
           className="pv-editor-surface"
           style={{
-            padding: `${PAGE_PADDING_TOP}px ${PAGE_PADDING_X}px ${PAGE_PADDING_BOTTOM}px`,
+            padding: `${model.marginTop}px ${model.marginLeft}px ${model.marginBottom}px`,
           }}
         >
           <Editable
+            readOnly
             renderElement={renderElement}
             renderLeaf={renderLeaf}
             placeholder="Start writing something..."
-            onPaste={onPaste}
-            onKeyDown={onKeyDown}
             style={{ minHeight: editableMinHeight }}
           />
 
-          {breakInfos.map((info, i) => (
+          {breakInfos.map((info, i) => {
+            return (
             <div
               key={i}
               className="pv-break-spacer"
-              style={{ top: info.visualY, height: BREAK_GAP }}
+              style={{ top: info.visualY, height: breakTotalHeight }}
+              onMouseDown={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+              }}
             >
-              <div className="pv-break-bottom-margin" />
+              {footerEnabled && (
+                <div className="pv-break-footer">
+                  <span className="pv-break-footer-text">{footerText || ''}</span>
+                </div>
+              )}
+              <div className="pv-break-bottom-margin" style={{ height: model.marginBottom }} />
               <div className="pv-break-gap">
                 <span className="pv-break-label">
                   Page {info.pageAbove} &nbsp;&mdash;&nbsp; Page {info.pageBelow}
                 </span>
               </div>
-              <div className="pv-break-top-margin" />
+              <div className="pv-break-top-margin" style={{ height: model.marginTop }} />
+              {headerEnabled && (
+                <div className="pv-break-header">
+                  <span className="pv-break-header-text">{headerText || ''}</span>
+                </div>
+              )}
             </div>
-          ))}
+            );
+          })}
         </div>
 
         {footerEnabled && (

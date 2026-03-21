@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import Modal from './Modal';
 import '../styles/Settings.css';
 import { invoke } from '@tauri-apps/api/core';
-
+import type { PageSize } from '../models/pageModel';
 export type ViewMode = 'notepad' | 'document';
 
 export interface AppSettings {
@@ -10,6 +10,7 @@ export interface AppSettings {
   autoSaveInterval: 5 | 10 | 30;
   showUnsavedWarning: boolean;
   showTypeSpeed: boolean;
+  pageSize: PageSize;
 }
 
 export const defaultSettings: AppSettings = {
@@ -17,6 +18,7 @@ export const defaultSettings: AppSettings = {
   autoSaveInterval: 5,
   showUnsavedWarning: true,
   showTypeSpeed: false,
+  pageSize: 'letter',
 };
 
 interface SettingsProps {
@@ -57,6 +59,7 @@ const Settings: React.FC<SettingsProps> = ({ isOpen, onClose, settings, onSettin
       auto_save_interval: newSettings.autoSaveInterval,
       show_unsaved_warning: newSettings.showUnsavedWarning,
       show_type_speed: newSettings.showTypeSpeed,
+      page_size: newSettings.pageSize,
     }}).catch((err) => console.error("Failed to save settings:", err));
   };
 
@@ -149,7 +152,7 @@ const Settings: React.FC<SettingsProps> = ({ isOpen, onClose, settings, onSettin
             <div className="settings-info">
               <span className="settings-label">Document View Mode</span>
               <span className="settings-description">
-                Switch between a continuous notepad view and a paginated document view with fixed-size pages
+                Switch between a continuous notepad editor and a read-only paginated document preview
               </span>
             </div>
             <div className="view-mode-options">
@@ -169,6 +172,25 @@ const Settings: React.FC<SettingsProps> = ({ isOpen, onClose, settings, onSettin
           </div>
           {viewMode === 'document' && (
             <>
+              <div className="settings-row sub-setting">
+                <div className="settings-info">
+                  <span className="settings-label">Page Size</span>
+                  <span className="settings-description">
+                    Choose the page size for the document layout and printing
+                  </span>
+                </div>
+                <div className="view-mode-options">
+                  {(['letter', 'a4', 'legal'] as const).map((size) => (
+                    <button
+                      key={size}
+                      className={`interval-button ${settings.pageSize === size ? 'active' : ''}`}
+                      onClick={() => updateSetting('pageSize', size)}
+                    >
+                      {size === 'letter' ? 'Letter' : size === 'a4' ? 'A4' : 'Legal'}
+                    </button>
+                  ))}
+                </div>
+              </div>
               <div className="settings-row sub-setting">
                 <div className="settings-info">
                   <span className="settings-label">Header</span>

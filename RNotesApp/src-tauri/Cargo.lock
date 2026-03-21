@@ -3784,7 +3784,7 @@ dependencies = [
 
 [[package]]
 name = "rnotesapp"
-version = "0.2.1"
+version = "0.2.2"
 dependencies = [
  "arboard",
  "dirs 5.0.1",
@@ -3800,6 +3800,8 @@ dependencies = [
  "tauri-plugin-process",
  "tauri-plugin-updater",
  "uuid",
+ "webview2-com",
+ "windows-core 0.61.2",
 ]
 
 [[package]]

@@ -284,9 +284,13 @@ fn create_file_for_tab(document_text: String, json_str: String, document: &[Node
         .add_filter("RNotes Document", &["rdocx"])
         .add_filter("RichText", &["json"])
         .add_filter("Text", &["txt"])
+        .add_filter("PDF Document", &["pdf"])
         .save_file()
     { 
         match path.extension().and_then(|e| e.to_str()) {
+            Some("pdf") => {
+                return Ok("__PDF_REQUESTED__".to_string());
+            }
             Some("rdocx") => {
                 let binary_data = encode_document_with_meta(document, meta)
                     .map_err(|e| format!("Encode error: {}", e))?;
@@ -320,6 +324,48 @@ fn create_file_for_tab(document_text: String, json_str: String, document: &[Node
     } else {
         println!("The operation was cancelled");
         return Ok("The operation was cancelled".to_string());
+    }
+}
+#[tauri::command]
+pub fn export_to_file(document: Vec<Node>, document_name: String, format: String, meta: Option<DocumentMeta>) -> Result<String, String> {
+    let doc_meta = meta.unwrap_or_default();
+    let (filter_name, extensions, default_ext) = match format.as_str() {
+        "txt" => ("Text", vec!["txt"], "txt"),
+        "json" => ("RichText", vec!["json"], "json"),
+        "rdocx" => ("RNotes Document", vec!["rdocx"], "rdocx"),
+        _ => return Err(format!("Unsupported export format: {}", format)),
+    };
+
+    if let Some(path) = FileDialog::new()
+        .set_title(&format!("Export as {}", filter_name))
+        .set_directory(".")
+        .set_file_name(format!("{}.{}", document_name, default_ext))
+        .add_filter(filter_name, &extensions)
+        .save_file()
+    {
+        match format.as_str() {
+            "txt" => {
+                std::fs::write(&path, extract_plain_text(&document))
+                    .map_err(|e| format!("Error writing file: {}", e))?;
+            }
+            "json" => {
+                let wrapper = JsonDocumentWrapper { meta: doc_meta, nodes: document };
+                let json_str = serde_json::to_string_pretty(&wrapper)
+                    .map_err(|e| format!("Serialize error: {}", e))?;
+                std::fs::write(&path, json_str.as_bytes())
+                    .map_err(|e| format!("Error writing file: {}", e))?;
+            }
+            "rdocx" => {
+                let binary_data = encode_document_with_meta(&document, &doc_meta)
+                    .map_err(|e| format!("Encode error: {}", e))?;
+                std::fs::write(&path, binary_data)
+                    .map_err(|e| format!("Error writing file: {}", e))?;
+            }
+            _ => return Err(format!("Unsupported export format: {}", format)),
+        }
+        Ok(format!("Exported successfully to {:?}", &path))
+    } else {
+        Ok("The operation was cancelled".to_string())
     }
 }
 #[tauri::command]

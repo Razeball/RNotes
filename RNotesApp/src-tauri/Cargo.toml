@@ -1,6 +1,6 @@
 [package]
 name = "rnotesapp"
-version = "0.2.1"
+version = "0.2.2"
 description = "A note editor"
 authors = ["Razeball"]
 edition = "2024"
@@ -31,4 +31,8 @@ uuid = { version = "1", features = ["v4"] }
 image = "0.25"
 arboard = "3"
 dirs = "5"
+
+[target.'cfg(windows)'.dependencies]
+webview2-com = "0.38"
+windows-core = "0.61"
 

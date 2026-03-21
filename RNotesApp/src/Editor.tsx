@@ -25,6 +25,7 @@ import TabBar, { Tab } from "./components/TabBar";
 import Settings, { AppSettings, defaultSettings, ViewMode } from "./components/Settings";
 import PageView from "./components/PageView";
 import { EditorWithLinkActions, removeLink as removeLinkAction } from "./editorActions";
+import { getCssPageSize, getPageModel } from "./models/pageModel";
 
 
 export type ImageSize = "small" | "medium" | "large" | "original";
@@ -306,6 +307,7 @@ const MySlateEditor = () => {
         autoSaveInterval: loaded.auto_save_interval,
         showUnsavedWarning: loaded.show_unsaved_warning,
         showTypeSpeed: loaded.show_type_speed,
+        pageSize: loaded.page_size || 'letter',
       });
     }).catch(() => {});
   }, []);
@@ -661,17 +663,146 @@ const MySlateEditor = () => {
   }
 
   async function saveAs() {
-    alert(await invoke("save_tab_as", { document: activeTab.value, documentName: activeTab.name, tabId: activeTabId, meta: buildMeta() }));
+    const result = await invoke<string>("save_tab_as", { document: activeTab.value, documentName: activeTab.name, tabId: activeTabId, meta: buildMeta() });
+    if (result === "__PDF_REQUESTED__") {
+      await exportPdf();
+      return;
+    }
+    alert(result);
     updateTab({ changed: false });
+  }
+
+  async function preparePrintCSS(): Promise<{
+    cleanup: () => void;
+    restoreView: () => void;
+    pdfParams: {
+      pageWidth: number; pageHeight: number;
+      marginTop: number; marginBottom: number;
+      marginLeft: number; marginRight: number;
+    };
+  }> {
+    const wasNotepad = activeTab.viewMode !== 'document';
+    if (wasNotepad) {
+      updateTab({ viewMode: 'document' });
+    }
+
+    
+    await new Promise<void>(r =>
+      requestAnimationFrame(() =>
+        requestAnimationFrame(() =>
+          requestAnimationFrame(() => r())
+        )
+      )
+    );
+
+    const pm = getPageModel(settings.pageSize);
+    const toPt = (px: number) => Math.round(px * 72 / 96);
+
+    
+    let breakRules = '';
+    const editable = document.querySelector('.pv-editor-surface [data-slate-editor="true"]');
+    if (editable) {
+      const children = editable.children;
+      for (let i = 0; i < children.length; i++) {
+        if ((children[i] as HTMLElement).dataset?.pageStart === 'true') {
+          breakRules += `@media print { .pv-editor-surface [data-slate-editor="true"] > :nth-child(${i + 1}) { break-before: page !important; page-break-before: always !important; } }\n`;
+        }
+      }
+    }
+
+    document.getElementById('rnotes-print-page-size')?.remove();
+    const styleEl = document.createElement('style');
+    styleEl.id = 'rnotes-print-page-size';
+    styleEl.textContent = `@page { size: ${getCssPageSize(settings.pageSize)}; margin: ${toPt(pm.marginTop)}pt ${toPt(pm.marginRight)}pt ${toPt(pm.marginBottom)}pt ${toPt(pm.marginLeft)}pt; }\n${breakRules}`;
+    document.head.appendChild(styleEl);
+
+    const toInches = (px: number) => px / 96;
+
+    return {
+      cleanup: () => document.getElementById('rnotes-print-page-size')?.remove(),
+      restoreView: () => { if (wasNotepad) updateTab({ viewMode: 'notepad' }); },
+      pdfParams: {
+        pageWidth: toInches(pm.widthPx),
+        pageHeight: toInches(pm.heightPx),
+        marginTop: toInches(pm.marginTop),
+        marginBottom: toInches(pm.marginBottom),
+        marginLeft: toInches(pm.marginLeft),
+        marginRight: toInches(pm.marginRight),
+      },
+    };
   }
 
   async function print() {
     try {
-      await invoke("save_tab", { document: activeTab.value, documentName: activeTab.name, tabId: activeTabId, meta: buildMeta() });
+      
+      const result = await invoke<string>("save_tab", {
+        document: activeTab.value,
+        documentName: activeTab.name,
+        tabId: activeTabId,
+        meta: buildMeta(),
+      });
+      if (result === "The operation was cancelled") return;
       updateTab({ changed: false });
-      window.print();
+
+      
+      const { cleanup, restoreView, pdfParams } = await preparePrintCSS();
+
+      try {
+        
+        await invoke("print_pdf", pdfParams);
+      } finally {
+        cleanup();
+        restoreView();
+      }
     } catch (error) {
-      console.error("Error printing:", error);
+      if (String(error) !== "The operation was cancelled") {
+        console.error("Error printing:", error);
+      }
+    }
+  }
+
+  async function exportPdf() {
+    try {
+      
+      const result = await invoke<string>("save_tab", {
+        document: activeTab.value,
+        documentName: activeTab.name,
+        tabId: activeTabId,
+        meta: buildMeta(),
+      });
+      if (result === "The operation was cancelled") return;
+      updateTab({ changed: false });
+
+      
+      const { cleanup, restoreView, pdfParams } = await preparePrintCSS();
+
+      try {
+        const msg = await invoke<string>("export_to_pdf", pdfParams);
+        alert(msg);
+      } finally {
+        cleanup();
+        restoreView();
+      }
+    } catch (error) {
+      if (String(error) !== "The operation was cancelled") {
+        console.error("Error exporting PDF:", error);
+      }
+    }
+  }
+
+  async function exportToFile(format: string) {
+    try {
+      const msg = await invoke<string>("export_to_file", {
+        document: activeTab.value,
+        documentName: activeTab.name,
+        format,
+        meta: buildMeta(),
+      });
+      if (msg !== "The operation was cancelled") alert(msg);
+    } catch (error) {
+      if (String(error) !== "The operation was cancelled") {
+        console.error("Error exporting:", error);
+      }
     }
   }
 
@@ -707,11 +838,48 @@ const MySlateEditor = () => {
     isModified: t.changed
   }));
 
+  const submenuItemStyle: React.CSSProperties = {
+    padding: '8px 16px',
+    cursor: 'pointer',
+    whiteSpace: 'nowrap',
+    fontSize: '13px',
+  };
+
+  const makeFormatSubmenu = (handler: (format: string) => void) => (
+    <div style={{ minWidth: '140px' }}>
+      {[
+        { id: 'rdocx', label: 'RDOCX' },
+        { id: 'json', label: 'JSON' },
+        { id: 'txt', label: 'TXT' },
+        { id: 'pdf', label: 'PDF' },
+      ].map((f) => (
+        <div
+          key={f.id}
+          style={submenuItemStyle}
+          onMouseDown={(e) => { e.preventDefault(); handler(f.id); }}
+          onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.backgroundColor = '#333'; }}
+          onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.backgroundColor = 'transparent'; }}
+        >
+          {f.label}
+        </div>
+      ))}
+    </div>
+  );
+
+  const handleExportFormat = (format: string) => {
+    if (format === 'pdf') {
+      exportPdf();
+    } else {
+      exportToFile(format);
+    }
+  };
+
   const fileMenuItems: ActionDropdownItem[] = [
     { id: 'new', label: 'New', tooltip: 'Create a new document', shortcut: 'Ctrl+N', divider: true },
     { id: 'open', label: 'Open', tooltip: 'Open an existing document', shortcut: 'Ctrl+O', divider: true },
     { id: 'save', label: 'Save', tooltip: 'Save the current document', shortcut: 'Ctrl+S' },
-    { id: 'saveAs', label: 'Save As', tooltip: 'Save or export the document', shortcut: 'Ctrl+Alt+S', divider: true },
+    { id: 'saveAs', label: 'Save As', tooltip: 'Save the document as a new file', shortcut: 'Ctrl+Alt+S', divider: true },
+    { id: 'export', label: 'Export', submenu: makeFormatSubmenu(handleExportFormat) },
     { id: 'print', label: 'Print', tooltip: 'Print the document', shortcut: 'Ctrl+P', divider: true },
     { id: 'settings', label: 'Settings', tooltip: 'Open application settings' },
   ];
@@ -850,11 +1018,6 @@ const MySlateEditor = () => {
               <PageView
                 renderElement={renderElement}
                 renderLeaf={renderLeaf}
-                onPaste={handlePaste}
-                onKeyDown={(e) => {
-                  handleKeyDown(e);
-                  if (e.key.length === 1) trackKeystroke();
-                }}
                 headerEnabled={activeTab.headerEnabled}
                 footerEnabled={activeTab.footerEnabled}
                 headerText={activeTab.headerText}
@@ -862,6 +1025,7 @@ const MySlateEditor = () => {
                 onHeaderTextChange={(text) => updateTab({ headerText: text })}
                 onFooterTextChange={(text) => updateTab({ footerText: text })}
                 onPageCountChange={setPageCount}
+                pageSize={settings.pageSize}
               />
             ) : (
               <div className="editor-content">
