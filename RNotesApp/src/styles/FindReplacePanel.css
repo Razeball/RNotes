@@ -1,0 +1,127 @@
+.find-replace-panel {
+  position: absolute;
+  top: 4px;
+  right: 20px;
+  z-index: 100;
+  background-color: #2f2f2f;
+  border: 1px solid #555;
+  border-radius: 6px;
+  padding: 8px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+  min-width: 340px;
+}
+
+.find-replace-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.find-replace-panel input[type="text"] {
+  flex: 1;
+  padding: 4px 8px;
+  background-color: #1a1a1a;
+  border: 1px solid #555;
+  border-radius: 4px;
+  color: #eee;
+  font-size: 13px;
+  outline: none;
+  min-width: 0;
+}
+
+.find-replace-panel input[type="text"]:focus {
+  border-color: #4dabf7;
+}
+
+.find-replace-panel input[type="text"]::placeholder {
+  color: #888;
+}
+
+.find-replace-btn {
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  color: #ccc;
+  cursor: pointer;
+  padding: 3px 6px;
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 26px;
+  height: 26px;
+}
+
+.find-replace-btn:hover {
+  background-color: #3c3c3c;
+  border-color: #666;
+}
+
+.find-replace-btn.active {
+  background-color: #0078d4;
+  border-color: #0078d4;
+  color: #fff;
+}
+
+.find-replace-btn.active:hover {
+  background-color: #1a8ae8;
+}
+
+.find-match-count {
+  font-size: 12px;
+  color: #888;
+  white-space: nowrap;
+  min-width: 60px;
+  text-align: center;
+  user-select: none;
+}
+
+.find-replace-close {
+  background: transparent;
+  border: none;
+  color: #ccc;
+  cursor: pointer;
+  font-size: 16px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.find-replace-close:hover {
+  background-color: #3c3c3c;
+}
+
+.find-replace-expand {
+  background: transparent;
+  border: none;
+  color: #ccc;
+  cursor: pointer;
+  font-size: 14px;
+  padding: 2px 4px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 26px;
+  transition: transform 0.15s ease;
+}
+
+.find-replace-expand:hover {
+  background-color: #3c3c3c;
+}
+
+.find-replace-expand.expanded {
+  transform: rotate(90deg);
+}
+
+.find-replace-actions {
+  display: flex;
+  gap: 2px;
+  margin-left: 4px;
+}

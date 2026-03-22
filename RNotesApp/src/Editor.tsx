@@ -1,5 +1,5 @@
 import { useState, useMemo, useCallback, useEffect, useRef } from "react";
-import { createEditor, Descendant, BaseEditor, Transforms, Editor } from "slate";
+import { createEditor, Descendant, BaseEditor, Transforms, Editor, Range as SlateRange, NodeEntry, Text } from "slate";
 
 import {
   Slate,
@@ -24,8 +24,9 @@ import StatusBar from "./components/StatusBar";
 import TabBar, { Tab } from "./components/TabBar";
 import Settings, { AppSettings, defaultSettings, ViewMode } from "./components/Settings";
 import PageView from "./components/PageView";
-import { EditorWithLinkActions, removeLink as removeLinkAction } from "./editorActions";
+import { EditorWithLinkActions, removeLink as removeLinkAction, SearchMatch } from "./editorActions";
 import { getCssPageSize, getPageModel } from "./models/pageModel";
+import FindReplacePanel from "./components/FindReplacePanel";
 
 
 export type ImageSize = "small" | "medium" | "large" | "original";
@@ -185,6 +186,9 @@ const Element = ({ attributes, children, element }: RenderElementProps) => {
 
 const Leaf = ({ attributes, children, leaf }: RenderLeafProps) => {
   let styledChildren = children;
+  if ((leaf as any).searchHighlight) {
+    styledChildren = <span style={{ backgroundColor: (leaf as any).activeHighlight ? 'rgba(255, 140, 0, 0.6)' : 'rgba(255, 215, 0, 0.4)' }}>{styledChildren}</span>;
+  }
   if (leaf.bold) {
     styledChildren = <strong>{styledChildren}</strong>;
   }
@@ -294,6 +298,10 @@ const MySlateEditor = () => {
   const [settings, setSettings] = useState<AppSettings>(defaultSettings);
   const [typeSpeed, setTypeSpeed] = useState<number | null>(null);
   const [pageCount, setPageCount] = useState(1);
+  const [showFindPanel, setShowFindPanel] = useState(false);
+  const [searchMatches, setSearchMatches] = useState<SearchMatch[]>([]);
+  const [currentMatchIndex, setCurrentMatchIndex] = useState(-1);
+  const [editorVersion, setEditorVersion] = useState(0);
   const typingStartTime = useRef<number | null>(null);
   const totalCharsTyped = useRef<number>(0);
 
@@ -346,6 +354,10 @@ const MySlateEditor = () => {
           case 'w':
             e.preventDefault();
             handleTabClose(activeTabId);
+            break;
+          case 'f':
+            e.preventDefault();
+            setShowFindPanel(prev => !prev);
             break;
         }
       }
@@ -479,6 +491,30 @@ const MySlateEditor = () => {
     (props: RenderLeafProps) => <Leaf {...props} />,
     []
   );
+
+  const handleMatchesChange = useCallback((matches: SearchMatch[], currentIndex: number) => {
+    setSearchMatches(matches)
+    setCurrentMatchIndex(currentIndex)
+  }, [])
+
+  const decorate = useCallback(([node, path]: NodeEntry): SlateRange[] => {
+    const ranges: SlateRange[] = []
+    if (!Text.isText(node) || searchMatches.length === 0) return ranges
+
+    for (let i = 0; i < searchMatches.length; i++) {
+      const match = searchMatches[i]
+      if (match.path.length === path.length && match.path.every((v, idx) => v === path[idx])) {
+        ranges.push({
+          anchor: { path, offset: match.offset },
+          focus: { path, offset: match.offset + match.length },
+          searchHighlight: true,
+          activeHighlight: i === currentMatchIndex,
+        } as any)
+      }
+    }
+
+    return ranges
+  }, [searchMatches, currentMatchIndex])
 
   const calculateCharacterCount = useCallback((nodes: Descendant[]): number => {
     let count = 0;
@@ -988,7 +1024,7 @@ const MySlateEditor = () => {
         onNewTab={handleNewTab}
       />
       <div className="miscellaneous-bar">
-        <Miscellaneousbar loadDocumentName={getDocumentName} documentName={activeTab.name} editor={editor}>    
+        <Miscellaneousbar loadDocumentName={getDocumentName} documentName={activeTab.name} editor={editor} editorVersion={editorVersion}>    
           <ActionDropdown
           items={fileMenuItems}
           onSelect={handleFileAction}
@@ -1009,38 +1045,53 @@ const MySlateEditor = () => {
             onChange={(v) => {
               updateTab({ value: v });
               updateCursorPosition();
+              setEditorVersion(prev => prev + 1);
             }}
           >
             <div className="toolbar">
               <Toolbar editor={editor} />
             </div>
-            {activeTab.viewMode === 'document' ? (
-              <PageView
-                renderElement={renderElement}
-                renderLeaf={renderLeaf}
-                headerEnabled={activeTab.headerEnabled}
-                footerEnabled={activeTab.footerEnabled}
-                headerText={activeTab.headerText}
-                footerText={activeTab.footerText}
-                onHeaderTextChange={(text) => updateTab({ headerText: text })}
-                onFooterTextChange={(text) => updateTab({ footerText: text })}
-                onPageCountChange={setPageCount}
-                pageSize={settings.pageSize}
+            <div style={{ position: 'relative', flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+              <FindReplacePanel
+                editor={editor}
+                isOpen={showFindPanel}
+                onClose={() => {
+                  setShowFindPanel(false)
+                  setSearchMatches([])
+                  setCurrentMatchIndex(-1)
+                }}
+                onMatchesChange={handleMatchesChange}
               />
-            ) : (
-              <div className="editor-content">
-                <Editable
+              {activeTab.viewMode === 'document' ? (
+                <PageView
                   renderElement={renderElement}
                   renderLeaf={renderLeaf}
-                  placeholder="Start Writing something..."
-                  onPaste={handlePaste}
-                  onKeyDown={(e) => {
-                    handleKeyDown(e);
-                    if (e.key.length === 1) trackKeystroke();
-                  }}
+                  headerEnabled={activeTab.headerEnabled}
+                  footerEnabled={activeTab.footerEnabled}
+                  headerText={activeTab.headerText}
+                  footerText={activeTab.footerText}
+                  onHeaderTextChange={(text) => updateTab({ headerText: text })}
+                  onFooterTextChange={(text) => updateTab({ footerText: text })}
+                  onPageCountChange={setPageCount}
+                  pageSize={settings.pageSize}
+                  decorate={decorate}
                 />
-              </div>
-            )}
+              ) : (
+                <div className="editor-content">
+                  <Editable
+                    renderElement={renderElement}
+                    renderLeaf={renderLeaf}
+                    placeholder="Start Writing something..."
+                    onPaste={handlePaste}
+                    decorate={decorate}
+                    onKeyDown={(e) => {
+                      handleKeyDown(e);
+                      if (e.key.length === 1) trackKeystroke();
+                    }}
+                  />
+                </div>
+              )}
+            </div>
           </Slate>
         </div>
       </div>

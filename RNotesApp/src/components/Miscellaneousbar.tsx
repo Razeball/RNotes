@@ -2,7 +2,7 @@ import { BaseEditor, Editor, Range } from 'slate'
 import { ReactEditor } from 'slate-react'
 import { HistoryEditor } from 'slate-history'
 import { Transforms, Text } from 'slate'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useMemo } from 'react'
 import { invoke, convertFileSrc } from "@tauri-apps/api/core";
 import { insertImage} from '../Editor'
 import { insertTable } from './Table'
@@ -14,8 +14,9 @@ export type MiscellaneousbarProps = {
     loadDocumentName: (name: string) => void
     documentName: string
     editor: BaseEditor & ReactEditor & HistoryEditor
+    editorVersion?: number
 }
-export default function Miscellaneousbar({children, loadDocumentName, documentName, editor} : MiscellaneousbarProps) {
+export default function Miscellaneousbar({children, loadDocumentName, documentName, editor, editorVersion} : MiscellaneousbarProps) {
   
   const formatOptions: { value: 'quote' | 'code' | 'crossedOut' | 'highlight' | 'link', label: string, shortcut: string }[] = [
     { value: 'quote', label: 'Quote', shortcut: 'Alt+Shift+Q' },
@@ -29,6 +30,40 @@ export default function Miscellaneousbar({children, loadDocumentName, documentNa
   const [linkUrl, setLinkUrl] = useState('');
   const [linkText, setLinkText] = useState('');
   const [hasSelection, setHasSelection] = useState(false);
+  const [activeFormats, setActiveFormats] = useState<Set<string>>(new Set());
+
+  const selectionKey = useMemo(() => {
+    const sel = editor.selection;
+    if (!sel) return 'null';
+    return `${sel.anchor.path.join(',')}-${sel.anchor.offset}-${sel.focus.path.join(',')}-${sel.focus.offset}`;
+  }, [editor.selection]);
+
+  const currentMarks = Editor.marks(editor)
+  const marksKey = currentMarks ? JSON.stringify(currentMarks) : 'null'
+
+  useEffect(() => {
+    const { selection } = editor;
+    if (!selection) {
+      setActiveFormats(new Set());
+      return;
+    }
+    const nodes = Array.from(Editor.nodes(editor, {
+      at: selection,
+      match: (n: any) => Text.isText(n),
+    }));
+    if (nodes.length === 0) {
+      setActiveFormats(new Set());
+      return;
+    }
+    const formats: string[] = ['highlight', 'quote', 'code', 'crossedOut'];
+    const active = new Set<string>();
+    for (const fmt of formats) {
+      if (nodes.every(([node]: any) => node[fmt] === true)) {
+        active.add(fmt);
+      }
+    }
+    setActiveFormats(active);
+  }, [editor, selectionKey, marksKey, editorVersion]);
   
    useEffect(() => {
           const handleKeyDown = (e: KeyboardEvent) => {
@@ -229,7 +264,7 @@ export default function Miscellaneousbar({children, loadDocumentName, documentNa
 
   const formatMenuItems: ActionDropdownItem[] = formatOptions.map((opt, index) => ({
     id: opt.value,
-    label: opt.label,
+    label: activeFormats.has(opt.value) ? `✓ ${opt.label}` : opt.label,
     shortcut: opt.shortcut,
     tooltip: `Apply ${opt.label.toLowerCase()} formatting`,
     divider: index < formatOptions.length - 1,

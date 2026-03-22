@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { Editor, Text, Range } from 'slate'
-import { ReactEditor } from 'slate-react'
+import { ReactEditor, useSlate } from 'slate-react'
 import Dropdown, { DropdownOption } from './Dropdown'
 import Popup from './Popup'
 import Modal from './Modal'
@@ -28,11 +28,15 @@ type ToolbarProps = {
     editor: EditorInstance
 }
 
-const Toolbar = ({ editor }: ToolbarProps) => {
+const Toolbar = (_props: ToolbarProps) => {
+    const editor = useSlate() as EditorInstance
     const [fontSize, setFontSize] = useState<string>('16')
     const [textColor, setTextColor] = useState<string>('black')
     const [fontFamily, setFontFamily] = useState<string>('Arial')
     const [fontSearch, setFontSearch] = useState<string>('Arial')
+    const [isBold, setIsBold] = useState(false)
+    const [isItalic, setIsItalic] = useState(false)
+    const [isUnderline, setIsUnderline] = useState(false)
     const [showFontDropdown, setShowFontDropdown] = useState(false)
     const [isFontDropdownAnimating, setIsFontDropdownAnimating] = useState(false)
     const [isFontSearching, setIsFontSearching] = useState(false)
@@ -94,6 +98,8 @@ const Toolbar = ({ editor }: ToolbarProps) => {
     const selectionKey = editor.selection 
         ? `${editor.selection.anchor.path.join(',')}-${editor.selection.anchor.offset}-${editor.selection.focus.path.join(',')}-${editor.selection.focus.offset}`
         : 'null'
+    const currentMarks = Editor.marks(editor)
+    const marksKey = currentMarks ? JSON.stringify(currentMarks) : 'null'
     
 
     useEffect(() => {
@@ -103,6 +109,9 @@ const Toolbar = ({ editor }: ToolbarProps) => {
                 if (!selection) {
                     setFontSize('16')
                     setTextColor('black')
+                    setIsBold(false)
+                    setIsItalic(false)
+                    setIsUnderline(false)
                     return
                 }
 
@@ -128,6 +137,9 @@ const Toolbar = ({ editor }: ToolbarProps) => {
                 const fontSizes = new Set<number>()
                 const colors = new Set<string>()
                 const fontFamilies = new Set<string>()
+                let allBold = textNodesWithSize.length > 0
+                let allItalic = textNodesWithSize.length > 0
+                let allUnderline = textNodesWithSize.length > 0
                 
                 for (const [node] of textNodesWithSize) {
                     if (Text.isText(node)) {
@@ -146,8 +158,15 @@ const Toolbar = ({ editor }: ToolbarProps) => {
                         } else {
                             fontFamilies.add('Arial')
                         }
+                        if (!node.bold) allBold = false
+                        if (!node.italic) allItalic = false
+                        if (!node.underline) allUnderline = false
                     }
                 }
+
+                setIsBold(allBold)
+                setIsItalic(allItalic)
+                setIsUnderline(allUnderline)
 
                 if (fontSizes.size > 1) {
                     setFontSize('')
@@ -178,11 +197,14 @@ const Toolbar = ({ editor }: ToolbarProps) => {
                 console.error('Error updating font size:', e)
                 setFontSize('16')
                 setTextColor('black')
+                setIsBold(false)
+                setIsItalic(false)
+                setIsUnderline(false)
             }
         }
         
         updateFontSize()
-    }, [editor, selectionKey])
+    }, [editor, selectionKey, marksKey])
 
     useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
@@ -401,19 +423,19 @@ const Toolbar = ({ editor }: ToolbarProps) => {
             content="Ctrl+b"
             position="bottom"
             delay={300}>
-            <button onMouseDown={handleToggleBold}><b>B</b></button>
+            <button className={isBold ? 'active' : ''} onMouseDown={handleToggleBold}><b>B</b></button>
             </Popup>
             <Popup
             content="Ctrl+i"
             position="bottom"
             delay={300}>
-            <button onMouseDown={handleToggleItalic}><i>I</i></button>
+            <button className={isItalic ? 'active' : ''} onMouseDown={handleToggleItalic}><i>I</i></button>
             </Popup>
             <Popup
             content="Ctrl+u"
             position="bottom"
             delay={300}>
-            <button onMouseDown={handleToggleUnderline}><u>U</u></button>
+            <button className={isUnderline ? 'active' : ''} onMouseDown={handleToggleUnderline}><u>U</u></button>
             </Popup>
             <Popup
             content="Ctrl+\"

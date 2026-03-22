@@ -336,6 +336,15 @@ button {
 .toolbar button:active{
   background-color: #1b1d2e;
 }
+.toolbar button.active {
+  background-color: #368bd1;
+  border-color: #368bd1;
+  color: #fff;
+}
+.toolbar button.active:hover {
+  background-color: #1b6397;
+  border-color: #1b6397;
+}
 .toolbar button img{
   width: 20px;
   height: 20px;

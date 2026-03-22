@@ -245,8 +245,70 @@ export interface LinkActions {
 export interface EditorWithLinkActions extends EditorInstance {
     linkActions?: LinkActions
 }
+export interface SearchMatch {
+    path: number[]
+    offset: number
+    length: number
+}
 
-// detection helpers
+export const findTextMatches = (
+    editor: EditorInstance,
+    searchTerm: string,
+    matchCase: boolean,
+    matchWholeWord: boolean
+): SearchMatch[] => {
+    if (!searchTerm) return []
+
+    const matches: SearchMatch[] = []
+
+    for (const [node, path] of Node.nodes(editor)) {
+        if (!Text.isText(node)) continue
+        const text = matchCase ? node.text : node.text.toLowerCase()
+        const term = matchCase ? searchTerm : searchTerm.toLowerCase()
+
+        if (matchWholeWord) {
+            const escapedTerm = term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+            const regex = new RegExp(`\\b${escapedTerm}\\b`, matchCase ? 'g' : 'gi')
+            const source = node.text
+            let m: RegExpExecArray | null
+            while ((m = regex.exec(source)) !== null) {
+                matches.push({ path: [...path], offset: m.index, length: term.length })
+            }
+        } else {
+            let startIndex = 0
+            while (true) {
+                const idx = text.indexOf(term, startIndex)
+                if (idx === -1) break
+                matches.push({ path: [...path], offset: idx, length: term.length })
+                startIndex = idx + 1
+            }
+        }
+    }
+
+    return matches
+}
+
+export const replaceMatch = (editor: EditorInstance, match: SearchMatch, replaceTerm: string) => {
+    const range = {
+        anchor: { path: match.path, offset: match.offset },
+        focus: { path: match.path, offset: match.offset + match.length },
+    }
+    Transforms.select(editor, range)
+    Transforms.insertText(editor, replaceTerm)
+}
+
+export const replaceAllMatches = (
+    editor: EditorInstance,
+    searchTerm: string,
+    replaceTerm: string,
+    matchCase: boolean,
+    matchWholeWord: boolean
+) => {
+    const matches = findTextMatches(editor, searchTerm, matchCase, matchWholeWord)
+    for (let i = matches.length - 1; i >= 0; i--) {
+        replaceMatch(editor, matches[i], replaceTerm)
+    }
+}
 
 export interface SelectionInfo {
     fontSize: string

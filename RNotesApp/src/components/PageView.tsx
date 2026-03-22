@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { Editable, RenderElementProps, RenderLeafProps } from 'slate-react';
+import { Range as SlateRange, NodeEntry } from 'slate';
 import { getPageModel, getContentHeight, type PageSize } from '../models/pageModel';
 import '../styles/PageView.css';
 
@@ -24,6 +25,7 @@ interface PageViewProps {
   onFooterTextChange: (text: string) => void;
   onPageCountChange: (count: number) => void;
   pageSize: PageSize;
+  decorate?: (entry: NodeEntry) => SlateRange[];
 }
 
 const PageView: React.FC<PageViewProps> = ({
@@ -37,6 +39,7 @@ const PageView: React.FC<PageViewProps> = ({
   onFooterTextChange,
   onPageCountChange,
   pageSize,
+  decorate,
 }) => {
   const model = getPageModel(pageSize);
   const headerH = headerEnabled ? HEADER_HEIGHT : 0;
@@ -229,6 +232,7 @@ const PageView: React.FC<PageViewProps> = ({
             renderLeaf={renderLeaf}
             placeholder="Start writing something..."
             style={{ minHeight: editableMinHeight }}
+            decorate={decorate}
           />
 
           {breakInfos.map((info, i) => {
