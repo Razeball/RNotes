@@ -97,11 +97,17 @@ pub async fn export_to_pdf(
     margin_bottom: f64,
     margin_left: f64,
     margin_right: f64,
+    document_name: Option<String>,
 ) -> Result<String, String> {
+    let file_name = document_name
+        .filter(|n| !n.is_empty())
+        .map(|n| format!("{}.pdf", n))
+        .unwrap_or_else(|| "document.pdf".to_string());
+
     let path = FileDialog::new()
         .set_title("Export as PDF")
         .set_directory(".")
-        .set_file_name("document.pdf")
+        .set_file_name(&file_name)
         .add_filter("PDF Document", &["pdf"])
         .save_file()
         .ok_or("The operation was cancelled")?;

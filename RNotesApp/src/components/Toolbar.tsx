@@ -293,7 +293,6 @@ const Toolbar = (_props: ToolbarProps) => {
         if (value && !isNaN(Number(value))) {
             const numSize = Number(value)
             applyFontSize(editor, numSize)
-            ReactEditor.focus(editor)
         }
     }
 

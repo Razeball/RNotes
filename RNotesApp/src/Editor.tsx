@@ -799,21 +799,10 @@ const MySlateEditor = () => {
 
   async function exportPdf() {
     try {
-      
-      const result = await invoke<string>("save_tab", {
-        document: activeTab.value,
-        documentName: activeTab.name,
-        tabId: activeTabId,
-        meta: buildMeta(),
-      });
-      if (result === "The operation was cancelled") return;
-      updateTab({ changed: false });
-
-      
       const { cleanup, restoreView, pdfParams } = await preparePrintCSS();
 
       try {
-        const msg = await invoke<string>("export_to_pdf", pdfParams);
+        const msg = await invoke<string>("export_to_pdf", { ...pdfParams, documentName: activeTab.name });
         alert(msg);
       } finally {
         cleanup();

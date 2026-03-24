@@ -97,8 +97,8 @@ export default function UpdateChecker() {
       onClose={state === 'downloading' ? () => {} : dismiss}
       title={
         state === 'post-update'
-          ? `Actualizado a v${updatedVersion}`
-          : 'Actualización disponible'
+          ? `Updated to v${updatedVersion}`
+          : 'Update Available'
       }
     >
       <div className="update-checker">
