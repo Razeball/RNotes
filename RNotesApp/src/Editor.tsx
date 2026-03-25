@@ -302,6 +302,7 @@ const MySlateEditor = () => {
   const [searchMatches, setSearchMatches] = useState<SearchMatch[]>([]);
   const [currentMatchIndex, setCurrentMatchIndex] = useState(-1);
   const [editorVersion, setEditorVersion] = useState(0);
+  const [zoomLevel, setZoomLevel] = useState(100);
   const typingStartTime = useRef<number | null>(null);
   const totalCharsTyped = useRef<number>(0);
 
@@ -358,6 +359,13 @@ const MySlateEditor = () => {
           case 'f':
             e.preventDefault();
             setShowFindPanel(prev => !prev);
+            break;
+          case 'e':
+            e.preventDefault();
+            Transforms.select(editor, {
+              anchor: Editor.start(editor, []),
+              focus: Editor.end(editor, []),
+            });
             break;
         }
       }
@@ -993,10 +1001,25 @@ const MySlateEditor = () => {
     removeLinkAction(editor);
   };
 
+  const handleSelectAll = () => {
+    Transforms.select(editor, {
+      anchor: Editor.start(editor, []),
+      focus: Editor.end(editor, []),
+    });
+    handleCloseContextMenu();
+  };
+
+  const handleFindFromContextMenu = () => {
+    handleCloseContextMenu();
+    setShowFindPanel(true);
+  };
+
   const contextMenuItems: ContextMenuItem[] = [
     { id: 'copy', label: 'Copy', onClick: handleCopy },
     { id: 'cut', label: 'Cut', onClick: handleCut },
     { id: 'paste', label: 'Paste', onClick: handlePasteFromContextMenu, divider: true },
+    { id: 'selectAll', label: 'Select All', shortcut: 'Ctrl+E', onClick: handleSelectAll },
+    { id: 'find', label: 'Find', shortcut: 'Ctrl+F', onClick: handleFindFromContextMenu, divider: true },
     { id: 'insertLink', label: 'Insert Link', onClick: handleInsertLink },
     { id: 'linkToHeader', label: 'Link to Header', onClick: handleLinkToHeader },
     { id: 'removeLink', label: 'Remove Link', onClick: handleRemoveLink },
@@ -1025,8 +1048,13 @@ const MySlateEditor = () => {
           />
         </Miscellaneousbar>
       </div>
-      <div className="editor-wrapper" onContextMenu={handleContextMenu}>
-        <div className="editor-container">
+      <div className="editor-wrapper" onContextMenu={handleContextMenu} onWheel={(e) => {
+        if (e.ctrlKey) {
+          e.preventDefault();
+          setZoomLevel(prev => Math.min(200, Math.max(50, prev + (e.deltaY < 0 ? 10 : -10))));
+        }
+      }}>
+        <div className="editor-container" style={{ transform: `scale(${zoomLevel / 100})`, transformOrigin: 'top center', width: `${10000 / zoomLevel}%` }}>
           <Slate
             key={activeTab.key}
             editor={editor}
@@ -1092,6 +1120,8 @@ const MySlateEditor = () => {
         typeSpeed={typeSpeed}
         showTypeSpeed={settings.showTypeSpeed}
         pageCount={activeTab.viewMode === 'document' ? pageCount : undefined}
+        zoomLevel={zoomLevel}
+        onZoomReset={() => setZoomLevel(100)}
       />
       <Settings
         isOpen={settingsOpen}

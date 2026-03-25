@@ -8,9 +8,11 @@ interface StatusBarProps {
   typeSpeed?: number | null;
   showTypeSpeed?: boolean;
   pageCount?: number;
+  zoomLevel?: number;
+  onZoomReset?: () => void;
 }
 
-const StatusBar: React.FC<StatusBarProps> = ({ characterCount, line, column, isSaved, typeSpeed, showTypeSpeed, pageCount }) => {
+const StatusBar: React.FC<StatusBarProps> = ({ characterCount, line, column, isSaved, typeSpeed, showTypeSpeed, pageCount, zoomLevel, onZoomReset }) => {
   return (
     <div className="status-bar">
       <div className="status-item">
@@ -33,6 +35,18 @@ const StatusBar: React.FC<StatusBarProps> = ({ characterCount, line, column, isS
         <div className="status-item">
           <span className="status-label">Speed:</span>
           <span className="status-value">{typeSpeed} WPM</span>
+        </div>
+      )}
+      {zoomLevel != null && (
+        <div className="status-item">
+          <span
+            className="status-zoom"
+            title="Click to reset zoom"
+            style={{ cursor: 'pointer' }}
+            onClick={onZoomReset}
+          >
+            {zoomLevel}%
+          </span>
         </div>
       )}
       <div className="status-item">

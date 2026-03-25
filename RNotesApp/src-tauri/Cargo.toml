@@ -1,6 +1,6 @@
 [package]
 name = "rnotesapp"
-version = "0.2.5"
+version = "0.2.6"
 description = "A note editor"
 authors = ["Razeball"]
 edition = "2024"
