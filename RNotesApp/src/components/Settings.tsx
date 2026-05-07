@@ -156,7 +156,25 @@ const Settings: React.FC<SettingsProps> = ({ isOpen, onClose, settings, onSettin
         <div className="settings-section">
           <div className="settings-row">
             <div className="settings-info">
-              <span className="settings-label">Document View Mode</span>
+              <span className="settings-label">
+                Document View Mode
+                <span
+                  title="Ctrl+D"
+                  style={{
+                    marginLeft: '8px',
+                    fontSize: '11px',
+                    color: '#aaa',
+                    backgroundColor: '#3a3a3a',
+                    border: '1px solid #555',
+                    borderRadius: '4px',
+                    padding: '1px 6px',
+                    fontFamily: 'monospace',
+                    verticalAlign: 'middle',
+                  }}
+                >
+                  Ctrl+D
+                </span>
+              </span>
               <span className="settings-description">
                 Switch between a continuous notepad editor and a read-only paginated document preview
               </span>

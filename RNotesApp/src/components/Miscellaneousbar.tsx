@@ -262,12 +262,11 @@ export default function Miscellaneousbar({children, loadDocumentName, documentNa
     },
   ];
 
-  const formatMenuItems: ActionDropdownItem[] = formatOptions.map((opt, index) => ({
+  const formatMenuItems: ActionDropdownItem[] = formatOptions.map((opt) => ({
     id: opt.value,
     label: activeFormats.has(opt.value) ? `✓ ${opt.label}` : opt.label,
     shortcut: opt.shortcut,
     tooltip: `Apply ${opt.label.toLowerCase()} formatting`,
-    divider: index < formatOptions.length - 1,
   }));
 
   const handleInsertAction = (actionId: string) => {

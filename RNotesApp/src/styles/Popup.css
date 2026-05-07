@@ -3,6 +3,10 @@
   display: inline-block;
 }
 
+.action-dropdown-menu .popup-wrapper {
+  display: block;
+}
+
 .popup-content {
   position: absolute;
   background-color: rgba(0, 0, 0, 0.85);

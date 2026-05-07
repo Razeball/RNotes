@@ -367,6 +367,10 @@ const MySlateEditor = () => {
               focus: Editor.end(editor, []),
             });
             break;
+          case 'd':
+            e.preventDefault();
+            updateTab({ viewMode: activeTab.viewMode === 'document' ? 'notepad' : 'document' });
+            break;
         }
       }
       else if (e.ctrlKey && e.altKey && e.ctrlKey === 's'){
@@ -908,11 +912,11 @@ const MySlateEditor = () => {
   };
 
   const fileMenuItems: ActionDropdownItem[] = [
-    { id: 'new', label: 'New', tooltip: 'Create a new document', shortcut: 'Ctrl+N', divider: true },
+    { id: 'new', label: 'New', tooltip: 'Create a new document', shortcut: 'Ctrl+N' },
     { id: 'open', label: 'Open', tooltip: 'Open an existing document', shortcut: 'Ctrl+O', divider: true },
     { id: 'save', label: 'Save', tooltip: 'Save the current document', shortcut: 'Ctrl+S' },
     { id: 'saveAs', label: 'Save As', tooltip: 'Save the document as a new file', shortcut: 'Ctrl+Alt+S', divider: true },
-    { id: 'export', label: 'Export', submenu: makeFormatSubmenu(handleExportFormat) },
+    { id: 'export', label: 'Export', submenu: makeFormatSubmenu(handleExportFormat), divider: true },
     { id: 'print', label: 'Print', tooltip: 'Print the document', shortcut: 'Ctrl+P', divider: true },
     { id: 'settings', label: 'Settings', tooltip: 'Open application settings' },
   ];

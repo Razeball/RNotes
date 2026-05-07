@@ -90,15 +90,18 @@ function ActionDropdown({ items, onSelect, renderButton, closeOnSelect = true }:
                 }}
                 className={`action-dropdown-item ${item.disabled ? 'disabled' : ''}`}
                 style={{
-                    padding: '8px 16px',
+                    padding: '6px 14px',
                     cursor: item.disabled ? 'not-allowed' : 'pointer',
                     opacity: item.disabled ? 0.5 : 1,
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'space-between',
                     gap: '16px',
-                    borderBottom: item.divider ? '1px solid #444' : 'none',
+                    minHeight: '30px',
                     position: 'relative',
+                    borderRadius: '4px',
+                    margin: '1px 4px',
+                    textAlign: 'left',
                 }}
             >
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -137,6 +140,7 @@ function ActionDropdown({ items, onSelect, renderButton, closeOnSelect = true }:
             <div key={item.id} style={{ position: 'relative' }}>
                 {content}
                 {submenuElement}
+                {item.divider && <div className="action-dropdown-divider" />}
             </div>
         );
 
