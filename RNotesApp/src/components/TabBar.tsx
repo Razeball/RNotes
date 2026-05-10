@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import '../styles/TabBar.css';
 
 export interface Tab {
@@ -16,6 +16,21 @@ interface TabBarProps {
 }
 
 const TabBar: React.FC<TabBarProps> = ({ tabs, activeTabId, onTabClick, onTabClose, onNewTab }) => {
+  const prevTabIdsRef = useRef<Set<string>>(new Set(tabs.map(t => t.id)));
+  const [enteringTabId, setEnteringTabId] = useState<string | null>(null);
+
+  useEffect(() => {
+    const prevIds = prevTabIdsRef.current;
+    const newTab = tabs.find(t => !prevIds.has(t.id));
+    if (newTab) {
+      setEnteringTabId(newTab.id);
+      const timer = setTimeout(() => setEnteringTabId(null), 400);
+      prevTabIdsRef.current = new Set(tabs.map(t => t.id));
+      return () => clearTimeout(timer);
+    }
+    prevTabIdsRef.current = new Set(tabs.map(t => t.id));
+  }, [tabs]);
+
   const handleClose = (e: React.MouseEvent, tabId: string) => {
     e.stopPropagation();
     onTabClose(tabId);
@@ -27,7 +42,7 @@ const TabBar: React.FC<TabBarProps> = ({ tabs, activeTabId, onTabClick, onTabClo
         {tabs.map((tab) => (
           <div
             key={tab.id}
-            className={`tab ${activeTabId === tab.id ? 'active' : ''}`}
+            className={`tab ${activeTabId === tab.id ? 'active' : ''} ${enteringTabId === tab.id ? 'tab-entering' : ''}`}
             onClick={() => onTabClick(tab.id)}
           >
             <span className="tab-name">
