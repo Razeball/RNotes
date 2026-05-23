@@ -182,6 +182,36 @@ pub fn open_in_tab(tab_id: String, state: tauri::State<Config>) -> Result<(Vec<N
     }
 }
 
+/// Open silently a file by using a explicit path 
+#[tauri::command]
+pub fn open_file_by_path(tab_id: String, file_path: String, state: tauri::State<Config>) -> Result<(Vec<Node>, String, DocumentMeta), String> {
+    let mut path = PathBuf::from(&file_path);
+    if !path.exists() {
+        return Err(format!("File not found: {}", file_path));
+    }
+    let result = load_file_from_path(&mut path)?;
+    state.set_tab_path(&tab_id, path.clone());
+    state.set_tab_changed(&tab_id, false);
+    Ok(result)
+}
+
+#[tauri::command]
+pub fn rename_tab_file(tab_id: String, new_name: String, state: tauri::State<Config>) -> Result<String, String> {
+    let tab_info = state.get_tab_info(&tab_id).ok_or("Tab not found")?;
+    let old_path = tab_info.save_path;
+    if old_path.as_os_str().is_empty() {
+        return Ok(String::new()); 
+    }
+    let parent = old_path.parent().ok_or("Cannot determine parent directory")?;
+    let ext = old_path.extension().and_then(|e| e.to_str()).unwrap_or("rdocx");
+    let new_file_name = format!("{}.{}", new_name, ext);
+    let new_path = parent.join(&new_file_name);
+    std::fs::rename(&old_path, &new_path)
+        .map_err(|e| format!("Failed to rename file: {}", e))?;
+    state.set_tab_path(&tab_id, new_path.clone());
+    Ok(new_path.to_string_lossy().to_string())
+}
+
 fn load_file_from_path(path: &mut PathBuf) -> Result<(Vec<Node>, String, DocumentMeta), String> {
     match path.extension().and_then(|e| e.to_str()) {
         Some("rdocx") => {

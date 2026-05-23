@@ -1,7 +1,7 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "RNotes",
-  "version": "0.2.9",
+  "version": "0.3.0",
   "identifier": "com.razeball.rnotesapp",
   "build": {
     "beforeDevCommand": "npm run dev",
@@ -42,6 +42,24 @@
       "icons/icon.png",
       "icons/icon.icns",
       "icons/icon.ico"
+    ],
+    "fileAssociations": [
+      {
+        "ext": ["rdocx"],
+        "name": "RNotes Document",
+        "description": "RNotes Document",
+        "mimeType": "application/x-rdocx"
+      },
+      {
+        "ext": ["txt"],
+        "name": "Text Document",
+        "description": "Plain Text Document"
+      },
+      {
+        "ext": ["json"],
+        "name": "JSON Document",
+        "description": "JSON Document"
+      }
     ]
   },
   "plugins": {

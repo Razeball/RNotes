@@ -12,11 +12,12 @@ import ActionDropdown, { ActionDropdownItem } from './ActionDropdown'
 export type MiscellaneousbarProps = {
     children?: React.ReactNode
     loadDocumentName: (name: string) => void
+    onCommitDocumentName?: (name: string) => void
     documentName: string
     editor: BaseEditor & ReactEditor & HistoryEditor
     editorVersion?: number
 }
-export default function Miscellaneousbar({children, loadDocumentName, documentName, editor, editorVersion} : MiscellaneousbarProps) {
+export default function Miscellaneousbar({children, loadDocumentName, onCommitDocumentName, documentName, editor, editorVersion} : MiscellaneousbarProps) {
   
   const formatOptions: { value: 'quote' | 'code' | 'crossedOut' | 'highlight' | 'link', label: string, shortcut: string }[] = [
     { value: 'quote', label: 'Quote', shortcut: 'Alt+Shift+Q' },
@@ -292,6 +293,12 @@ export default function Miscellaneousbar({children, loadDocumentName, documentNa
       <div className="document-name">
         <input type="text" value={documentName} placeholder={"Untitled"} onChange={(e) => {
             loadDocumentName(e.target.value)
+        }} onBlur={(e) => {
+            onCommitDocumentName?.(e.target.value);
+        }} onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              e.currentTarget.blur();
+            }
         }}/>
       </div>
       <div style={{display: "flex", background: "#2f2f2f", padding: "4px", borderRadius: "8px", gap: "4px", marginTop: "8px"}}>

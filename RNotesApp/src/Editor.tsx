@@ -310,15 +310,95 @@ const MySlateEditor = () => {
   const editor = useMemo(() => withImages(withHistory(withReact(createEditor()))), [activeTab?.key]);
 
   useEffect(() => {
-    invoke<any>("get_settings").then((loaded) => {
-      setSettings({
-        autoSaveEnabled: loaded.auto_save_enabled,
-        autoSaveInterval: loaded.auto_save_interval,
-        showUnsavedWarning: loaded.show_unsaved_warning,
-        showTypeSpeed: loaded.show_type_speed,
-        pageSize: loaded.page_size || 'letter',
-      });
-    }).catch(() => {});
+    if (!settings.restoreSession) return;
+    const tabIds = tabs.map(t => t.id);
+    invoke("save_session", { tabIds, activeTabId }).catch(() => {});
+  }, [tabs, activeTabId, settings.restoreSession]);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const loaded = await invoke<any>("get_settings");
+        setSettings({
+          autoSaveEnabled: loaded.auto_save_enabled,
+          autoSaveInterval: loaded.auto_save_interval,
+          showUnsavedWarning: loaded.show_unsaved_warning,
+          showTypeSpeed: loaded.show_type_speed,
+          pageSize: loaded.page_size || 'letter',
+          restoreSession: loaded.restore_session ?? false,
+        });
+
+        let counter = 1;
+        const allTabs: TabData[] = [];
+        let activeRestoredId = '';
+
+        if (loaded.restore_session) {
+          try {
+            const session = await invoke<{ paths: string[]; active_path: string }>("get_session");
+            if (session.paths && session.paths.length > 0) {
+              for (const filePath of session.paths) {
+                const tabId = `tab-${counter}`;
+                counter++;
+                try {
+                  await invoke("create_tab", { tabId });
+                  const [loadedDocument, loadedName, meta] = await invoke<Data>("open_file_by_path", { tabId, filePath });
+                  const newTab: TabData = {
+                    id: tabId,
+                    name: loadedName,
+                    value: loadedDocument,
+                    changed: false,
+                    key: Date.now() + counter,
+                    viewMode: meta.view_mode === 'document' ? 'document' : 'notepad',
+                    headerEnabled: meta.header_enabled,
+                    footerEnabled: meta.footer_enabled,
+                    headerText: meta.header_text,
+                    footerText: meta.footer_text,
+                  };
+                  allTabs.push(newTab);
+                  if (filePath === session.active_path) activeRestoredId = tabId;
+                } catch {
+                  await invoke("remove_tab", { tabId }).catch(() => {});
+                }
+              }
+            }
+          } catch {}
+        }
+
+        try {
+          const startupFile = await invoke<string | null>("get_startup_file");
+          if (startupFile) {
+            const tabId = `tab-${counter}`;
+            counter++;
+            try {
+              await invoke("create_tab", { tabId });
+              const [loadedDocument, loadedName, meta] = await invoke<Data>("open_file_by_path", { tabId, filePath: startupFile });
+              const newTab: TabData = {
+                id: tabId,
+                name: loadedName,
+                value: loadedDocument,
+                changed: false,
+                key: Date.now() + counter,
+                viewMode: meta.view_mode === 'document' ? 'document' : 'notepad',
+                headerEnabled: meta.header_enabled,
+                footerEnabled: meta.footer_enabled,
+                headerText: meta.header_text,
+                footerText: meta.footer_text,
+              };
+              allTabs.push(newTab);
+              activeRestoredId = tabId;
+            } catch {
+              await invoke("remove_tab", { tabId }).catch(() => {});
+            }
+          }
+        } catch {}
+
+        if (allTabs.length > 0) {
+          setTabCounter(counter - 1);
+          setTabs(allTabs);
+          setActiveTabId(activeRestoredId || allTabs[allTabs.length - 1].id);
+        }
+      } catch {}
+    })();
   }, []);
 
   useEffect(() => {
@@ -630,6 +710,13 @@ const MySlateEditor = () => {
 
   const getDocumentName = (name: string) => {
     updateTab({ name });
+  };
+
+  const handleCommitDocumentName = async (name: string) => {
+    const savedToDisk = await invoke<boolean>("is_tab_saved_to_disk", { tabId: activeTabId }).catch(() => false);
+    if (savedToDisk && name.trim()) {
+      invoke("rename_tab_file", { tabId: activeTabId, newName: name.trim() }).catch(() => {});
+    }
   };
 
   const updateTab = (updates: Partial<TabData>) => {
@@ -1040,7 +1127,7 @@ const MySlateEditor = () => {
         onNewTab={handleNewTab}
       />
       <div className="miscellaneous-bar">
-        <Miscellaneousbar loadDocumentName={getDocumentName} documentName={activeTab.name} editor={editor} editorVersion={editorVersion}>    
+        <Miscellaneousbar loadDocumentName={getDocumentName} onCommitDocumentName={handleCommitDocumentName} documentName={activeTab.name} editor={editor} editorVersion={editorVersion}>    
           <ActionDropdown
           items={fileMenuItems}
           onSelect={handleFileAction}

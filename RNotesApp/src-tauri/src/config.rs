@@ -11,6 +11,8 @@ pub struct AppSettings {
     pub show_type_speed: bool,
     #[serde(default = "default_page_size")]
     pub page_size: String,
+    #[serde(default)]
+    pub restore_session: bool,
 }
 
 fn default_page_size() -> String {
@@ -25,6 +27,7 @@ impl Default for AppSettings {
             show_unsaved_warning: true,
             show_type_speed: false,
             page_size: default_page_size(),
+            restore_session: false,
         }
     }
 }

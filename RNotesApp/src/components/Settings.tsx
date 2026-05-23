@@ -12,6 +12,7 @@ export interface AppSettings {
   showUnsavedWarning: boolean;
   showTypeSpeed: boolean;
   pageSize: PageSize;
+  restoreSession: boolean;
 }
 
 export const defaultSettings: AppSettings = {
@@ -20,6 +21,7 @@ export const defaultSettings: AppSettings = {
   showUnsavedWarning: true,
   showTypeSpeed: false,
   pageSize: 'letter',
+  restoreSession: false,
 };
 
 interface SettingsProps {
@@ -66,6 +68,7 @@ const Settings: React.FC<SettingsProps> = ({ isOpen, onClose, settings, onSettin
       show_unsaved_warning: newSettings.showUnsavedWarning,
       show_type_speed: newSettings.showTypeSpeed,
       page_size: newSettings.pageSize,
+      restore_session: newSettings.restoreSession,
     }}).catch((err) => console.error("Failed to save settings:", err));
   };
 
@@ -128,6 +131,25 @@ const Settings: React.FC<SettingsProps> = ({ isOpen, onClose, settings, onSettin
                 type="checkbox"
                 checked={settings.showUnsavedWarning}
                 onChange={(e) => updateSetting('showUnsavedWarning', e.target.checked)}
+              />
+              <span className="toggle-slider"></span>
+            </label>
+          </div>
+        </div>
+
+        <div className="settings-section">
+          <div className="settings-row">
+            <div className="settings-info">
+              <span className="settings-label">Restore Previous Session</span>
+              <span className="settings-description">
+                Reopen the tabs that were open in the previous session when the app starts
+              </span>
+            </div>
+            <label className="toggle-switch">
+              <input
+                type="checkbox"
+                checked={settings.restoreSession}
+                onChange={(e) => updateSetting('restoreSession', e.target.checked)}
               />
               <span className="toggle-slider"></span>
             </label>
