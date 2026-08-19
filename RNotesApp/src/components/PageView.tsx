@@ -1,22 +1,37 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { Editable, RenderElementProps, RenderLeafProps } from 'slate-react';
+import React, { useState, useRef, useEffect, useCallback, useLayoutEffect } from 'react';
+import { Editable, RenderElementProps, RenderLeafProps, useSlateStatic } from 'slate-react';
 import { Range as SlateRange, NodeEntry } from 'slate';
 import { getPageModel, getContentHeight, type PageSize } from '../models/pageModel';
+import { paginate, type PaginationResult, type PageBreak } from '../services/pagination';
+import type { EditorInstance } from '../editorActions';
 import '../styles/PageView.css';
 
-const HEADER_HEIGHT = 32;
-const FOOTER_HEIGHT = 32;
-const VISUAL_GAP = 24;
+const HEADER_MAX_HEIGHT = 32;
+const FOOTER_MAX_HEIGHT = 32;
+const VISUAL_SPACE = 24;
 
-interface BreakInfo {
-  visualY: number;
-  pageAbove: number;
-  pageBelow: number;
+/**
+ * Split paragraphs at the exact overflowing line than move the whole block.
+ *
+ * Deleting next to a spacer goes through `onDOMBeforeInput` so it can remove the void.
+ */
+const ALLOW_LINES_BREAKS_GAP = true;
+
+/**
+ * One object to render differente editables.
+ */
+export interface EditableSurfaceProps {
+  renderElement: (props: RenderElementProps) => React.JSX.Element;
+  renderLeaf: (props: RenderLeafProps) => React.JSX.Element;
+  decorate: (entry: NodeEntry) => SlateRange[];
+  onKeyDown: (event: React.KeyboardEvent) => void;
+  onPaste: (event: React.ClipboardEvent) => void;
+  onDOMBeforeInput: (event: InputEvent) => void;
+  placeholder: string;
 }
 
 interface PageViewProps {
-  renderElement: (props: RenderElementProps) => React.JSX.Element;
-  renderLeaf: (props: RenderLeafProps) => React.JSX.Element;
+  editableProps: EditableSurfaceProps;
   headerEnabled: boolean;
   footerEnabled: boolean;
   headerText: string;
@@ -24,13 +39,52 @@ interface PageViewProps {
   onHeaderTextChange: (text: string) => void;
   onFooterTextChange: (text: string) => void;
   onPageCountChange: (count: number) => void;
+  onPaginationChange: (result: PaginationResult) => void;
   pageSize: PageSize;
-  decorate?: (entry: NodeEntry) => SlateRange[];
+  printing: boolean;
+}
+
+/** Move the block down to the next page */
+function applyBlockBreaks(editable: HTMLElement, breaks: PageBreak[]) {
+  const block_gaps = new Map<number, number>();
+  for (const item of breaks) {
+    if (item.kind === 'block') block_gaps.set(item.blockIndex, item.gapPx);
+  }
+
+  const children = Array.from(editable.children) as HTMLElement[];
+  children.forEach((child, index) => {
+    const gap = block_gaps.get(index);
+    if (gap != null) {
+      child.style.marginTop = `${gap}px`;
+      child.dataset.pageStart = 'true';
+    } else if (child.dataset.pageStart) {
+      child.style.marginTop = '';
+      delete child.dataset.pageStart;
+    }
+  });
+}
+
+/**
+ * Caps the block so it can be only be smaller than the whole sheet and is purely visual.
+ */
+function applyOversized(editable: HTMLElement, result: PaginationResult) {
+  const page_limits = new Map(result.oversized.map((i) => [i.blockIndex, i]));
+
+  const children = Array.from(editable.children) as HTMLElement[];
+  children.forEach((child, i) => {
+    const plimit = page_limits.get(i);
+    if (plimit != null) {
+      child.style.setProperty('--pv-max-block-height', `${plimit.maxHeightPx}px`);
+      child.dataset.pvOversized = child.querySelector('table') ? 'table' : 'image';
+    } else if (child.dataset.pvOversized) {
+      child.style.removeProperty('--pv-max-block-height');
+      delete child.dataset.pvOversized;
+    }
+  });
 }
 
 const PageView: React.FC<PageViewProps> = ({
-  renderElement,
-  renderLeaf,
+  editableProps,
   headerEnabled,
   footerEnabled,
   headerText,
@@ -38,264 +92,178 @@ const PageView: React.FC<PageViewProps> = ({
   onHeaderTextChange,
   onFooterTextChange,
   onPageCountChange,
+  onPaginationChange,
   pageSize,
-  decorate,
+  printing,
 }) => {
-  const model = getPageModel(pageSize);
-  const headerH = headerEnabled ? HEADER_HEIGHT : 0;
-  const footerH = footerEnabled ? FOOTER_HEIGHT : 0;
-  const pageContentHeight = getContentHeight(model, headerH, footerH);
+  const editor = useSlateStatic() as EditorInstance;
 
-  
-  const breakTotalHeight = footerH + model.marginBottom + VISUAL_GAP + model.marginTop + headerH;
+  const model = getPageModel(pageSize);
+  const headerHeight = headerEnabled ? HEADER_MAX_HEIGHT : 0;
+  const footerHeight = footerEnabled ? FOOTER_MAX_HEIGHT : 0;
+  const usableHeight = getContentHeight(model, headerHeight, footerHeight);
+
+
+  const chromeHeight = footerHeight + model.marginBottom + VISUAL_SPACE + model.marginTop + headerHeight;
 
   const surfaceRef = useRef<HTMLDivElement>(null);
-  const observerRef = useRef<MutationObserver | null>(null);
-  const adjustingRef = useRef(false);
-  const pageCountRef = useRef(1);
-  const breakInfosRef = useRef<string>('[]');
-  const minHeightRef = useRef(pageContentHeight);
-  const rafRef = useRef<number>(0);
 
   const [pageCount, setPageCount] = useState(1);
-  const [breakInfos, setBreakInfos] = useState<BreakInfo[]>([]);
-  const [editableMinHeight, setEditableMinHeight] = useState(pageContentHeight);
-  const [editingHeader, setEditingHeader] = useState(false);
-  const [editingFooter, setEditingFooter] = useState(false);
+  const [flowHeight, setFlowHeight] = useState(usableHeight);
+  const [isEditingHeader, setIsEditingHeader] = useState(false);
+  const [isEditingFooter, setIsEditingFooter] = useState(false);
 
-  const reconnectObserver = useCallback(() => {
-    if (surfaceRef.current && observerRef.current) {
-      observerRef.current.observe(surfaceRef.current, {
-        childList: true,
-        subtree: true,
-        characterData: true,
-      });
-    }
-  }, []);
+  const paginate_again = useCallback(() => {
+    const surface = surfaceRef.current;
+    if (!surface) return;
 
-  const recalculate = useCallback(() => {
-    if (adjustingRef.current) return;
-    adjustingRef.current = true;
-    observerRef.current?.disconnect();
-
-    const editable = surfaceRef.current?.querySelector(
-      '[data-slate-editor="true"]'
-    ) as HTMLElement | null;
-    if (!editable) {
-      adjustingRef.current = false;
-      reconnectObserver();
+    const editable = surface.querySelector('[data-slate-editor="true"]') as HTMLElement | null;
+    if (!editable) return;
+    
+    if (printing) {
+      applyBlockBreaks(editable, []);
       return;
     }
 
-    
-    const computedStyle = getComputedStyle(editable);
-    const lineHeight = parseFloat(computedStyle.lineHeight) || 28.8;
-    const linesPerPage = Math.floor(pageContentHeight / lineHeight);
-    const usablePageHeight = linesPerPage * lineHeight;
+    const result = paginate(editor, editable, {
+      usableHeight,
+      chromeHeight,
+      allowLineBreaks: ALLOW_LINES_BREAKS_GAP,
+    });
 
-    const children = Array.from(editable.children) as HTMLElement[];
+    applyBlockBreaks(editable, result.breaks);
+    applyOversized(editable, result);
 
-    
-    for (const child of children) {
-      if (child.dataset.pvGap) {
-        child.style.marginTop = '';
-        delete child.dataset.pvGap;
-      }
-      delete child.dataset.pageStart;
-    }
+    // The index changes so it has to been put unconditionally
+    setPageCount(result.pageCount);
+    setFlowHeight(result.flowHeight);
+    onPageCountChange(result.pageCount);
+    onPaginationChange(result);
+  }, [editor, usableHeight, chromeHeight, printing, onPageCountChange, onPaginationChange]);
 
-    const newBreaks: BreakInfo[] = [];
-    
-    let pageStartY = model.marginTop;
-    
-    let contentOnPage = 0;
+  useLayoutEffect(() => {
+    paginate_again();
+  });
 
-    for (const child of children) {
-      const h = child.offsetHeight;
-      if (h === 0) continue;
-
-      if (contentOnPage + h > usablePageHeight && contentOnPage > 0) {
-        
-        const spaceLeft = usablePageHeight - contentOnPage;
-        const gap = spaceLeft + breakTotalHeight;
-
-        child.style.marginTop = gap + 'px';
-        child.dataset.pvGap = '1';
-        child.dataset.pageStart = 'true';
-
-        const breakY = pageStartY + usablePageHeight;
-        newBreaks.push({
-          visualY: breakY,
-          pageAbove: newBreaks.length + 1,
-          pageBelow: newBreaks.length + 2,
-        });
-
-        pageStartY = breakY + breakTotalHeight;
-        contentOnPage = 0;
-      }
-
-      contentOnPage += h;
-    }
-
-    const newPageCount = newBreaks.length + 1;
-    
-    const newMinHeight = (pageStartY - model.marginTop) + usablePageHeight;
-
-    if (newPageCount !== pageCountRef.current) {
-      pageCountRef.current = newPageCount;
-      setPageCount(newPageCount);
-      onPageCountChange(newPageCount);
-    }
-
-    const breaksStr = JSON.stringify(newBreaks);
-    if (breaksStr !== breakInfosRef.current) {
-      breakInfosRef.current = breaksStr;
-      setBreakInfos(newBreaks);
-    }
-
-    if (newMinHeight !== minHeightRef.current) {
-      minHeightRef.current = newMinHeight;
-      setEditableMinHeight(newMinHeight);
-    }
-
-    adjustingRef.current = false;
-    reconnectObserver();
-  }, [pageContentHeight, breakTotalHeight, model.marginTop, onPageCountChange, reconnectObserver]);
-
-  
-  const scheduleRecalculate = useCallback(() => {
-    cancelAnimationFrame(rafRef.current);
-    rafRef.current = requestAnimationFrame(() => recalculate());
-  }, [recalculate]);
-
+  // Width and zoom can change the lines so it have to be measured again
   useEffect(() => {
-    recalculate();
-    const observer = new MutationObserver(() => scheduleRecalculate());
-    observerRef.current = observer;
-    if (surfaceRef.current) {
-      observer.observe(surfaceRef.current, {
-        childList: true,
-        subtree: true,
-        characterData: true,
-      });
-    }
-    return () => {
-      observer.disconnect();
-      cancelAnimationFrame(rafRef.current);
-    };
-  }, [recalculate, scheduleRecalculate]);
+    const surface = surfaceRef.current;
+    if (!surface) return;
 
-  useEffect(() => {
-    const ro = new ResizeObserver(() => scheduleRecalculate());
-    if (surfaceRef.current) ro.observe(surfaceRef.current);
-    return () => ro.disconnect();
-  }, [scheduleRecalculate]);
+    let oldWidth = surface.getBoundingClientRect().width;
+    const page_observer = new ResizeObserver((entries) => {
+      const width = entries[0]?.contentRect.width ?? oldWidth;
+      if (Math.abs(width - oldWidth) < 0.5) return;
+      oldWidth = width;
+      paginate_again();
+    });
+    page_observer.observe(surface);
+    return () => page_observer.disconnect();
+  }, [paginate_again]);
+
+  const sheets = Array.from({ length: pageCount }, (_, index) => index);
 
   return (
     <div className="pv-scroll-area" data-view-mode="document">
-      <div className="pv-page-frame" style={{ width: model.widthPx }}>
-        {headerEnabled && (
-          <div
-            className={`pv-header ${editingHeader ? 'editing' : ''}`}
-            onDoubleClick={() => setEditingHeader(true)}
-          >
-            {editingHeader ? (
-              <input
-                className="pv-header-input"
-                value={headerText}
-                onChange={(e) => onHeaderTextChange(e.target.value)}
-                onBlur={() => setEditingHeader(false)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') setEditingHeader(false);
-                }}
-                autoFocus
-                placeholder="Header text..."
-              />
-            ) : (
-              <span className="pv-header-text">
-                {headerText || 'Double-click to edit header...'}
-              </span>
-            )}
-          </div>
-        )}
+      <div className="pv-doc" style={{ width: model.widthPx }}>
+        <div className="pv-sheets" aria-hidden="true">
+          {sheets.map((index) => (
+            <div
+              key={index}
+              className="pv-sheet"
+              style={{
+                top: index * (model.heightPx + VISUAL_SPACE),
+                height: model.heightPx,
+              }}
+            >
+              {headerEnabled && (
+                <div className="pv-sheet-header" style={{ height: HEADER_MAX_HEIGHT, padding: `0 ${model.marginLeft}px` }}>
+                  <span className="pv-chrome-text">{headerText}</span>
+                </div>
+              )}
+              {footerEnabled && (
+                <div className="pv-sheet-footer" style={{ height: FOOTER_MAX_HEIGHT, padding: `0 ${model.marginLeft}px` }}>
+                  <span className="pv-chrome-text">{footerText}</span>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
 
         <div
           ref={surfaceRef}
           className="pv-editor-surface"
           style={{
-            padding: `${model.marginTop}px ${model.marginLeft}px ${model.marginBottom}px`,
+            padding: `${headerHeight + model.marginTop}px ${model.marginLeft}px ${footerHeight + model.marginBottom}px`,
           }}
         >
           <Editable
-            readOnly
-            renderElement={renderElement}
-            renderLeaf={renderLeaf}
-            placeholder="Start writing something..."
-            style={{ minHeight: editableMinHeight }}
-            decorate={decorate}
+            renderElement={editableProps.renderElement}
+            renderLeaf={editableProps.renderLeaf}
+            decorate={editableProps.decorate}
+            onKeyDown={editableProps.onKeyDown}
+            onPaste={editableProps.onPaste}
+            onDOMBeforeInput={editableProps.onDOMBeforeInput}
+            placeholder={editableProps.placeholder}
+            style={{ minHeight: flowHeight }}
           />
-
-          {breakInfos.map((info, i) => {
-            return (
-            <div
-              key={i}
-              className="pv-break-spacer"
-              style={{ top: info.visualY, height: breakTotalHeight }}
-              onMouseDown={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-              }}
-            >
-              {footerEnabled && (
-                <div className="pv-break-footer">
-                  <span className="pv-break-footer-text">{footerText || ''}</span>
-                </div>
-              )}
-              <div className="pv-break-bottom-margin" style={{ height: model.marginBottom }} />
-              <div className="pv-break-gap">
-                <span className="pv-break-label">
-                  Page {info.pageAbove} &nbsp;&mdash;&nbsp; Page {info.pageBelow}
-                </span>
-              </div>
-              <div className="pv-break-top-margin" style={{ height: model.marginTop }} />
-              {headerEnabled && (
-                <div className="pv-break-header">
-                  <span className="pv-break-header-text">{headerText || ''}</span>
-                </div>
-              )}
-            </div>
-            );
-          })}
         </div>
 
-        {footerEnabled && (
+        {headerEnabled && (
           <div
-            className={`pv-footer ${editingFooter ? 'editing' : ''}`}
-            onDoubleClick={() => setEditingFooter(true)}
+            className={`pv-chrome-edit pv-chrome-edit-header ${isEditingHeader ? 'editing' : ''}`}
+            style={{ height: HEADER_MAX_HEIGHT, padding: `0 ${model.marginLeft}px` }}
+            onDoubleClick={() => setIsEditingHeader(true)}
           >
-            {editingFooter ? (
+            {isEditingHeader ? (
               <input
-                className="pv-footer-input"
-                value={footerText}
-                onChange={(e) => onFooterTextChange(e.target.value)}
-                onBlur={() => setEditingFooter(false)}
+                className="pv-chrome-input"
+                value={headerText}
+                onChange={(e) => onHeaderTextChange(e.target.value)}
+                onBlur={() => setIsEditingHeader(false)}
                 onKeyDown={(e) => {
-                  if (e.key === 'Enter') setEditingFooter(false);
+                  if (e.key === 'Enter' || e.key === 'Escape') setIsEditingHeader(false);
                 }}
                 autoFocus
-                placeholder="Footer text..."
+                placeholder="Here is the header text"
               />
             ) : (
-              <span className="pv-footer-text">
-                {footerText || 'Double-click to edit footer...'}
-              </span>
+              <span className="pv-chrome-text">{headerText || 'Double-click to edit header text...'}</span>
             )}
           </div>
         )}
 
-        <div className="pv-page-count-label">
-          {pageCount} {pageCount === 1 ? 'page' : 'pages'}
-        </div>
+        {footerEnabled && (
+          <div
+            className={`pv-chrome-edit pv-chrome-edit-footer ${isEditingFooter ? 'editing' : ''}`}
+            style={{
+              height: FOOTER_MAX_HEIGHT,
+              padding: `0 ${model.marginLeft}px`,
+              top: model.heightPx - FOOTER_MAX_HEIGHT,
+            }}
+            onDoubleClick={() => setIsEditingFooter(true)}
+          >
+            {isEditingFooter ? (
+              <input
+                className="pv-chrome-input"
+                value={footerText}
+                onChange={(e) => onFooterTextChange(e.target.value)}
+                onBlur={() => setIsEditingFooter(false)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === 'Escape') setIsEditingFooter(false);
+                }}
+                autoFocus
+                placeholder="Here is the header text"
+              />
+            ) : (
+              <span className="pv-chrome-text">{footerText || 'Double-click to edit footer text...'}</span>
+            )}
+          </div>
+        )}
+      </div>
+
+      <div className="pv-page-count-label">
+        {pageCount} {pageCount === 1 ? 'page' : 'pages'}
       </div>
     </div>
   );

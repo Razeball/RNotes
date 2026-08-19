@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback, useEffect, useRef } from "react";
+import { useState, useMemo, useCallback, useEffect, useLayoutEffect, useRef } from "react";
 import { createEditor, Descendant, BaseEditor, Transforms, Editor, Range as SlateRange, NodeEntry, Text } from "slate";
 
 import {
@@ -23,10 +23,21 @@ import ImageElement from "./components/ImageElement";
 import StatusBar from "./components/StatusBar";
 import TabBar, { Tab } from "./components/TabBar";
 import Settings, { AppSettings, defaultSettings, ViewMode } from "./components/Settings";
-import PageView from "./components/PageView";
-import { EditorWithLinkActions, removeLink as removeLinkAction, SearchMatch } from "./editorActions";
+import PageView, { EditableSurfaceProps } from "./components/PageView";
+import { EditorWithLinkActions, removeLink as removeLinkAction, SearchMatch, type EditorInstance } from "./editorActions";
 import { getCssPageSize, getPageModel } from "./models/pageModel";
 import FindReplacePanel from "./components/FindReplacePanel";
+import { buildLineIndex, getVisualPosition, type LineEntry } from "./services/lineIndex";
+import type { PaginationResult } from "./services/pagination";
+import {
+  PAGE_SPACER_ATTR,
+  PAGE_SPACER_TYPE,
+  clearPageSpacers,
+  hasPageSpacers,
+  reconcilePageSpacers,
+  stripPageSpacers,
+  textOffsetOfPoint,
+} from "./services/pageSpacers";
 
 
 export type ImageSize = "small" | "medium" | "large" | "original";
@@ -44,7 +55,8 @@ export type CustomElement = {
     | "image"
     | "table"
     | "table-row"
-    | "table-cell";
+    | "table-cell"
+    | "page-spacer";
   children: CustomText[] | CustomElement[];
   alignment?: "start" | "center" | "end" | "justify";
   url?: string;
@@ -53,6 +65,8 @@ export type CustomElement = {
   subtitle?: string;
   title?: string;
   id?: string;
+  /** Only used for page-space, never saved */
+  height?: number;
 };
 export type CustomText = {
   text: string;
@@ -94,6 +108,32 @@ const withImages = <T extends BaseEditor>(editor: T): T => {
   return editor;
 };
 
+/**
+ * Page gaps are void nodes so Slate's own machinery carries the selection through them.
+ */
+const pageWithSpacers = <T extends BaseEditor>(editor: T): T => {
+  const { isVoid, isInline, deleteBackward, deleteForward, deleteFragment, insertBreak } = editor;
+
+  editor.isVoid = (element) => (element.type === PAGE_SPACER_TYPE ? true : isVoid(element));
+  editor.isInline = (element) => (element.type === PAGE_SPACER_TYPE ? true : isInline(element));
+
+  // Clearing them first sidesteps the whole class of interaction. So the next pagination put it back
+  const pageWithoutSpacers = <R,>(operation: () => R): R => {
+    clearPageSpacers(editor as unknown as EditorInstance);
+    return operation();
+  };
+
+  editor.deleteBackward = (unit) => pageWithoutSpacers(() => deleteBackward(unit));
+  editor.deleteForward = (unit) => pageWithoutSpacers(() => deleteForward(unit));
+  editor.deleteFragment = (options) => pageWithoutSpacers(() => deleteFragment(options));
+  editor.insertBreak = () => pageWithoutSpacers(() => insertBreak());
+
+  return editor;
+};
+
+/** How many spacer rewrite are allowed per user edit. */
+const MAX_SPACER_REWRITE_PER_EDIT = 4;
+
 const initialValue: Descendant[] = [
   {
     type: "paragraph",
@@ -118,6 +158,17 @@ const Element = ({ attributes, children, element }: RenderElementProps) => {
       );
     case "image":
       return <ImageElement attributes={attributes} children={children} element={element} />;
+    case "page-spacer":
+      return (
+        <span
+          {...attributes}
+          {...{ [PAGE_SPACER_ATTR]: 'true' }}
+          className="pv-page-spacer"
+          style={{ height: `${element.height ?? 0}px` }}
+        >
+          {children}
+        </span>
+      );
     case "table":
       return <TableElement attributes={attributes} children={children} element={element} />;
     case "table-row":
@@ -303,11 +354,18 @@ const MySlateEditor = () => {
   const [currentMatchIndex, setCurrentMatchIndex] = useState(-1);
   const [editorVersion, setEditorVersion] = useState(0);
   const [zoomLevel, setZoomLevel] = useState(100);
+  const [printingOption, setPrintingOption] = useState(false);
   const typingStartTime = useRef<number | null>(null);
   const totalCharsTyped = useRef<number>(0);
+  const visualLinesRef = useRef<LineEntry[]>([]);
+  const notepadRef = useRef<HTMLDivElement>(null);
+  // mark the tab dirty so it can diferentiate that gaps are layout not content.
+  const spacerVoidRef = useRef(false);
+  // Capping the rewrites per user edit means so the worst case is stale pagination
+  const reconcileCapRef = useRef(0);
 
   const activeTab = tabs.find(t => t.id === activeTabId) || tabs[0];
-  const editor = useMemo(() => withImages(withHistory(withReact(createEditor()))), [activeTab?.key]);
+  const editor = useMemo(() => pageWithSpacers(withImages(withHistory(withReact(createEditor())))), [activeTab?.key]);
 
   useEffect(() => {
     if (!settings.restoreSession) return;
@@ -484,6 +542,12 @@ const MySlateEditor = () => {
       isInitialMount.current = false;
       return;
     }
+    // It change the document but not the content.
+    if (spacerVoidRef.current) {
+      spacerVoidRef.current = false;
+      return;
+    }
+    reconcileCapRef.current = 0;
     updateTab({ changed: true });
   }, [activeTab.value]);
 
@@ -495,7 +559,7 @@ const MySlateEditor = () => {
       try {
         const isSaved = await invoke<boolean>("is_tab_saved_to_disk", { tabId: activeTabId });
         if (isSaved) {
-          await invoke("save_tab", { document: activeTab.value, documentName: activeTab.name, tabId: activeTabId, meta: buildMeta() });
+          await invoke("save_tab", { document: stripPageSpacers(activeTab.value), documentName: activeTab.name, tabId: activeTabId, meta: buildMeta() });
           updateTab({ changed: false });
         }
       } catch (err) {
@@ -623,23 +687,60 @@ const MySlateEditor = () => {
 
   const updateCursorPosition = useCallback(() => {
     const { selection } = editor;
-    if (!selection) {
-      setCursorPosition({ line: 1, column: 1 });
-      return;
-    }
+    const next = selection
+      ? getVisualPosition(editor, visualLinesRef.current, Editor.edges(editor, selection)[0])
+      : { line: 1, column: 1 };
+    (window as any).__probe = {
+      next,
+      indexLen: visualLinesRef.current.length,
+      caret: selection ? Editor.edges(editor, selection)[0] : null,
+      firstStart: visualLinesRef.current[0]?.start,
+      lastStart: visualLinesRef.current[visualLinesRef.current.length - 1]?.start,
+      stack: new Error().stack?.split('\n').slice(1, 5).join(' | '),
+    };
 
-    const [start] = Editor.edges(editor, selection);
-    const path = start.path;
-    
-    let line = 1;
-    for (let i = 0; i < path[0]; i++) {
-      line++;
-    }
-    
-    const column = start.offset + 1;
-    
-    setCursorPosition({ line, column });
+    // runs after pagination pass
+    setCursorPosition((previous) =>
+      previous.line === next.line && previous.column === next.column ? previous : next
+    );
   }, [editor]);
+
+  const handlePaginationChange = useCallback((result: PaginationResult) => {
+    visualLinesRef.current = result.lines;
+    // Refreshed here instead of an effect avoid errors
+    updateCursorPosition();
+
+    // Break points are converted to canonical text offsets so it not depend from spacers
+    const desiredResult = result.breaks.flatMap((item) =>
+      item.kind === 'line'
+        ? [{
+            blockIndex: item.blockIndex,
+            textOffset: textOffsetOfPoint(editor, item.blockIndex, item.point),
+            height: item.gapPx,
+          }]
+        : []
+    );
+
+    if (reconcileCapRef.current >= MAX_SPACER_REWRITE_PER_EDIT) return;
+
+    if (reconcilePageSpacers(editor, desiredResult)) {
+      reconcileCapRef.current += 1;
+      spacerVoidRef.current = true;
+    }
+  }, [editor, updateCursorPosition]);
+
+  // Ln/Col reports the *visual* line, so it needs line-box measurement in both modes. 
+  useLayoutEffect(() => {
+    if (activeTab.viewMode === 'document') return;
+    const editable = notepadRef.current?.querySelector('[data-slate-editor="true"]');
+    visualLinesRef.current = editable ? buildLineIndex(editor, editable as HTMLElement) : [];
+    updateCursorPosition();
+  }, [editor, editorVersion, activeTabId, activeTab.viewMode, zoomLevel, updateCursorPosition]);
+
+  useEffect(() => {
+    if (activeTab.viewMode === 'document') return;
+    if (clearPageSpacers(editor)) spacerVoidRef.current = true;
+  }, [editor, activeTab.viewMode, activeTab.value]);
 
   useEffect(() => {
     setCharacterCount(calculateCharacterCount(activeTab.value));
@@ -705,6 +806,50 @@ const MySlateEditor = () => {
       }
     }
   }, [editor]);
+
+  const handleEditKeyDownEvent = useCallback((event: React.KeyboardEvent) => {
+    handleKeyDown(event);
+    if (event.key.length === 1) trackKeystroke();
+  }, [handleKeyDown, trackKeystroke]);
+
+  const handleDOMBeforeInput = useCallback((event: InputEvent) => {
+    if (!event.inputType.startsWith('delete')) return;
+    if (!hasPageSpacers(editor)) return;
+
+    event.preventDefault();
+    clearPageSpacers(editor);
+
+    const { selection } = editor;
+    if (selection && SlateRange.isExpanded(selection)) {
+      Editor.deleteFragment(editor);
+      return;
+    }
+
+    switch (event.inputType) {
+      case 'deleteWordBackward':
+        Editor.deleteBackward(editor, { unit: 'word' });
+        break;
+      case 'deleteContentForward':
+        Editor.deleteForward(editor, { unit: 'character' });
+        break;
+      case 'deleteWordForward':
+        Editor.deleteForward(editor, { unit: 'word' });
+        break;
+      default:
+        Editor.deleteBackward(editor, { unit: 'character' });
+        break;
+    }
+  }, [editor]);
+
+  const editableProps: EditableSurfaceProps = useMemo(() => ({
+    renderElement,
+    renderLeaf,
+    decorate,
+    onKeyDown: handleEditKeyDownEvent,
+    onPaste: handlePaste,
+    onDOMBeforeInput: handleDOMBeforeInput,
+    placeholder: "Start Writing something...",
+  }), [renderElement, renderLeaf, decorate, handleEditKeyDownEvent, handlePaste, handleDOMBeforeInput]);
 
   type Data = [Descendant[], string, DocumentMeta];
 
@@ -793,17 +938,18 @@ const MySlateEditor = () => {
   });
 
   async function save() {
-    alert(await invoke("save_tab", { document: activeTab.value, documentName: activeTab.name, tabId: activeTabId, meta: buildMeta() }));
+    // Alert to inform about saves
+    alert(await invoke("save_tab", { document: stripPageSpacers(activeTab.value), documentName: activeTab.name, tabId: activeTabId, meta: buildMeta() }));
     updateTab({ changed: false });
   }
 
   async function saveAs() {
-    const result = await invoke<string>("save_tab_as", { document: activeTab.value, documentName: activeTab.name, tabId: activeTabId, meta: buildMeta() });
-    if (result === "__PDF_REQUESTED__") {
+    const saveResult = await invoke<string>("save_tab_as", { document: stripPageSpacers(activeTab.value), documentName: activeTab.name, tabId: activeTabId, meta: buildMeta() });
+    if (saveResult === "__PDF_REQUESTED__") {
       await exportPdf();
       return;
     }
-    alert(result);
+    alert(saveResult);
     updateTab({ changed: false });
   }
 
@@ -821,7 +967,9 @@ const MySlateEditor = () => {
       updateTab({ viewMode: 'document' });
     }
 
-    
+    setPrintingOption(true);
+    if (clearPageSpacers(editor)) spacerVoidRef.current = true;
+
     await new Promise<void>(r =>
       requestAnimationFrame(() =>
         requestAnimationFrame(() =>
@@ -833,29 +981,23 @@ const MySlateEditor = () => {
     const pm = getPageModel(settings.pageSize);
     const toPt = (px: number) => Math.round(px * 72 / 96);
 
-    
-    let breakRules = '';
-    const editable = document.querySelector('.pv-editor-surface [data-slate-editor="true"]');
-    if (editable) {
-      const children = editable.children;
-      for (let i = 0; i < children.length; i++) {
-        if ((children[i] as HTMLElement).dataset?.pageStart === 'true') {
-          breakRules += `@media print { .pv-editor-surface [data-slate-editor="true"] > :nth-child(${i + 1}) { break-before: page !important; page-break-before: always !important; } }\n`;
-        }
-      }
-    }
-
     document.getElementById('rnotes-print-page-size')?.remove();
     const styleEl = document.createElement('style');
     styleEl.id = 'rnotes-print-page-size';
-    styleEl.textContent = `@page { size: ${getCssPageSize(settings.pageSize)}; margin: ${toPt(pm.marginTop)}pt ${toPt(pm.marginRight)}pt ${toPt(pm.marginBottom)}pt ${toPt(pm.marginLeft)}pt; }\n${breakRules}`;
+    styleEl.textContent =
+      `@page { size: ${getCssPageSize(settings.pageSize)}; ` +
+      `margin: ${toPt(pm.marginTop)}pt ${toPt(pm.marginRight)}pt ${toPt(pm.marginBottom)}pt ${toPt(pm.marginLeft)}pt; }\n` +
+      `@media print { .pv-editor-surface [data-slate-editor="true"] { orphans: 2; widows: 2; } }\n`;
     document.head.appendChild(styleEl);
 
     const toInches = (px: number) => px / 96;
 
     return {
       cleanup: () => document.getElementById('rnotes-print-page-size')?.remove(),
-      restoreView: () => { if (wasNotepad) updateTab({ viewMode: 'notepad' }); },
+      restoreView: () => {
+        setPrintingOption(false);
+        if (wasNotepad) updateTab({ viewMode: 'notepad' });
+      },
       pdfParams: {
         pageWidth: toInches(pm.widthPx),
         pageHeight: toInches(pm.heightPx),
@@ -871,7 +1013,7 @@ const MySlateEditor = () => {
     try {
       
       const result = await invoke<string>("save_tab", {
-        document: activeTab.value,
+        document: stripPageSpacers(activeTab.value),
         documentName: activeTab.name,
         tabId: activeTabId,
         meta: buildMeta(),
@@ -917,7 +1059,7 @@ const MySlateEditor = () => {
   async function exportToFile(format: string) {
     try {
       const msg = await invoke<string>("export_to_file", {
-        document: activeTab.value,
+        document: stripPageSpacers(activeTab.value),
         documentName: activeTab.name,
         format,
         meta: buildMeta(),
@@ -1093,11 +1235,14 @@ const MySlateEditor = () => {
   };
 
   const handleSelectAll = () => {
-    Transforms.select(editor, {
-      anchor: Editor.start(editor, []),
-      focus: Editor.end(editor, []),
-    });
     handleCloseContextMenu();
+    setTimeout(() => {
+      ReactEditor.focus(editor);
+      Transforms.select(editor, {
+        anchor: Editor.start(editor, []),
+        focus: Editor.end(editor, []),
+      });
+    }, 0);
   };
 
   const handleFindFromContextMenu = () => {
@@ -1172,8 +1317,7 @@ const MySlateEditor = () => {
               />
               {activeTab.viewMode === 'document' ? (
                 <PageView
-                  renderElement={renderElement}
-                  renderLeaf={renderLeaf}
+                  editableProps={editableProps}
                   headerEnabled={activeTab.headerEnabled}
                   footerEnabled={activeTab.footerEnabled}
                   headerText={activeTab.headerText}
@@ -1181,22 +1325,13 @@ const MySlateEditor = () => {
                   onHeaderTextChange={(text) => updateTab({ headerText: text })}
                   onFooterTextChange={(text) => updateTab({ footerText: text })}
                   onPageCountChange={setPageCount}
+                  onPaginationChange={handlePaginationChange}
                   pageSize={settings.pageSize}
-                  decorate={decorate}
+                  printing={printingOption}
                 />
               ) : (
-                <div className="editor-content">
-                  <Editable
-                    renderElement={renderElement}
-                    renderLeaf={renderLeaf}
-                    placeholder="Start Writing something..."
-                    onPaste={handlePaste}
-                    decorate={decorate}
-                    onKeyDown={(e) => {
-                      handleKeyDown(e);
-                      if (e.key.length === 1) trackKeystroke();
-                    }}
-                  />
+                <div className="editor-content" ref={notepadRef}>
+                  <Editable {...editableProps} />
                 </div>
               )}
             </div>
@@ -1223,8 +1358,8 @@ const MySlateEditor = () => {
           try {
             const isSaved = await invoke<boolean>("is_tab_saved_to_disk", { tabId: activeTabId });
             if (isSaved) return true;
-            const result = await invoke<string>("save_tab", { document: activeTab.value, documentName: activeTab.name, tabId: activeTabId, meta: buildMeta() });
-            if (result === "The operation was cancelled") return false;
+            const saveResult = await invoke<string>("save_tab", { document: stripPageSpacers(activeTab.value), documentName: activeTab.name, tabId: activeTabId, meta: buildMeta() });
+            if (saveResult === "The operation was cancelled") return false;
             updateTab({ changed: false });
             return true;
           } catch {

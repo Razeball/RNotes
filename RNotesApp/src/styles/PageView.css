@@ -1,4 +1,3 @@
-
 .pv-scroll-area {
   display: flex;
   flex-direction: column;
@@ -9,192 +8,169 @@
   background-color: #1a1a1a;
 }
 
+/* Positioning context shared by the sheets layer and the text flow on top of it. */
+.pv-doc {
+  position: relative;
+  flex-shrink: 0;
+}
 
-.pv-page-frame {
+/*
+ * The sheets are pure decoration painted behind the text. The flow above them is one contiguous
+ * editable, which is what keeps selection, undo and copy/paste working across page boundaries.
+ */
+.pv-sheets {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+}
+
+.pv-sheet {
+  position: absolute;
+  left: 0;
+  right: 0;
   background-color: #2a2a2a;
   border: 1px solid #555;
   border-radius: 4px;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
-  flex-shrink: 0;
-}
-
-
-.pv-editor-surface {
-  position: relative;
   box-sizing: border-box;
 }
 
-.pv-editor-surface [data-slate-editor="true"] {
+.pv-sheet-header,
+.pv-sheet-footer {
+  position: absolute;
+  left: 0;
+  right: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+}
+
+.pv-sheet-header {
+  top: 0;
+  border-bottom: 1px dashed #3a3a3a;
+}
+
+.pv-sheet-footer {
+  bottom: 0;
+  border-top: 1px dashed #3a3a3a;
+}
+
+.pv-chrome-text {
+  font-size: 11px;
+  color: #555;
+  font-style: italic;
+  text-align: center;
+  width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Interactive header/footer editing, on the first sheet only, above the text. */
+.pv-chrome-edit {
+  position: absolute;
+  left: 0;
+  right: 0;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  cursor: default;
+}
+
+.pv-chrome-edit-header {
+  top: 0;
+  border-bottom: 1px dashed transparent;
+}
+
+.pv-chrome-edit.editing {
+  background-color: #2a2a2a;
+}
+
+.pv-chrome-edit-header.editing {
+  border-bottom-color: #4dabf7;
+}
+
+.pv-chrome-edit-footer.editing {
+  border-top-color: #4dabf7;
+}
+
+.pv-chrome-input {
+  width: 100%;
+  background: transparent !important;
+  border: none !important;
+  border-bottom: 1px solid #4dabf7 !important;
+  color: #e0e0e0 !important;
+  font-size: 11px !important;
+  text-align: center;
+  padding: 2px 6px !important;
+  outline: none !important;
+  box-shadow: none !important;
+  border-radius: 0 !important;
+}
+
+.pv-editor-surface {
+  position: relative;
+  z-index: 1;
+  box-sizing: border-box;
+}
+
+.pv-editor-surface [data-slate-editor='true'] {
   outline: none;
   line-height: 1.8;
   font-size: 16px;
 }
-.pv-editor-surface [data-slate-editor="true"] > * {
+
+/*
+ * Block margins are zeroed so the natural flow is a contiguous stack of line boxes; the pagination
+ * engine writes the page gap into margin-top of whichever block starts a sheet.
+ */
+.pv-editor-surface [data-slate-editor='true'] > * {
   margin-top: 0;
   margin-bottom: 0;
 }
 
-.pv-editor-surface [data-slate-placeholder="true"] {
+.pv-editor-surface [data-slate-placeholder='true'] {
   color: #666 !important;
   opacity: 1 !important;
   font-style: italic;
 }
 
-
-.pv-header {
-  height: 32px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0 96px;
-  border-bottom: 1px dashed #3a3a3a;
-  cursor: default;
-  box-sizing: border-box;
-}
-
-.pv-header.editing {
-  border-bottom-color: #4dabf7;
-}
-
-.pv-header-text {
-  font-size: 11px;
-  color: #555;
-  font-style: italic;
-  text-align: center;
+/*
+ * Gap injected in the middle of a paragraph, at the exact line where the page ends. A void Slate
+ * node, so inserting it is a real operation and the selection is carried through it; `display: block`
+ * is what makes it terminate the line and reserve the vertical band.
+ */
+.pv-page-spacer {
+  display: block;
   width: 100%;
   overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.pv-header-input {
-  width: 100%;
-  background: transparent !important;
-  border: none !important;
-  border-bottom: 1px solid #4dabf7 !important;
-  color: #e0e0e0 !important;
-  font-size: 11px !important;
-  text-align: center;
-  padding: 2px 6px !important;
-  outline: none !important;
-  box-shadow: none !important;
-  border-radius: 0 !important;
-}
-
-.pv-footer {
-  height: 32px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0 96px;
-  border-top: 1px dashed #3a3a3a;
-  cursor: default;
-  box-sizing: border-box;
-}
-
-.pv-footer.editing {
-  border-top-color: #4dabf7;
-}
-
-.pv-footer-text {
-  font-size: 11px;
-  color: #555;
-  font-style: italic;
-  text-align: center;
-  width: 100%;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.pv-footer-input {
-  width: 100%;
-  background: transparent !important;
-  border: none !important;
-  border-bottom: 1px solid #4dabf7 !important;
-  color: #e0e0e0 !important;
-  font-size: 11px !important;
-  text-align: center;
-  padding: 2px 6px !important;
-  outline: none !important;
-  box-shadow: none !important;
-  border-radius: 0 !important;
-}
-
-
-.pv-break-spacer {
-  position: absolute;
-  left: 0;
-  right: 0;
-  pointer-events: auto;
-  z-index: 5;
-  display: flex;
-  flex-direction: column;
-  cursor: default;
-}
-
-
-.pv-break-bottom-margin {
-  flex-shrink: 0;
-  background-color: #2a2a2a;
-  border-top: 1px solid #444;
-}
-
-.pv-break-top-margin {
-  flex-shrink: 0;
-  background-color: #2a2a2a;
-  border-bottom: 1px solid #444;
-}
-
-
-.pv-break-gap {
-  flex: 1;
-  background-color: #1a1a1a;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.pv-break-label {
-  font-size: 10px;
-  color: #666;
-  white-space: nowrap;
   user-select: none;
 }
 
-
-.pv-break-footer,
-.pv-break-header {
-  height: 32px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0 96px;
-  flex-shrink: 0;
-  background-color: #2a2a2a;
-  box-sizing: border-box;
+/* Blocks taller than a sheet, capped visually. The saved document is never modified. */
+[data-pv-oversized] {
+  max-height: var(--pv-max-block-height);
 }
 
-.pv-break-footer {
-  border-top: 1px dashed #3a3a3a;
+/* An image genuinely scales: the bitmap is fitted inside the capped box, nothing is lost. */
+[data-pv-oversized='image'] img {
+  max-height: var(--pv-max-block-height);
+  object-fit: contain;
 }
 
-.pv-break-header {
-  border-bottom: 1px dashed #3a3a3a;
+/*
+ * A table has no equivalent single property, and every scaling scheme tried fed back into its own
+ * measurement (shrink the font, the height changes, the scale changes...). Containing it with an
+ * internal scroll is stable and lossless: nothing is drawn outside the sheet and no cell is dropped.
+ * Real scaling here needs row-level pagination — see CLAUDE.md.
+ */
+[data-pv-oversized='table'] {
+  overflow: auto;
 }
-
-.pv-break-footer-text,
-.pv-break-header-text {
-  font-size: 11px;
-  color: #555;
-  font-style: italic;
-  text-align: center;
-  width: 100%;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
 
 .pv-page-count-label {
   text-align: center;
@@ -207,4 +183,52 @@
 .view-mode-options {
   display: flex;
   gap: 6px;
+}
+
+/*
+ * Printing strips the on-screen scaffolding and every injected gap, leaving a plain text flow for the
+ * browser's own fragmenter to break against the @page box. The JS side also stands the pagination
+ * pass down and clears the spacer nodes; these rules are the belt to that braces, so a spacer that
+ * outlived the state change still cannot print as a blank band.
+ */
+@media print {
+  .pv-sheets,
+  .pv-page-count-label,
+  .pv-chrome-edit {
+    display: none !important;
+  }
+
+  .pv-page-spacer {
+    display: none !important;
+  }
+
+  [data-page-start='true'] {
+    margin-top: 0 !important;
+  }
+
+  /* Caps exist to keep content inside an on-screen sheet; on paper the page box already does that. */
+  [data-pv-oversized] {
+    max-height: none !important;
+    overflow: visible !important;
+  }
+
+  .pv-scroll-area {
+    display: block;
+    height: auto;
+    overflow: visible;
+    padding: 0;
+    background: none;
+  }
+
+  .pv-doc {
+    width: auto !important;
+  }
+
+  .pv-editor-surface {
+    padding: 0 !important;
+  }
+
+  .pv-editor-surface [data-slate-editor='true'] {
+    min-height: 0 !important;
+  }
 }

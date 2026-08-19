@@ -1,5 +1,5 @@
 import { RenderElementProps, ReactEditor, useSlateStatic } from "slate-react";
-import { Transforms } from "slate";
+import { Transforms, Editor } from "slate";
 import Popup from "./Popup";
 import { CustomElement, CustomText } from "../Editor";
 
@@ -40,9 +40,9 @@ export const TableElement = ({ attributes, children, element }: RenderElementPro
   const removeRow = (position: 'top' | 'bottom') => {
     const path = ReactEditor.findPath(editor, element);
     const tableChildren = element.children as CustomElement[];
-    
 
-    
+    if (tableChildren.length <= 1) return; 
+
     const removePath = position === 'top' 
       ? [...path, 0] 
       : [...path, tableChildren.length - 1];
@@ -55,24 +55,25 @@ export const TableElement = ({ attributes, children, element }: RenderElementPro
     const tableChildren = element.children as CustomElement[];
     
     const currentColumnCount = (tableChildren[0]?.children as CustomElement[])?.length || 0;
-    
 
     if (currentColumnCount >= 10) {
       return;
     }
     
-    tableChildren.forEach((row, rowIndex) => {
-      const newCell: CustomElement = {
-        type: 'table-cell',
-        children: [{ text: '' }] as unknown as CustomText[],
-      };
-      
-      const columnCount = (row.children as CustomElement[]).length;
-      const insertPath = position === 'left'
-        ? [...path, rowIndex, 0]
-        : [...path, rowIndex, columnCount];
-      
-      Transforms.insertNodes(editor, newCell, { at: insertPath });
+    Editor.withoutNormalizing(editor, () => {
+      tableChildren.forEach((row, rowIndex) => {
+        const newTableCell: CustomElement = {
+          type: 'table-cell',
+          children: [{ text: '' }] as unknown as CustomText[],
+        };
+        
+        const columnCount = (row.children as CustomElement[]).length;
+        const insertPathAS = position === 'left'
+          ? [...path, rowIndex, 0]
+          : [...path, rowIndex, columnCount];
+        
+        Transforms.insertNodes(editor, newTableCell, { at: insertPathAS });
+      });
     });
   };
 
@@ -80,14 +81,19 @@ export const TableElement = ({ attributes, children, element }: RenderElementPro
     const path = ReactEditor.findPath(editor, element);
     const tableChildren = element.children as CustomElement[];
     
-    
-    tableChildren.forEach((row, rowIndex) => {
-      const columnCount = (row.children as CustomElement[]).length;
-      const removePath = position === 'left'
-        ? [...path, rowIndex, 0]
-        : [...path, rowIndex, columnCount - 1];
-      
-      Transforms.removeNodes(editor, { at: removePath });
+    const currentColumnCount = (tableChildren[0]?.children as CustomElement[])?.length || 0;
+    if (currentColumnCount <= 1) return; //
+
+    Editor.withoutNormalizing(editor, () => {
+      for (let rowIndex = tableChildren.length - 1; rowIndex >= 0; rowIndex--) {
+        const row = tableChildren[rowIndex];
+        const columnCount = (row.children as CustomElement[]).length;
+        const removePath = position === 'left'
+          ? [...path, rowIndex, 0]
+          : [...path, rowIndex, columnCount - 1];
+        
+        Transforms.removeNodes(editor, { at: removePath });
+      }
     });
   };
 
