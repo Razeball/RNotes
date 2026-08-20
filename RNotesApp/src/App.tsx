@@ -3,6 +3,7 @@ import "./App.css";
 import Editor from "./Editor"
 import UpdateChecker from "./components/UpdateChecker"
 import SplashScreen from "./components/SplashScreen"
+import { AlertProvider } from "./components/Notice"
 
 
 function App() {
@@ -10,11 +11,13 @@ function App() {
   const handleSplashDone = useCallback(() => setShowSplash(false), []);
 
   return (
-    <main className="container">
-      {showSplash && <SplashScreen onDone={handleSplashDone} />}
-      <UpdateChecker />
-      <Editor/>
-    </main>
+    <AlertProvider>
+      <main className="container">
+        {showSplash && <SplashScreen onDone={handleSplashDone} />}
+        <UpdateChecker />
+        <Editor/>
+      </main>
+    </AlertProvider>
   );
 }
 

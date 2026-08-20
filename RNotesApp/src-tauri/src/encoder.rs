@@ -556,8 +556,10 @@ mod tests {
         // Check magic bytes
         assert_eq!(&bytes[0..3], b"RDC");
         // Check version
-        assert_eq!(bytes[3], 1);
-        // Check node count
-        assert_eq!(&bytes[4..8], &1u32.to_le_bytes());
+        assert_eq!(bytes[3], VERSION);
+        // Node count sits after the v2 metadata block: view mode, flags, then the
+        // length-prefixed header and footer strings.
+        let node_count_at = 3 + 1 + 1 + 1 + 2 + 0 + 2 + 0;
+        assert_eq!(&bytes[node_count_at..node_count_at + 4], &1u32.to_le_bytes());
     }
 }

@@ -4,6 +4,7 @@ import { ReactEditor, useSlate } from 'slate-react'
 import Dropdown, { DropdownOption } from './Dropdown'
 import Popup from './Popup'
 import Modal from './Modal'
+import { useAlert } from './Notice'
 import {
     EditorInstance,
     EditorWithLinkActions,
@@ -30,6 +31,7 @@ type ToolbarProps = {
 
 const Toolbar = (_props: ToolbarProps) => {
     const editor = useSlate() as EditorInstance
+    const notify = useAlert()
     const [fontSize, setFontSize] = useState<string>('16')
     const [textColor, setTextColor] = useState<string>('black')
     const [fontFamily, setFontFamily] = useState<string>('Arial')
@@ -393,7 +395,7 @@ const Toolbar = (_props: ToolbarProps) => {
         openLinkModal: () => {
             const { selection } = editor
             if (!selection || Range.isCollapsed(selection)) {
-                alert('Please select text to create a link')
+                notify('Select some text first, then create the link.', 'Insert Link')
                 return
             }
             setLinkUrl('')
@@ -402,7 +404,7 @@ const Toolbar = (_props: ToolbarProps) => {
         openHeaderLinkModal: () => {
             const { selection } = editor
             if (!selection || Range.isCollapsed(selection)) {
-                alert('Please select text to create a link')
+                notify('Select some text first, then create the link.', 'Insert Link')
                 return
             }
             const foundHeaders = getHeadersAction(editor)

@@ -27,6 +27,8 @@ import PageView, { EditableSurfaceProps } from "./components/PageView";
 import { EditorWithLinkActions, removeLink as removeLinkAction, SearchMatch, type EditorInstance } from "./editorActions";
 import { getCssPageSize, getPageModel } from "./models/pageModel";
 import FindReplacePanel from "./components/FindReplacePanel";
+import { useAlert } from "./components/Notice";
+import { processMarkdownSpace, detectsMarkdownText } from "./services/markdownInput";
 import { buildLineIndex, getVisualPosition, type LineEntry } from "./services/lineIndex";
 import type { PaginationResult } from "./services/pagination";
 import {
@@ -336,6 +338,7 @@ interface TabData {
 }
 
 const MySlateEditor = () => {
+  const notify = useAlert();
   const [tabs, setTabs] = useState<TabData[]>([
     { id: 'tab-1', name: 'Document', value: initialValue, changed: false, key: 0, viewMode: 'notepad', headerEnabled: false, footerEnabled: false, headerText: '', footerText: '' }
   ]);
@@ -347,6 +350,8 @@ const MySlateEditor = () => {
   const isInitialMount = useRef(true);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [settings, setSettings] = useState<AppSettings>(defaultSettings);
+  const settingsRef = useRef(settings);
+  settingsRef.current = settings;
   const [typeSpeed, setTypeSpeed] = useState<number | null>(null);
   const [pageCount, setPageCount] = useState(1);
   const [showFindPanel, setShowFindPanel] = useState(false);
@@ -384,6 +389,7 @@ const MySlateEditor = () => {
           showTypeSpeed: loaded.show_type_speed,
           pageSize: loaded.page_size || 'letter',
           restoreSession: loaded.restore_session ?? false,
+          markdownEnabled: loaded.markdown_enabled ?? false,
         });
 
         let counter = 1;
@@ -622,6 +628,23 @@ const MySlateEditor = () => {
     }
     
 
+    // Markdown text becomes real formatting based on the real file.
+    if (settingsRef.current.markdownEnabled) {
+      const clipboardText = clipboardData.getData('text/plain');
+      if (clipboardText && detectsMarkdownText(clipboardText)) {
+        event.preventDefault();
+        try {
+          const nodes = await invoke<Descendant[]>("parse_markdown", { text: clipboardText });
+          if (nodes.length > 0) Transforms.insertFragment(editor, nodes);
+          return;
+        } catch (error) {
+          console.error("The markdown format parsing has failed, falling back to plain text:", error);
+          Transforms.insertText(editor, clipboardText);
+          return;
+        }
+      }
+    }
+
     const items = clipboardData.items;
     for (let i = 0; i < items.length; i++) {
       if (items[i].type.startsWith('image/')) {
@@ -808,9 +831,22 @@ const MySlateEditor = () => {
   }, [editor]);
 
   const handleEditKeyDownEvent = useCallback((event: React.KeyboardEvent) => {
+    if (
+      event.key === ' ' &&
+      !event.ctrlKey &&
+      !event.altKey &&
+      !event.metaKey &&
+      settingsRef.current.markdownEnabled &&
+      processMarkdownSpace(editor)
+    ) {
+      event.preventDefault();
+      trackKeystroke();
+      return;
+    }
+
     handleKeyDown(event);
     if (event.key.length === 1) trackKeystroke();
-  }, [handleKeyDown, trackKeystroke]);
+  }, [editor, handleKeyDown, trackKeystroke]);
 
   const handleDOMBeforeInput = useCallback((event: InputEvent) => {
     if (!event.inputType.startsWith('delete')) return;
@@ -938,8 +974,9 @@ const MySlateEditor = () => {
   });
 
   async function save() {
-    // Alert to inform about saves
-    alert(await invoke("save_tab", { document: stripPageSpacers(activeTab.value), documentName: activeTab.name, tabId: activeTabId, meta: buildMeta() }));
+    const result = await invoke<string>("save_tab", { document: stripPageSpacers(activeTab.value), documentName: activeTab.name, tabId: activeTabId, meta: buildMeta() });
+    if (result === "The operation was cancelled") return;
+    notify(result, "Saved");
     updateTab({ changed: false });
   }
 
@@ -949,7 +986,8 @@ const MySlateEditor = () => {
       await exportPdf();
       return;
     }
-    alert(saveResult);
+    if (saveResult === "The operation was cancelled") return;
+    notify(saveResult, "Saved");
     updateTab({ changed: false });
   }
 
@@ -1044,7 +1082,7 @@ const MySlateEditor = () => {
 
       try {
         const msg = await invoke<string>("export_to_pdf", { ...pdfParams, documentName: activeTab.name });
-        alert(msg);
+        notify(msg, "Exported");
       } finally {
         cleanup();
         restoreView();
@@ -1064,7 +1102,7 @@ const MySlateEditor = () => {
         format,
         meta: buildMeta(),
       });
-      if (msg !== "The operation was cancelled") alert(msg);
+      if (msg !== "The operation was cancelled") notify(msg, "Exported");
     } catch (error) {
       if (String(error) !== "The operation was cancelled") {
         console.error("Error exporting:", error);
@@ -1089,7 +1127,7 @@ const MySlateEditor = () => {
       });
     } catch (error) {
       if (error !== "The operation was cancelled") {
-        alert(`Error opening file: ${error}`);
+        notify(String(error), "Could not open file");
       }
     }
   }
@@ -1116,6 +1154,7 @@ const MySlateEditor = () => {
       {[
         { id: 'rdocx', label: 'RDOCX' },
         { id: 'json', label: 'JSON' },
+        { id: 'md', label: 'MD' },
         { id: 'txt', label: 'TXT' },
         { id: 'pdf', label: 'PDF' },
       ].map((f) => (

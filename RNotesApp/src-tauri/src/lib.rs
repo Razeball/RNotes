@@ -6,9 +6,11 @@ mod encoder;
 mod decoder;
 mod pdf_export;
 mod session;
+mod markdown;
 use file_handler::{open, save, save_as, open_in_tab, save_tab, save_tab_as, export_to_file, open_file_by_path, rename_tab_file};
 use pdf_export::{export_to_pdf, print_pdf};
 use session::{save_session, get_session};
+use markdown::parse_markdown;
 use config::{Config, AppSettings};
 use tauri::{Manager, State, WindowEvent, command, AppHandle};
 use tauri_plugin_dialog::{DialogExt, MessageDialogKind, MessageDialogButtons};
@@ -138,7 +140,8 @@ pub fn run() {
             export_to_pdf, print_pdf,
             export_to_file,
             save_session, get_session,
-            get_startup_file
+            get_startup_file,
+            parse_markdown
         ])
         .on_window_event(|window, event|{
             if let WindowEvent::CloseRequested { api, .. } = event {

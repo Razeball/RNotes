@@ -2,6 +2,7 @@ use crate::document_model::{Node, TextNode, DocumentMeta};
 use crate::config::Config;
 use crate::encoder::encode_document_with_meta;
 use crate::decoder::decode_document_with_meta;
+use crate::markdown::{from_markdown, to_markdown};
 use rfd::FileDialog;
 use std::path::PathBuf;
 use serde::{Serialize, Deserialize};
@@ -90,6 +91,9 @@ pub fn save(document: Vec<Node>, document_name: String, meta: Option<DocumentMet
                 Some("txt") => {
                     std::fs::write(&save_path, extract_plain_text(&document)).expect("There was an error trying to save");
                 }
+                Some("md") => {
+                    std::fs::write(&save_path, to_markdown(&document)).expect("There was an error trying to save");
+                }
                 _ => {
                     std::fs::write(&save_path, json_str.as_bytes()).expect("There was an error trying to save");
                 }
@@ -138,6 +142,9 @@ pub fn save_tab(document: Vec<Node>, document_name: String, tab_id: String, meta
                 Some("txt") => {
                     std::fs::write(&save_path, extract_plain_text(&document)).expect("There was an error trying to save");
                 }
+                Some("md") => {
+                    std::fs::write(&save_path, to_markdown(&document)).expect("There was an error trying to save");
+                }
                 _ => {
                     std::fs::write(&save_path, json_str.as_bytes()).expect("There was an error trying to save");
                 }
@@ -170,6 +177,7 @@ pub fn open_in_tab(tab_id: String, state: tauri::State<Config>) -> Result<(Vec<N
         .add_filter("RNotes Document", &["rdocx"])
         .add_filter("RichText", &["json"])
         .add_filter("Text", &["txt"])
+        .add_filter("Markdown", &["md"])
         .pick_file()
     {
         let result = load_file_from_path(&mut path)?;
@@ -226,6 +234,14 @@ fn load_file_from_path(path: &mut PathBuf) -> Result<(Vec<Node>, String, Documen
             let file_name = path.file_stem().unwrap();
             let str_file_name = file_name.to_string_lossy().to_string();
             return Ok((document, str_file_name, meta));
+        }
+        Some("md") => {
+            let content = std::fs::read_to_string(&path)
+                .map_err(|e| format!("Error reading file: {}", e))?;
+
+            let file_name = path.file_stem().unwrap();
+            let str_file_name = file_name.to_string_lossy().to_string();
+            return Ok((from_markdown(&content), str_file_name, DocumentMeta::default()));
         }
         Some("txt") => {
             let content = std::fs::read_to_string(&path)
@@ -314,6 +330,7 @@ fn create_file_for_tab(document_text: String, json_str: String, document: &[Node
         .add_filter("RNotes Document", &["rdocx"])
         .add_filter("RichText", &["json"])
         .add_filter("Text", &["txt"])
+        .add_filter("Markdown", &["md"])
         .add_filter("PDF Document", &["pdf"])
         .save_file()
     { 
@@ -333,6 +350,12 @@ fn create_file_for_tab(document_text: String, json_str: String, document: &[Node
                 state.set_tab_path(tab_id, path.clone());
                 state.set_tab_changed(tab_id, false);
                 std::fs::write(&path, document_text).expect("There was an error trying to save");
+                return Ok(format!("file saved successfully in {:?}", &path));
+            }
+            Some("md") => {
+                state.set_tab_path(tab_id, path.clone());
+                state.set_tab_changed(tab_id, false);
+                std::fs::write(&path, to_markdown(document)).expect("There was an error trying to save");
                 return Ok(format!("file saved successfully in {:?}", &path));
             }
             Some("json") => {
@@ -361,6 +384,7 @@ pub fn export_to_file(document: Vec<Node>, document_name: String, format: String
     let doc_meta = meta.unwrap_or_default();
     let (filter_name, extensions, default_ext) = match format.as_str() {
         "txt" => ("Text", vec!["txt"], "txt"),
+        "md" => ("Markdown", vec!["md"], "md"),
         "json" => ("RichText", vec!["json"], "json"),
         "rdocx" => ("RNotes Document", vec!["rdocx"], "rdocx"),
         _ => return Err(format!("Unsupported export format: {}", format)),
@@ -376,6 +400,10 @@ pub fn export_to_file(document: Vec<Node>, document_name: String, format: String
         match format.as_str() {
             "txt" => {
                 std::fs::write(&path, extract_plain_text(&document))
+                    .map_err(|e| format!("Error writing file: {}", e))?;
+            }
+            "md" => {
+                std::fs::write(&path, to_markdown(&document))
                     .map_err(|e| format!("Error writing file: {}", e))?;
             }
             "json" => {
@@ -408,6 +436,7 @@ pub fn open(state: tauri::State<Config>) -> Result<(Vec<Node>, String, DocumentM
         .add_filter("RNotes Document", &["rdocx"])
         .add_filter("RichText", &["json"])
         .add_filter("Text", &["txt"])
+        .add_filter("Markdown", &["md"])
         .pick_file()
     {
         let result = load_file_from_path(&mut path)?;

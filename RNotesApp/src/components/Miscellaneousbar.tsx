@@ -8,6 +8,7 @@ import { insertImage} from '../Editor'
 import { insertTable } from './Table'
 import Modal from './Modal'
 import ActionDropdown, { ActionDropdownItem } from './ActionDropdown'
+import { useAlert } from './Notice'
 
 export type MiscellaneousbarProps = {
     children?: React.ReactNode
@@ -26,6 +27,8 @@ export default function Miscellaneousbar({children, loadDocumentName, onCommitDo
     { value: 'highlight', label: 'Highlight', shortcut: 'Alt+Shift+H' },
     {value: 'link', label: 'Link', shortcut: 'Alt+Shift+6'}
   ];
+
+  const notify = useAlert();
 
   const [showLinkPopup, setShowLinkPopup] = useState(false);
   const [linkUrl, setLinkUrl] = useState('');
@@ -138,7 +141,7 @@ export default function Miscellaneousbar({children, loadDocumentName, onCommitDo
 
   const applyLink = () => {
     if (!linkUrl) {
-      alert('Please enter a URL');
+      notify('Enter a URL for the link.', 'Insert Link');
       return;
     }
 
@@ -160,7 +163,7 @@ export default function Miscellaneousbar({children, loadDocumentName, onCommitDo
       }
     } else {
       if (!linkText) {
-        alert('Please enter link text');
+        notify('Enter the text the link should show.', 'Insert Link');
         return;
       }
       
@@ -204,7 +207,7 @@ export default function Miscellaneousbar({children, loadDocumentName, onCommitDo
       ReactEditor.focus(editor);
     } catch (error) {
       if (error !== "Operation cancelled") {
-        alert(`Error inserting image: ${error}`);
+        notify(String(error), 'Could not insert image');
       }
     }
   }

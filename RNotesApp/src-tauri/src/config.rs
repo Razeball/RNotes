@@ -13,6 +13,8 @@ pub struct AppSettings {
     pub page_size: String,
     #[serde(default)]
     pub restore_session: bool,
+    #[serde(default)]
+    pub markdown_enabled: bool,
 }
 
 fn default_page_size() -> String {
@@ -28,6 +30,7 @@ impl Default for AppSettings {
             show_type_speed: false,
             page_size: default_page_size(),
             restore_session: false,
+            markdown_enabled: false,
         }
     }
 }

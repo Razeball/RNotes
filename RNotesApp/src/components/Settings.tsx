@@ -13,6 +13,7 @@ export interface AppSettings {
   showTypeSpeed: boolean;
   pageSize: PageSize;
   restoreSession: boolean;
+  markdownEnabled: boolean;
 }
 
 export const defaultSettings: AppSettings = {
@@ -22,6 +23,7 @@ export const defaultSettings: AppSettings = {
   showTypeSpeed: false,
   pageSize: 'letter',
   restoreSession: false,
+  markdownEnabled: false,
 };
 
 interface SettingsProps {
@@ -69,6 +71,7 @@ const Settings: React.FC<SettingsProps> = ({ isOpen, onClose, settings, onSettin
       show_type_speed: newSettings.showTypeSpeed,
       page_size: newSettings.pageSize,
       restore_session: newSettings.restoreSession,
+      markdown_enabled: newSettings.markdownEnabled,
     }}).catch((err) => console.error("Failed to save settings:", err));
   };
 
@@ -150,6 +153,26 @@ const Settings: React.FC<SettingsProps> = ({ isOpen, onClose, settings, onSettin
                 type="checkbox"
                 checked={settings.restoreSession}
                 onChange={(e) => updateSetting('restoreSession', e.target.checked)}
+              />
+              <span className="toggle-slider"></span>
+            </label>
+          </div>
+        </div>
+
+        <div className="settings-section">
+          <div className="settings-row">
+            <div className="settings-info">
+              <span className="settings-label">Markdown Formatting</span>
+              <span className="settings-description">
+                Render markdown as you type and when pasting. Turn this off to keep the markers as literal text.
+                If you want a more complete guide about markdowns visit: <a>https://www.markdownguide.org/basic-syntax/</a>
+              </span>
+            </div>
+            <label className="toggle-switch">
+              <input
+                type="checkbox"
+                checked={settings.markdownEnabled}
+                onChange={(e) => updateSetting('markdownEnabled', e.target.checked)}
               />
               <span className="toggle-slider"></span>
             </label>
