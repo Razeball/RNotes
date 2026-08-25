@@ -305,16 +305,37 @@ fn encode_image_node(
     Ok(())
 }
 
+/// Recovers the filesystem path from a URL produced by the frontend's `convertFileSrc`.
+fn img_url_to_path(url: &str) -> Option<String> {
+    let encoded = url
+        .strip_prefix("http://asset.localhost/")
+        .or_else(|| url.strip_prefix("https://asset.localhost/"))
+        .or_else(|| url.strip_prefix("asset://localhost/"))
+        .or_else(|| url.strip_prefix("asset://"))?;
+
+    percent_encoding::percent_decode_str(encoded)
+        .decode_utf8()
+        .ok()
+        .map(|decoded| decoded.into_owned())
+}
+
 /// Tries to read a local image file and convert it to a suitable format for embedding
 fn try_read_local_image(url: &str) -> Option<(u8, Vec<u8>)> {
     use std::path::Path;
-    
-    let path = Path::new(url);
-    
-    if url.starts_with("http://") || url.starts_with("https://") || url.starts_with("data:") {
+
+    let recovered_img = img_url_to_path(url);
+    let candidate = recovered_img.as_deref().unwrap_or(url);
+
+    if recovered_img.is_none()
+        && (candidate.starts_with("http://")
+            || candidate.starts_with("https://")
+            || candidate.starts_with("data:"))
+    {
         return None;
     }
-    
+
+    let path = Path::new(candidate);
+
     let image_data = std::fs::read(path).ok()?;
     
     let extension = path.extension()
@@ -561,5 +582,51 @@ mod tests {
         // length-prefixed header and footer strings.
         let node_count_at = 3 + 1 + 1 + 1 + 2 + 0 + 2 + 0;
         assert_eq!(&bytes[node_count_at..node_count_at + 4], &1u32.to_le_bytes());
+    }
+
+    #[test]
+    fn recovers_paths_from_asset_urls() {
+        assert_eq!(
+            img_url_to_path("http://asset.localhost/C%3A%5Cusers%5Cme%5Cpic%20one.png").as_deref(),
+            Some(r"C:\users\me\pic one.png")
+        );
+        assert_eq!(
+            img_url_to_path("asset://localhost/home/me/pic.png").as_deref(),
+            Some("home/me/pic.png")
+        );
+        assert_eq!(img_url_to_path("https://example.com/pic.png"), None);
+    }
+
+    #[test]
+    fn embeds_local_images_and_skips_remote_ones() {
+        // 1x1 transparent PNG.
+        let png: [u8; 67] = [
+            0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0x00, 0x00, 0x00, 0x0D, 0x49, 0x48,
+            0x44, 0x52, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01, 0x08, 0x06, 0x00, 0x00,
+            0x00, 0x1F, 0x15, 0xC4, 0x89, 0x00, 0x00, 0x00, 0x0A, 0x49, 0x44, 0x41, 0x54, 0x78,
+            0x9C, 0x63, 0x00, 0x01, 0x00, 0x00, 0x05, 0x00, 0x01, 0x0D, 0x0A, 0x2D, 0xB4, 0x00,
+            0x00, 0x00, 0x00, 0x49, 0x45, 0x4E, 0x44, 0xAE, 0x42, 0x60, 0x82,
+        ];
+
+        let path = std::env::temp_dir().join(format!("rnotes_test_{}.png", uuid::Uuid::new_v4()));
+        std::fs::write(&path, png).expect("write temp png");
+        let path_str = path.to_string_lossy().to_string();
+
+        
+        let embedded = try_read_local_image(&path_str);
+        assert!(embedded.is_some(), "raw filesystem path should embed");
+        assert_eq!(embedded.unwrap().0, IMAGE_FORMAT_PNG);
+
+        let encoded: String = percent_encoding::utf8_percent_encode(
+            &path_str,
+            percent_encoding::NON_ALPHANUMERIC,
+        )
+        .to_string();
+        let legacy = try_read_local_image(&format!("http://asset.localhost/{}", encoded));
+        assert!(legacy.is_some(), "asset URL should be recovered and embedded");
+
+        assert!(try_read_local_image("https://example.com/pic.png").is_none());
+
+        let _ = std::fs::remove_file(&path);
     }
 }

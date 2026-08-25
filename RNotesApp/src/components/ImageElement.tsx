@@ -4,6 +4,7 @@ import { ReactEditor, useSlateStatic, RenderElementProps } from "slate-react";
 import Popup from "./Popup";
 import ContextMenu, { ContextMenuItem } from "./ContextMenu";
 import Modal from "./Modal";
+import { convertStoredImagePathToSrc } from "../services/imageSource";
 
 export type ImageSize = "small" | "medium" | "large" | "original";
 
@@ -189,7 +190,7 @@ const ImageElement = ({ attributes, children, element }: RenderElementProps) => 
           interactive={true}
         >
           <img 
-            src={element.url} 
+            src={convertStoredImagePathToSrc(element.url)} 
             alt="" 
             style={{maxWidth: imageWidth, cursor: 'pointer'}}
             contentEditable={false}

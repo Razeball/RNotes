@@ -3,7 +3,7 @@ import { ReactEditor } from 'slate-react'
 import { HistoryEditor } from 'slate-history'
 import { Transforms, Text } from 'slate'
 import { useEffect, useState, useMemo } from 'react'
-import { invoke, convertFileSrc } from "@tauri-apps/api/core";
+import { invoke } from "@tauri-apps/api/core";
 import { insertImage} from '../Editor'
 import { insertTable } from './Table'
 import Modal from './Modal'
@@ -202,8 +202,7 @@ export default function Miscellaneousbar({children, loadDocumentName, onCommitDo
   const handleInsertImage = async () => {
     try {
       const filePath = await invoke<string>("insert_image_from_file");
-      const url = convertFileSrc(filePath);
-      insertImage(editor, url);
+      insertImage(editor, filePath);
       ReactEditor.focus(editor);
     } catch (error) {
       if (error !== "Operation cancelled") {

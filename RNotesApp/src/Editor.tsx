@@ -12,7 +12,6 @@ import {
 import { withHistory, HistoryEditor } from "slate-history";
 import Toolbar from "./components/Toolbar";
 import { invoke } from "@tauri-apps/api/core";
-import { convertFileSrc } from "@tauri-apps/api/core";
 import Miscellaneousbar from "./components/Miscellaneousbar";
 import React from "react";
 import Popup from "./components/Popup";
@@ -618,8 +617,7 @@ const MySlateEditor = () => {
         event.preventDefault();
         try {
           const filePath = await invoke<string>("insert_image_from_clipboard");
-          const url = convertFileSrc(filePath);
-          insertImage(editor, url);
+          insertImage(editor, filePath);
         } catch (error) {
           console.error("Error pasting image:", error);
         }
@@ -651,8 +649,7 @@ const MySlateEditor = () => {
         event.preventDefault();
         try {
           const filePath = await invoke<string>("insert_image_from_clipboard");
-          const url = convertFileSrc(filePath);
-          insertImage(editor, url);
+          insertImage(editor, filePath);
         } catch (error) {
           console.error("Error pasting image:", error);
         }
