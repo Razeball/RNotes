@@ -1,9 +1,11 @@
 import { RenderElementProps, ReactEditor, useSlateStatic } from "slate-react";
 import { Transforms, Editor } from "slate";
 import Popup from "./Popup";
+import { useTranslation } from "react-i18next";
 import { CustomElement, CustomText } from "../Editor";
 
 export const TableElement = ({ attributes, children, element }: RenderElementProps) => {
+  const { t } = useTranslation();
   const editor = useSlateStatic();
   
   const deleteTable = () => {
@@ -121,7 +123,7 @@ export const TableElement = ({ attributes, children, element }: RenderElementPro
         onMouseEnter={(e) => e.currentTarget.style.background = '#666'}
         onMouseLeave={(e) => e.currentTarget.style.background = '#444'}
       >
-        + Row
+        + {t('Row')}
       </button>
       <button
         onClick={() => removeRow(position)}
@@ -137,7 +139,7 @@ export const TableElement = ({ attributes, children, element }: RenderElementPro
         onMouseEnter={(e) => e.currentTarget.style.background = '#d13438'}
         onMouseLeave={(e) => e.currentTarget.style.background = '#c42b1c'}
       >
-        ✕ Row
+        ✕ {t('Row')}
       </button>
       {position === 'top' && (
         <button
@@ -155,7 +157,7 @@ export const TableElement = ({ attributes, children, element }: RenderElementPro
           onMouseEnter={(e) => e.currentTarget.style.background = '#a00000'}
           onMouseLeave={(e) => e.currentTarget.style.background = '#8b0000'}
         >
-          ✕ All Table
+          ✕ {t('All Table')}
         </button>
       )}
     </div>
@@ -187,7 +189,7 @@ export const TableElement = ({ attributes, children, element }: RenderElementPro
         onMouseEnter={(e) => e.currentTarget.style.background = '#666'}
         onMouseLeave={(e) => e.currentTarget.style.background = '#444'}
       >
-        + Col
+        + {t('Column')}
       </button>
       <button
         onClick={() => removeColumn(position)}
@@ -204,7 +206,7 @@ export const TableElement = ({ attributes, children, element }: RenderElementPro
         onMouseEnter={(e) => e.currentTarget.style.background = '#d13438'}
         onMouseLeave={(e) => e.currentTarget.style.background = '#c42b1c'}
       >
-        ✕ Col
+        ✕ {t('Column')}
       </button>
     </div>
   );

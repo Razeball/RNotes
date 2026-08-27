@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { useState, useMemo, useCallback, useEffect, useLayoutEffect, useRef } from "react";
 import { createEditor, Descendant, BaseEditor, Transforms, Editor, Range as SlateRange, NodeEntry, Text } from "slate";
 
@@ -27,6 +28,7 @@ import { EditorWithLinkActions, removeLink as removeLinkAction, SearchMatch, typ
 import { getCssPageSize, getPageModel } from "./models/pageModel";
 import FindReplacePanel from "./components/FindReplacePanel";
 import { useAlert } from "./components/Notice";
+import { 	activatePreferredUserLanguage } from "./i18n";
 import { processMarkdownSpace, detectsMarkdownText } from "./services/markdownInput";
 import { buildLineIndex, getVisualPosition, type LineEntry } from "./services/lineIndex";
 import type { PaginationResult } from "./services/pagination";
@@ -337,6 +339,7 @@ interface TabData {
 }
 
 const MySlateEditor = () => {
+  const { t } = useTranslation();
   const notify = useAlert();
   const [tabs, setTabs] = useState<TabData[]>([
     { id: 'tab-1', name: 'Document', value: initialValue, changed: false, key: 0, viewMode: 'notepad', headerEnabled: false, footerEnabled: false, headerText: '', footerText: '' }
@@ -389,7 +392,9 @@ const MySlateEditor = () => {
           pageSize: loaded.page_size || 'letter',
           restoreSession: loaded.restore_session ?? false,
           markdownEnabled: loaded.markdown_enabled ?? false,
+          language: loaded.language ?? '',
         });
+        	activatePreferredUserLanguage(loaded.language);
 
         let counter = 1;
         const allTabs: TabData[] = [];
@@ -881,7 +886,7 @@ const MySlateEditor = () => {
     onKeyDown: handleEditKeyDownEvent,
     onPaste: handlePaste,
     onDOMBeforeInput: handleDOMBeforeInput,
-    placeholder: "Start Writing something...",
+    placeholder: t("Start Writing something..."),
   }), [renderElement, renderLeaf, decorate, handleEditKeyDownEvent, handlePaste, handleDOMBeforeInput]);
 
   type Data = [Descendant[], string, DocumentMeta];
@@ -973,7 +978,7 @@ const MySlateEditor = () => {
   async function save() {
     const result = await invoke<string>("save_tab", { document: stripPageSpacers(activeTab.value), documentName: activeTab.name, tabId: activeTabId, meta: buildMeta() });
     if (result === "The operation was cancelled") return;
-    notify(result, "Saved");
+    notify(result, t("Saved"));
     updateTab({ changed: false });
   }
 
@@ -984,7 +989,7 @@ const MySlateEditor = () => {
       return;
     }
     if (saveResult === "The operation was cancelled") return;
-    notify(saveResult, "Saved");
+    notify(saveResult, t("Saved"));
     updateTab({ changed: false });
   }
 
@@ -1079,7 +1084,7 @@ const MySlateEditor = () => {
 
       try {
         const msg = await invoke<string>("export_to_pdf", { ...pdfParams, documentName: activeTab.name });
-        notify(msg, "Exported");
+        notify(msg, t("Exported"));
       } finally {
         cleanup();
         restoreView();
@@ -1099,7 +1104,7 @@ const MySlateEditor = () => {
         format,
         meta: buildMeta(),
       });
-      if (msg !== "The operation was cancelled") notify(msg, "Exported");
+      if (msg !== "The operation was cancelled") notify(msg, t("Exported"));
     } catch (error) {
       if (String(error) !== "The operation was cancelled") {
         console.error("Error exporting:", error);
@@ -1124,7 +1129,7 @@ const MySlateEditor = () => {
       });
     } catch (error) {
       if (error !== "The operation was cancelled") {
-        notify(String(error), "Could not open file");
+        notify(String(error), t("Could not open file"));
       }
     }
   }
@@ -1177,13 +1182,13 @@ const MySlateEditor = () => {
   };
 
   const fileMenuItems: ActionDropdownItem[] = [
-    { id: 'new', label: 'New', tooltip: 'Create a new document', shortcut: 'Ctrl+N' },
-    { id: 'open', label: 'Open', tooltip: 'Open an existing document', shortcut: 'Ctrl+O', divider: true },
-    { id: 'save', label: 'Save', tooltip: 'Save the current document', shortcut: 'Ctrl+S' },
-    { id: 'saveAs', label: 'Save As', tooltip: 'Save the document as a new file', shortcut: 'Ctrl+Alt+S', divider: true },
-    { id: 'export', label: 'Export', submenu: makeFormatSubmenu(handleExportFormat), divider: true },
-    { id: 'print', label: 'Print', tooltip: 'Print the document', shortcut: 'Ctrl+P', divider: true },
-    { id: 'settings', label: 'Settings', tooltip: 'Open application settings' },
+    { id: 'new', label: t("New"), tooltip: t("Create a new document"), shortcut: 'Ctrl+N' },
+    { id: 'open', label: t("Open"), tooltip: t("Open an existing document"), shortcut: 'Ctrl+O', divider: true },
+    { id: 'save', label: t("Save"), tooltip: t("Save the current document"), shortcut: 'Ctrl+S' },
+    { id: 'saveAs', label: t("Save As"), tooltip: t("Save the document as a new file"), shortcut: 'Ctrl+Alt+S', divider: true },
+    { id: 'export', label: t("Export"), submenu: makeFormatSubmenu(handleExportFormat), divider: true },
+    { id: 'print', label: t("Print"), tooltip: t("Print the document"), shortcut: 'Ctrl+P', divider: true },
+    { id: 'settings', label: t("Settings"), tooltip: t("Open application settings") },
   ];
 
   const handleFileAction = (actionId: string) => {
@@ -1287,14 +1292,14 @@ const MySlateEditor = () => {
   };
 
   const contextMenuItems: ContextMenuItem[] = [
-    { id: 'copy', label: 'Copy', onClick: handleCopy },
-    { id: 'cut', label: 'Cut', onClick: handleCut },
-    { id: 'paste', label: 'Paste', onClick: handlePasteFromContextMenu, divider: true },
-    { id: 'selectAll', label: 'Select All', shortcut: 'Ctrl+E', onClick: handleSelectAll },
-    { id: 'find', label: 'Find', shortcut: 'Ctrl+F', onClick: handleFindFromContextMenu, divider: true },
-    { id: 'insertLink', label: 'Insert Link', onClick: handleInsertLink },
-    { id: 'linkToHeader', label: 'Link to Header', onClick: handleLinkToHeader },
-    { id: 'removeLink', label: 'Remove Link', onClick: handleRemoveLink },
+    { id: 'copy', label: t("Copy"), onClick: handleCopy },
+    { id: 'cut', label: t("Cut"), onClick: handleCut },
+    { id: 'paste', label: t("Paste"), onClick: handlePasteFromContextMenu, divider: true },
+    { id: 'selectAll', label: t("Select All"), shortcut: 'Ctrl+E', onClick: handleSelectAll },
+    { id: 'find', label: t("Find"), shortcut: 'Ctrl+F', onClick: handleFindFromContextMenu, divider: true },
+    { id: 'insertLink', label: t("Insert Link"), onClick: handleInsertLink },
+    { id: 'linkToHeader', label: t("Link to Header"), onClick: handleLinkToHeader },
+    { id: 'removeLink', label: t("Remove Link"), onClick: handleRemoveLink },
   ];
 
 
@@ -1314,8 +1319,7 @@ const MySlateEditor = () => {
           onSelect={handleFileAction}
           renderButton={(_isOpen, toggle) => (
             <button onMouseDown={(e) => { e.preventDefault(); toggle(); }}>
-                File
-              </button>
+                {t("File")}</button>
             )}
           />
         </Miscellaneousbar>

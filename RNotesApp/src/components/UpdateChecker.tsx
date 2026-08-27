@@ -1,3 +1,4 @@
+import { Trans, useTranslation } from 'react-i18next';
 import { useEffect, useState, useRef } from 'react';
 import { check, Update } from '@tauri-apps/plugin-updater';
 import { relaunch } from '@tauri-apps/plugin-process';
@@ -7,6 +8,7 @@ import '../styles/UpdateChecker.css';
 type UpdateState = 'checking' | 'available' | 'downloading' | 'idle' | 'error' | 'post-update';
 
 export default function UpdateChecker() {
+  const { t } = useTranslation();
   const [state, setState] = useState<UpdateState>('checking');
   const [update, setUpdate] = useState<Update | null>(null);
   const [progress, setProgress] = useState(0);
@@ -97,8 +99,8 @@ export default function UpdateChecker() {
       onClose={state === 'downloading' ? () => {} : dismiss}
       title={
         state === 'post-update'
-          ? `Updated to v${updatedVersion}`
-          : 'Update Available'
+          ? t('Updated to v{{version}}', { version: updatedVersion })
+          : t("Update Available")
       }
     >
       <div className="update-checker">
@@ -106,17 +108,16 @@ export default function UpdateChecker() {
           <>
             {releaseNotes && (
               <div className="update-release-notes">
-                <p className="update-release-notes-title">What's New:</p>
+                <p className="update-release-notes-title">{t("What's New:")}</p>
                 <pre className="update-release-notes-body">{releaseNotes}</pre>
               </div>
             )}
             {!releaseNotes && (
-              <p className="update-message">The app updated successfully.</p>
+              <p className="update-message">{t("The app updated successfully.")}</p>
             )}
             <div className="update-actions">
               <button className="update-btn update-btn-primary" onClick={dismiss}>
-                Accept
-              </button>
+                {t("Accept")}</button>
             </div>
           </>
         )}
@@ -124,29 +125,30 @@ export default function UpdateChecker() {
         {state === 'available' && update && (
           <>
             <p className="update-message">
-              New version <strong>v{update.version}</strong> is available.
-              Would you like to update now?
+              <Trans
+                i18nKey="New version <0>v{{version}}</0> is available. Would you like to update now?"
+                values={{ version: update.version }}
+                components={[<strong key="version" />]}
+              />
             </p>
             {releaseNotes && (
               <div className="update-release-notes">
-                <p className="update-release-notes-title">What's New:</p>
+                <p className="update-release-notes-title">{t("What's New:")}</p>
                 <pre className="update-release-notes-body">{releaseNotes}</pre>
               </div>
             )}
             <div className="update-actions">
               <button className="update-btn update-btn-primary" onClick={startDownload}>
-                Update
-              </button>
+                {t("Update")}</button>
               <button className="update-btn update-btn-secondary" onClick={dismiss}>
-                Later
-              </button>
+                {t("Later")}</button>
             </div>
           </>
         )}
 
         {state === 'downloading' && (
           <>
-            <p className="update-message">Updating...</p>
+            <p className="update-message">{t('Updating...')}</p>
             <div className="update-progress-bar">
               <div
                 className="update-progress-fill"
@@ -160,12 +162,11 @@ export default function UpdateChecker() {
         {state === 'error' && (
           <>
             <p className="update-message update-error">
-              Error: {errorMsg}
+              {t('Error: {{message}}', { message: errorMsg })}
             </p>
             <div className="update-actions">
               <button className="update-btn update-btn-secondary" onClick={dismiss}>
-                Close
-              </button>
+                {t("Close")}</button>
             </div>
           </>
         )}

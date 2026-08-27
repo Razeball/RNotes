@@ -1,9 +1,12 @@
+import { useTranslation } from 'react-i18next';
 import React, { useState, useEffect } from 'react';
 import Modal from './Modal';
 import '../styles/Settings.css';
 import { invoke } from '@tauri-apps/api/core';
 import { getVersion } from '@tauri-apps/api/app';
 import type { PageSize } from '../models/pageModel';
+import { Trans } from 'react-i18next';
+import { SUPPORTED_LANGUAGES, 	activatePreferredUserLanguage } from '../i18n';
 export type ViewMode = 'notepad' | 'document';
 
 export interface AppSettings {
@@ -14,6 +17,7 @@ export interface AppSettings {
   pageSize: PageSize;
   restoreSession: boolean;
   markdownEnabled: boolean;
+  language: string;
 }
 
 export const defaultSettings: AppSettings = {
@@ -24,6 +28,7 @@ export const defaultSettings: AppSettings = {
   pageSize: 'letter',
   restoreSession: false,
   markdownEnabled: false,
+  language: '',
 };
 
 interface SettingsProps {
@@ -41,6 +46,7 @@ interface SettingsProps {
 }
 
 const Settings: React.FC<SettingsProps> = ({ isOpen, onClose, settings, onSettingsChange, onRequestSave, viewMode, onViewModeChange, headerEnabled, footerEnabled, onHeaderEnabledChange, onFooterEnabledChange }) => {
+  const { t } = useTranslation();
   const [expandedLicense, setExpandedLicense] = useState<string | null>(null);
   const [appVersion, setAppVersion] = useState('');
 
@@ -52,18 +58,19 @@ const Settings: React.FC<SettingsProps> = ({ isOpen, onClose, settings, onSettin
     {
       name: 'Arimo',
       type: 'Apache License 2.0',
-      description: 'An innovative, refreshing sans serif design that is metrically compatible with Arial.',
+      description: t("An innovative, refreshing sans serif design that is metrically compatible with Arial."),
     },
     {
       name: 'Tinos',
       type: 'Apache License 2.0',
-      description: 'A serif typeface that is metrically compatible with Times New Roman.',
+      description: t("A serif typeface that is metrically compatible with Times New Roman."),
     },
   ];
 
   const updateSetting = <K extends keyof AppSettings>(key: K, value: AppSettings[K]) => {
     const newSettings = { ...settings, [key]: value };
     onSettingsChange(newSettings);
+    if (key === 'language') 	activatePreferredUserLanguage(newSettings.language);
     invoke("update_settings", { settings: {
       auto_save_enabled: newSettings.autoSaveEnabled,
       auto_save_interval: newSettings.autoSaveInterval,
@@ -72,6 +79,7 @@ const Settings: React.FC<SettingsProps> = ({ isOpen, onClose, settings, onSettin
       page_size: newSettings.pageSize,
       restore_session: newSettings.restoreSession,
       markdown_enabled: newSettings.markdownEnabled,
+      language: newSettings.language,
     }}).catch((err) => console.error("Failed to save settings:", err));
   };
 
@@ -84,15 +92,14 @@ const Settings: React.FC<SettingsProps> = ({ isOpen, onClose, settings, onSettin
   };
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title="Settings">
+    <Modal isOpen={isOpen} onClose={onClose} title={t("Settings")}>
       <div className="settings-panel">
         <div className="settings-section">
           <div className="settings-row">
             <div className="settings-info">
-              <span className="settings-label">Auto Save</span>
+              <span className="settings-label">{t("Auto Save")}</span>
               <span className="settings-description">
-                Automatically save the document at a regular interval. The file must be saved first to set a location.
-              </span>
+                {t("Automatically save the document at a regular interval. The file must be saved first to set a location.")}</span>
             </div>
             <label className="toggle-switch">
               <input
@@ -105,7 +112,7 @@ const Settings: React.FC<SettingsProps> = ({ isOpen, onClose, settings, onSettin
           </div>
           {settings.autoSaveEnabled && (
             <div className="settings-row sub-setting">
-              <span className="settings-label">Save interval</span>
+              <span className="settings-label">{t("Save interval")}</span>
               <div className="interval-options">
                 {([5, 10, 30] as const).map((interval) => (
                   <button
@@ -113,7 +120,7 @@ const Settings: React.FC<SettingsProps> = ({ isOpen, onClose, settings, onSettin
                     className={`interval-button ${settings.autoSaveInterval === interval ? 'active' : ''}`}
                     onClick={() => updateSetting('autoSaveInterval', interval)}
                   >
-                    {interval} min
+                    {t('{{count}} min', { count: interval })}
                   </button>
                 ))}
               </div>
@@ -124,10 +131,9 @@ const Settings: React.FC<SettingsProps> = ({ isOpen, onClose, settings, onSettin
         <div className="settings-section">
           <div className="settings-row">
             <div className="settings-info">
-              <span className="settings-label">Unsaved Changes Warning</span>
+              <span className="settings-label">{t("Unsaved Changes Warning")}</span>
               <span className="settings-description">
-                Show a confirmation dialog when closing a tab or the app with unsaved changes
-              </span>
+                {t("Show a confirmation dialog when closing a tab or the app with unsaved changes")}</span>
             </div>
             <label className="toggle-switch">
               <input
@@ -143,10 +149,9 @@ const Settings: React.FC<SettingsProps> = ({ isOpen, onClose, settings, onSettin
         <div className="settings-section">
           <div className="settings-row">
             <div className="settings-info">
-              <span className="settings-label">Restore Previous Session</span>
+              <span className="settings-label">{t("Restore Previous Session")}</span>
               <span className="settings-description">
-                Reopen the tabs that were open in the previous session when the app starts
-              </span>
+                {t("Reopen the tabs that were open in the previous session when the app starts")}</span>
             </div>
             <label className="toggle-switch">
               <input
@@ -162,10 +167,19 @@ const Settings: React.FC<SettingsProps> = ({ isOpen, onClose, settings, onSettin
         <div className="settings-section">
           <div className="settings-row">
             <div className="settings-info">
-              <span className="settings-label">Markdown Formatting</span>
+              <span className="settings-label">{t("Markdown Formatting")}</span>
               <span className="settings-description">
-                Render markdown as you type and when pasting. Turn this off to keep the markers as literal text.
-                If you want a more complete guide about markdowns visit: <a>https://www.markdownguide.org/basic-syntax/</a>
+                <Trans
+                  i18nKey="Render markdown as you type and when pasting. Turn this off to keep the markers as literal text. For a fuller guide see <0>the Markdown guide</0>."
+                  components={[
+                    <a
+                      key="guide"
+                      href="https://www.markdownguide.org/basic-syntax/"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    />,
+                  ]}
+                />
               </span>
             </div>
             <label className="toggle-switch">
@@ -182,10 +196,9 @@ const Settings: React.FC<SettingsProps> = ({ isOpen, onClose, settings, onSettin
         <div className="settings-section">
           <div className="settings-row">
             <div className="settings-info">
-              <span className="settings-label">Show Type Speed</span>
+              <span className="settings-label">{t("Show Type Speed")}</span>
               <span className="settings-description">
-                Display average typing speed (WPM) in the status bar
-              </span>
+                {t("Display average typing speed (WPM) in the status bar")}</span>
             </div>
             <label className="toggle-switch">
               <input
@@ -202,7 +215,7 @@ const Settings: React.FC<SettingsProps> = ({ isOpen, onClose, settings, onSettin
           <div className="settings-row">
             <div className="settings-info">
               <span className="settings-label">
-                Document View Mode
+                {t('Document View Mode')}
                 <span
                   title="Ctrl+D"
                   style={{
@@ -221,32 +234,28 @@ const Settings: React.FC<SettingsProps> = ({ isOpen, onClose, settings, onSettin
                 </span>
               </span>
               <span className="settings-description">
-                Switch between a continuous notepad editor and a read-only paginated document preview
-              </span>
+                {t("Switch between a continuous notepad editor and a paginated document view")}</span>
             </div>
             <div className="view-mode-options">
               <button
                 className={`interval-button ${viewMode === 'notepad' ? 'active' : ''}`}
                 onClick={() => onViewModeChange('notepad')}
               >
-                Notepad
-              </button>
+                {t("Notepad")}</button>
               <button
                 className={`interval-button ${viewMode === 'document' ? 'active' : ''}`}
                 onClick={() => onViewModeChange('document')}
               >
-                Document
-              </button>
+                {t("Document")}</button>
             </div>
           </div>
           {viewMode === 'document' && (
             <>
               <div className="settings-row sub-setting">
                 <div className="settings-info">
-                  <span className="settings-label">Page Size</span>
+                  <span className="settings-label">{t("Page Size")}</span>
                   <span className="settings-description">
-                    Choose the page size for the document layout and printing
-                  </span>
+                    {t("Choose the page size for the document layout and printing")}</span>
                 </div>
                 <div className="view-mode-options">
                   {(['letter', 'a4', 'legal'] as const).map((size) => (
@@ -255,17 +264,16 @@ const Settings: React.FC<SettingsProps> = ({ isOpen, onClose, settings, onSettin
                       className={`interval-button ${settings.pageSize === size ? 'active' : ''}`}
                       onClick={() => updateSetting('pageSize', size)}
                     >
-                      {size === 'letter' ? 'Letter' : size === 'a4' ? 'A4' : 'Legal'}
+                      {size === 'letter' ? t("Letter") : size === 'a4' ? 'A4' : t("Legal")}
                     </button>
                   ))}
                 </div>
               </div>
               <div className="settings-row sub-setting">
                 <div className="settings-info">
-                  <span className="settings-label">Header</span>
+                  <span className="settings-label">{t("Header")}</span>
                   <span className="settings-description">
-                    Show a header at the top of each page. Double-click in the header area to edit.
-                  </span>
+                    {t("Show a header at the top of each page. Double-click in the header area to edit.")}</span>
                 </div>
                 <label className="toggle-switch">
                   <input
@@ -278,10 +286,9 @@ const Settings: React.FC<SettingsProps> = ({ isOpen, onClose, settings, onSettin
               </div>
               <div className="settings-row sub-setting">
                 <div className="settings-info">
-                  <span className="settings-label">Footer</span>
+                  <span className="settings-label">{t("Footer")}</span>
                   <span className="settings-description">
-                    Show a footer at the bottom of each page. Double-click in the footer area to edit.
-                  </span>
+                    {t("Show a footer at the bottom of each page. Double-click in the footer area to edit.")}</span>
                 </div>
                 <label className="toggle-switch">
                   <input
@@ -299,10 +306,35 @@ const Settings: React.FC<SettingsProps> = ({ isOpen, onClose, settings, onSettin
         <div className="settings-section">
           <div className="settings-row">
             <div className="settings-info">
-              <span className="settings-label">Licenses</span>
+              <span className="settings-label">{t("Language")}</span>
               <span className="settings-description">
-                Open source licenses for fonts and libraries used in this application
-              </span>
+                {t("Interface language. Follows the system by default.")}</span>
+            </div>
+            <div className="view-mode-options">
+              <button
+                className={`interval-button ${settings.language === '' ? 'active' : ''}`}
+                onClick={() => updateSetting('language', '')}
+              >
+                {t("System")}</button>
+              {SUPPORTED_LANGUAGES.map((language) => (
+                <button
+                  key={language.code}
+                  className={`interval-button ${settings.language === language.code ? 'active' : ''}`}
+                  onClick={() => updateSetting('language', language.code)}
+                >
+                  {language.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        <div className="settings-section">
+          <div className="settings-row">
+            <div className="settings-info">
+              <span className="settings-label">{t("Licenses")}</span>
+              <span className="settings-description">
+                {t("Open source licenses for fonts and libraries used in this application")}</span>
             </div>
           </div>
           {licenses.map((license) => (
@@ -383,7 +415,7 @@ Unless required by applicable law or agreed to in writing, software distributed 
         </div>
 
         <div className="settings-version">
-          v{appVersion}
+          {t('v{{version}}', { version: appVersion })}
         </div>
       </div>
     </Modal>

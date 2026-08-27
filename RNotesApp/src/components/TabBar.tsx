@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import React, { useEffect, useRef, useState } from 'react';
 import '../styles/TabBar.css';
 
@@ -16,6 +17,7 @@ interface TabBarProps {
 }
 
 const TabBar: React.FC<TabBarProps> = ({ tabs, activeTabId, onTabClick, onTabClose, onNewTab }) => {
+  const { t } = useTranslation();
   const prevTabIdsRef = useRef<Set<string>>(new Set(tabs.map(t => t.id)));
   const [enteringTabId, setEnteringTabId] = useState<string | null>(null);
 
@@ -52,14 +54,14 @@ const TabBar: React.FC<TabBarProps> = ({ tabs, activeTabId, onTabClick, onTabClo
             <button
               className="tab-close"
               onClick={(e) => handleClose(e, tab.id)}
-              title="Close tab"
+              title={t("Close tab")}
             >
               ×
             </button>
           </div>
         ))}
       </div>
-      <button className="new-tab-button" onClick={onNewTab} title="New tab">
+      <button className="new-tab-button" onClick={onNewTab} title={t("New tab")}>
         +
       </button>
     </div>

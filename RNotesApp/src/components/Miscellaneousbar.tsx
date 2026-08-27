@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { BaseEditor, Editor, Range } from 'slate'
 import { ReactEditor } from 'slate-react'
 import { HistoryEditor } from 'slate-history'
@@ -19,13 +20,14 @@ export type MiscellaneousbarProps = {
     editorVersion?: number
 }
 export default function Miscellaneousbar({children, loadDocumentName, onCommitDocumentName, documentName, editor, editorVersion} : MiscellaneousbarProps) {
+  const { t } = useTranslation();
   
-  const formatOptions: { value: 'quote' | 'code' | 'crossedOut' | 'highlight' | 'link', label: string, shortcut: string }[] = [
-    { value: 'quote', label: 'Quote', shortcut: 'Alt+Shift+Q' },
-    { value: 'code', label: 'Code', shortcut: 'Alt+Shift+4' },
-    { value: 'crossedOut', label: 'Crossed Out', shortcut: 'Alt+Shift+5' },
-    { value: 'highlight', label: 'Highlight', shortcut: 'Alt+Shift+H' },
-    {value: 'link', label: 'Link', shortcut: 'Alt+Shift+6'}
+  const formatOptions: { value: 'quote' | 'code' | 'crossedOut' | 'highlight' | 'link', label: string, shortcut: string, tooltip: string }[] = [
+    { value: 'quote', label: t("Quote"), shortcut: 'Alt+Shift+Q', tooltip: t("Apply quote formatting") },
+    { value: 'code', label: t("Code"), shortcut: 'Alt+Shift+4', tooltip: t("Apply code formatting") },
+    { value: 'crossedOut', label: t("Crossed Out"), shortcut: 'Alt+Shift+5', tooltip: t("Apply strikethrough formatting") },
+    { value: 'highlight', label: t("Highlight"), shortcut: 'Alt+Shift+H', tooltip: t("Apply highlight formatting") },
+    { value: 'link', label: t("Link"), shortcut: 'Alt+Shift+6', tooltip: t("Apply link formatting") }
   ];
 
   const notify = useAlert();
@@ -141,7 +143,7 @@ export default function Miscellaneousbar({children, loadDocumentName, onCommitDo
 
   const applyLink = () => {
     if (!linkUrl) {
-      notify('Enter a URL for the link.', 'Insert Link');
+      notify(t("Enter a URL for the link."), t("Insert Link"));
       return;
     }
 
@@ -163,7 +165,7 @@ export default function Miscellaneousbar({children, loadDocumentName, onCommitDo
       }
     } else {
       if (!linkText) {
-        notify('Enter the text the link should show.', 'Insert Link');
+        notify(t("Enter the text the link should show."), t("Insert Link"));
         return;
       }
       
@@ -206,20 +208,21 @@ export default function Miscellaneousbar({children, loadDocumentName, onCommitDo
       ReactEditor.focus(editor);
     } catch (error) {
       if (error !== "Operation cancelled") {
-        notify(String(error), 'Could not insert image');
+        notify(String(error), t("Could not insert image"));
       }
     }
   }
 
  
   const TableSizeSelector = ({ onSelect }: { onSelect: (rows: number, cols: number) => void }) => {
+  const { t } = useTranslation();
     const [hoveredSize, setHoveredSize] = useState({ rows: 0, cols: 0 });
     const maxSize = 10;
 
     return (
       <div style={{ padding: '8px' }}>
         <div style={{ marginBottom: '8px', textAlign: 'center', fontSize: '12px' }}>
-          {hoveredSize.rows > 0 ? `${hoveredSize.rows} x ${hoveredSize.cols}` : 'Select size'}
+          {hoveredSize.rows > 0 ? `${hoveredSize.rows} x ${hoveredSize.cols}` : t("Select size")}
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: `repeat(${maxSize}, 16px)`, gap: '2px' }}>
           {Array.from({ length: maxSize * maxSize }).map((_, index) => {
@@ -257,10 +260,10 @@ export default function Miscellaneousbar({children, loadDocumentName, onCommitDo
   };
 
   const insertMenuItems: ActionDropdownItem[] = [
-    { id: 'image', label: 'Image', tooltip: 'Insert an image from file', divider: true },
+    { id: 'image', label: t("Image"), tooltip: t("Insert an image from file"), divider: true },
     { 
       id: 'table', 
-      label: 'Table', 
+      label: t("Table"), 
       submenu: <TableSizeSelector onSelect={handleInsertTable} />
     },
   ];
@@ -269,7 +272,7 @@ export default function Miscellaneousbar({children, loadDocumentName, onCommitDo
     id: opt.value,
     label: activeFormats.has(opt.value) ? `✓ ${opt.label}` : opt.label,
     shortcut: opt.shortcut,
-    tooltip: `Apply ${opt.label.toLowerCase()} formatting`,
+    tooltip: opt.tooltip,
   }));
 
   const handleInsertAction = (actionId: string) => {
@@ -310,8 +313,7 @@ export default function Miscellaneousbar({children, loadDocumentName, onCommitDo
           onSelect={handleInsertAction}
           renderButton={(_isOpen, toggle) => (
             <button onMouseDown={(e) => { e.preventDefault(); toggle(); }}>
-              Insert
-            </button>
+              {t("Insert")}</button>
           )}
         />
         <ActionDropdown
@@ -319,8 +321,7 @@ export default function Miscellaneousbar({children, loadDocumentName, onCommitDo
           onSelect={handleFormatAction}
           renderButton={(_isOpen, toggle) => (
             <button onMouseDown={(e) => { e.preventDefault(); toggle(); }}>
-              Format
-            </button>
+              {t("Format")}</button>
           )}
         />
       </div>
@@ -331,10 +332,10 @@ export default function Miscellaneousbar({children, loadDocumentName, onCommitDo
           setLinkUrl('');
           setLinkText('');
         }}
-        title="Insert Link"
+        title={t("Insert Link")}
       >
         <div style={{ marginBottom: '15px' }}>
-          <label style={{ display: 'block', marginBottom: '5px', fontSize: '14px' }}>URL:</label>
+          <label style={{ display: 'block', marginBottom: '5px', fontSize: '14px' }}>{t('URL:')}</label>
           <input
             type="text"
             value={linkUrl}
@@ -354,12 +355,12 @@ export default function Miscellaneousbar({children, loadDocumentName, onCommitDo
         </div>
         {!hasSelection && (
           <div style={{ marginBottom: '15px' }}>
-            <label style={{ display: 'block', marginBottom: '5px', fontSize: '14px' }}>Link Text:</label>
+            <label style={{ display: 'block', marginBottom: '5px', fontSize: '14px' }}>{t("Link Text:")}</label>
             <input
               type="text"
               value={linkText}
               onChange={(e) => setLinkText(e.target.value)}
-              placeholder="Enter link text"
+              placeholder={t("Enter link text")}
               style={{
                 width: '100%',
                 padding: '8px',
@@ -389,8 +390,7 @@ export default function Miscellaneousbar({children, loadDocumentName, onCommitDo
               cursor: 'pointer',
             }}
           >
-            Cancel
-          </button>
+            {t("Cancel")}</button>
           <button
             onMouseDown={(e) => {
               e.preventDefault();
@@ -405,8 +405,7 @@ export default function Miscellaneousbar({children, loadDocumentName, onCommitDo
               cursor: 'pointer',
             }}
           >
-            Apply
-          </button>
+            {t("Apply")}</button>
         </div>
       </Modal>
     </div>

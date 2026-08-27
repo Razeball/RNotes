@@ -1,21 +1,25 @@
 {
   "name": "rnotesapp",
   "private": true,
-  "version": "0.4.2",
+  "version": "0.4.3",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
     "preview": "vite preview",
-    "tauri": "tauri"
+    "tauri": "tauri",
+    "i18n:extract": "node scripts/extract-i18n.mjs",
+    "i18n:check": "node scripts/extract-i18n.mjs --check"
   },
   "dependencies": {
     "@tauri-apps/api": "2",
     "@tauri-apps/plugin-opener": "2",
     "@tauri-apps/plugin-process": "2.3.1",
     "@tauri-apps/plugin-updater": "2.10.0",
+    "i18next": "^26.4.0",
     "react": "19.2.3",
     "react-dom": "19.2.3",
+    "react-i18next": "^17.0.12",
     "slate": "0.120.0",
     "slate-history": "0.113.1",
     "slate-react": "0.120.0"

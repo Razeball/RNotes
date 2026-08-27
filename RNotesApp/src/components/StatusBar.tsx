@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import React from 'react';
 
 interface StatusBarProps {
@@ -13,35 +14,36 @@ interface StatusBarProps {
 }
 
 const StatusBar: React.FC<StatusBarProps> = ({ characterCount, line, column, isSaved, typeSpeed, showTypeSpeed, pageCount, zoomLevel, onZoomReset }) => {
+  const { t } = useTranslation();
   return (
     <div className="status-bar">
       <div className="status-item">
-        <span className="status-label">Characters:</span>
+        <span className="status-label">{t('Characters:')}</span>
         <span className="status-value">{characterCount}</span>
       </div>
       <div className="status-item">
-        <span className="status-label">Ln</span>
+        <span className="status-label">{t('Ln')}</span>
         <span className="status-value">{line}</span>
-        <span className="status-label">, Col</span>
+        <span className="status-label">, {t('Col')}</span>
         <span className="status-value">{column}</span>
       </div>
       {pageCount != null && (
         <div className="status-item">
-          <span className="status-label">Pages:</span>
+          <span className="status-label">{t('Pages:')}</span>
           <span className="status-value">{pageCount}</span>
         </div>
       )}
       {showTypeSpeed && typeSpeed != null && (
         <div className="status-item">
-          <span className="status-label">Speed:</span>
-          <span className="status-value">{typeSpeed} WPM</span>
+          <span className="status-label">{t('Speed:')}</span>
+          <span className="status-value">{typeSpeed} {t('WPM')}</span>
         </div>
       )}
       {zoomLevel != null && (
         <div className="status-item">
           <span
             className="status-zoom"
-            title="Click to reset zoom"
+            title={t("Click to reset zoom")}
             style={{ cursor: 'pointer' }}
             onClick={onZoomReset}
           >
@@ -52,9 +54,9 @@ const StatusBar: React.FC<StatusBarProps> = ({ characterCount, line, column, isS
       <div className="status-item">
         <span 
           className={`status-saved ${isSaved ? 'saved' : 'unsaved'}`}
-          title={isSaved ? 'All changes saved' : 'Unsaved changes'}
+          title={isSaved ? t("All changes saved") : t("Unsaved changes")}
         >
-          {isSaved ? '● Saved' : '● Unsaved'}
+          {isSaved ? t('● Saved') : t('● Unsaved')}
         </span>
       </div>
     </div>

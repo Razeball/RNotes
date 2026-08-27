@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { EditorInstance, findTextMatches, SearchMatch, replaceMatch, replaceAllMatches } from '../editorActions'
 import { ReactEditor } from 'slate-react'
@@ -11,6 +12,7 @@ interface FindReplacePanelProps {
 }
 
 const FindReplacePanel = ({ editor, isOpen, onClose, onMatchesChange }: FindReplacePanelProps) => {
+  const { t } = useTranslation();
   const [searchTerm, setSearchTerm] = useState('')
   const [replaceTerm, setReplaceTerm] = useState('')
   const [matchCase, setMatchCase] = useState(false)
@@ -137,7 +139,7 @@ const FindReplacePanel = ({ editor, isOpen, onClose, onMatchesChange }: FindRepl
         <button
           className={`find-replace-expand ${showReplace ? 'expanded' : ''}`}
           onClick={() => setShowReplace(!showReplace)}
-          title="Toggle Replace"
+          title={t("Toggle Replace")}
         >
           ▶
         </button>
@@ -147,34 +149,34 @@ const FindReplacePanel = ({ editor, isOpen, onClose, onMatchesChange }: FindRepl
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
           onKeyDown={handleSearchKeyDown}
-          placeholder="Find"
+          placeholder={t("Find")}
         />
         <button
           className={`find-replace-btn ${matchCase ? 'active' : ''}`}
           onClick={() => setMatchCase(!matchCase)}
-          title="Match Case"
+          title={t("Match Case")}
         >
           Aa
         </button>
         <button
           className={`find-replace-btn ${matchWholeWord ? 'active' : ''}`}
           onClick={() => setMatchWholeWord(!matchWholeWord)}
-          title="Match Whole Word"
+          title={t("Match Whole Word")}
         >
           Ab
         </button>
         <span className="find-match-count">
-          {matches.length > 0 ? `${currentMatchIndex + 1} of ${matches.length}` : 'No results'}
+          {matches.length > 0 ? `${currentMatchIndex + 1} of ${matches.length}` : t("No results")}
         </span>
         <div className="find-replace-actions">
-          <button className="find-replace-btn" onClick={goToPrev} title="Previous Match (Shift+Enter)">
+          <button className="find-replace-btn" onClick={goToPrev} title={t("Previous Match (Shift+Enter)")}>
             ↑
           </button>
-          <button className="find-replace-btn" onClick={goToNext} title="Next Match (Enter)">
+          <button className="find-replace-btn" onClick={goToNext} title={t("Next Match (Enter)")}>
             ↓
           </button>
         </div>
-        <button className="find-replace-close" onClick={onClose} title="Close (Escape)">
+        <button className="find-replace-close" onClick={onClose} title={t("Close (Escape)")}>
           ✕
         </button>
       </div>
@@ -185,15 +187,13 @@ const FindReplacePanel = ({ editor, isOpen, onClose, onMatchesChange }: FindRepl
             value={replaceTerm}
             onChange={(e) => setReplaceTerm(e.target.value)}
             onKeyDown={handleReplaceKeyDown}
-            placeholder="Replace"
+            placeholder={t("Replace")}
           />
           <div className="find-replace-actions">
-            <button className="find-replace-btn" onClick={handleReplace} title="Replace">
-              Replace
-            </button>
-            <button className="find-replace-btn" onClick={handleReplaceAll} title="Replace All">
-              All
-            </button>
+            <button className="find-replace-btn" onClick={handleReplace} title={t("Replace")}>
+              {t("Replace")}</button>
+            <button className="find-replace-btn" onClick={handleReplaceAll} title={t("Replace All")}>
+              {t("All")}</button>
           </div>
         </div>
       )}

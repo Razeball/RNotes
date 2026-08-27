@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { useState, useEffect, useRef } from 'react'
 import { Editor, Text, Range } from 'slate'
 import { ReactEditor, useSlate } from 'slate-react'
@@ -30,6 +31,7 @@ type ToolbarProps = {
 }
 
 const Toolbar = (_props: ToolbarProps) => {
+  const { t } = useTranslation();
     const editor = useSlate() as EditorInstance
     const notify = useAlert()
     const [fontSize, setFontSize] = useState<string>('16')
@@ -74,11 +76,11 @@ const Toolbar = (_props: ToolbarProps) => {
     
 
     const colorOptions: DropdownOption<'red' | 'blue' | 'white' | 'black' | 'green'>[] = [
-        { value: 'red', label: 'Red', color: 'red' },
-        { value: 'blue', label: 'Blue', color: 'blue' },
-        { value: 'white', label: 'White', color: 'white' },
-        { value: 'black', label: 'Black', color: 'black' },
-        { value: 'green', label: 'Green', color: 'green' },
+        { value: 'red', label: t("Red"), color: 'red' },
+        { value: 'blue', label: t("Blue"), color: 'blue' },
+        { value: 'white', label: t("White"), color: 'white' },
+        { value: 'black', label: t("Black"), color: 'black' },
+        { value: 'green', label: t("Green"), color: 'green' },
     ];
 
     const fontSizeOptions: DropdownOption<number>[] = [
@@ -90,11 +92,11 @@ const Toolbar = (_props: ToolbarProps) => {
     ];
 
     const textStyleOption: DropdownOption<string>[] = [
-        { value: 'paragraph', label: 'Paragraph' },
-        { value: 'header', label: 'Header 1' },
-        { value: 'header2', label: 'Header 2' },
-        { value: 'header3', label: 'Header 3' },
-        { value: 'header4', label: 'Header 4' },
+        { value: 'paragraph', label: t("Paragraph") },
+        { value: 'header', label: t("Header 1") },
+        { value: 'header2', label: t("Header 2") },
+        { value: 'header3', label: t("Header 3") },
+        { value: 'header4', label: t("Header 4") },
     ]
 
     const selectionKey = editor.selection 
@@ -395,7 +397,7 @@ const Toolbar = (_props: ToolbarProps) => {
         openLinkModal: () => {
             const { selection } = editor
             if (!selection || Range.isCollapsed(selection)) {
-                notify('Select some text first, then create the link.', 'Insert Link')
+                notify(t("Select some text first, then create the link."), t("Insert Link"))
                 return
             }
             setLinkUrl('')
@@ -404,7 +406,7 @@ const Toolbar = (_props: ToolbarProps) => {
         openHeaderLinkModal: () => {
             const { selection } = editor
             if (!selection || Range.isCollapsed(selection)) {
-                notify('Select some text first, then create the link.', 'Insert Link')
+                notify(t("Select some text first, then create the link."), t("Insert Link"))
                 return
             }
             const foundHeaders = getHeadersAction(editor)
@@ -507,7 +509,7 @@ const Toolbar = (_props: ToolbarProps) => {
                         }}
                         onBlur={() => {}}
                         style={{ width: '70px', marginLeft: '10px' }}
-                        placeholder="Size"
+                        placeholder={t("Size")}
                     />
                 )}
             />
@@ -528,7 +530,7 @@ const Toolbar = (_props: ToolbarProps) => {
                     }}
                     onMouseDown={(e) => e.stopPropagation()}
                     style={{ width: '130px', marginLeft: '10px', fontFamily: fontFamily || 'Arial' }}
-                    placeholder="Font"
+                    placeholder={t("Font")}
                 />
                 {showFontDropdown && (
                     <div
@@ -538,8 +540,7 @@ const Toolbar = (_props: ToolbarProps) => {
                     >
                         {filteredFonts.length === 0 ? (
                             <div style={{ padding: '8px 16px', color: '#888', fontSize: '13px' }}>
-                                No matching font found
-                            </div>
+                                {t("No matching font found")}</div>
                         ) : (
                             (() => {
                                 const sortedFonts = fontFamily && !isFontSearching
@@ -566,7 +567,7 @@ const Toolbar = (_props: ToolbarProps) => {
             </div>
 
             {/* External Link Modal */}
-            <Modal isOpen={showLinkModal} onClose={() => setShowLinkModal(false)} title="Insert Link">
+            <Modal isOpen={showLinkModal} onClose={() => setShowLinkModal(false)} title={t("Insert Link")}>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                     <input
                         type="url"
@@ -577,17 +578,17 @@ const Toolbar = (_props: ToolbarProps) => {
                         autoFocus
                     />
                     <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
-                        <button onClick={() => setShowLinkModal(false)}>Cancel</button>
-                        <button onClick={insertLink} style={{ backgroundColor: '#4dabf7' }}>Insert</button>
+                        <button onClick={() => setShowLinkModal(false)}>{t("Cancel")}</button>
+                        <button onClick={insertLink} style={{ backgroundColor: '#4dabf7' }}>{t("Insert")}</button>
                     </div>
                 </div>
             </Modal>
 
             {/* Header Link Modal */}
-            <Modal isOpen={showHeaderLinkModal} onClose={() => setShowHeaderLinkModal(false)} title="Link to Header">
+            <Modal isOpen={showHeaderLinkModal} onClose={() => setShowHeaderLinkModal(false)} title={t("Link to Header")}>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', maxHeight: '300px', overflowY: 'auto' }}>
                     {headers.length === 0 ? (
-                        <p style={{ color: '#888' }}>No headers found in the document. Create headers first.</p>
+                        <p style={{ color: '#888' }}>{t("No headers found in the document. Create headers first.")}</p>
                     ) : (
                         headers.map((header, index) => (
                             <button
@@ -615,7 +616,7 @@ const Toolbar = (_props: ToolbarProps) => {
                         ))
                     )}
                     <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end', marginTop: '10px' }}>
-                        <button onClick={() => setShowHeaderLinkModal(false)}>Cancel</button>
+                        <button onClick={() => setShowHeaderLinkModal(false)}>{t("Cancel")}</button>
                     </div>
                 </div>
             </Modal>

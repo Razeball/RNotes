@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { useEffect, useState } from 'react';
 import '../styles/SplashScreen.css';
 
@@ -6,6 +7,7 @@ interface SplashScreenProps {
 }
 
 export default function SplashScreen({ onDone }: SplashScreenProps) {
+  const { t } = useTranslation();
   const [fading, setFading] = useState(false);
 
   useEffect(() => {
@@ -26,7 +28,7 @@ export default function SplashScreen({ onDone }: SplashScreenProps) {
   return (
     <div className={`splash-overlay ${fading ? 'splash-fade-out' : ''}`}>
       <div className="splash-content">
-        <img src="icon.png" alt="RNotes Logo"  className='splash-logo'/>
+        <img src="icon.png" alt={t("RNotes Logo")}  className='splash-logo'/>
         <div className="splash-name">RNotes</div>
       </div>
     </div>

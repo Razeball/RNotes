@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import React, { useState, useRef, useEffect, useCallback, useLayoutEffect } from 'react';
 import { Editable, RenderElementProps, RenderLeafProps, useSlateStatic } from 'slate-react';
 import { Range as SlateRange, NodeEntry } from 'slate';
@@ -96,6 +97,7 @@ const PageView: React.FC<PageViewProps> = ({
   pageSize,
   printing,
 }) => {
+  const { t } = useTranslation();
   const editor = useSlateStatic() as EditorInstance;
 
   const model = getPageModel(pageSize);
@@ -225,7 +227,7 @@ const PageView: React.FC<PageViewProps> = ({
                   if (e.key === 'Enter' || e.key === 'Escape') setIsEditingHeader(false);
                 }}
                 autoFocus
-                placeholder="Here is the header text"
+                placeholder={t("Here is the header text")}
               />
             ) : (
               <span className="pv-chrome-text">{headerText || 'Double-click to edit header text...'}</span>
@@ -253,7 +255,7 @@ const PageView: React.FC<PageViewProps> = ({
                   if (e.key === 'Enter' || e.key === 'Escape') setIsEditingFooter(false);
                 }}
                 autoFocus
-                placeholder="Here is the header text"
+                placeholder={t("Here is the header text")}
               />
             ) : (
               <span className="pv-chrome-text">{footerText || 'Double-click to edit footer text...'}</span>
@@ -263,7 +265,7 @@ const PageView: React.FC<PageViewProps> = ({
       </div>
 
       <div className="pv-page-count-label">
-        {pageCount} {pageCount === 1 ? 'page' : 'pages'}
+        {t('{{count}} page', { count: pageCount })}
       </div>
     </div>
   );

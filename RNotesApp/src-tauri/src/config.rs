@@ -15,6 +15,9 @@ pub struct AppSettings {
     pub restore_session: bool,
     #[serde(default)]
     pub markdown_enabled: bool,
+    /// BCP-47 tag chosen in Settings. Empty means follow the operating system.
+    #[serde(default)]
+    pub language: String,
 }
 
 fn default_page_size() -> String {
@@ -31,6 +34,7 @@ impl Default for AppSettings {
             page_size: default_page_size(),
             restore_session: false,
             markdown_enabled: false,
+            language: String::new(),
         }
     }
 }
