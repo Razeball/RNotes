@@ -1,6 +1,6 @@
 import { Editor, Element as SlateElement, Text, Transforms } from 'slate'
 import type { EditorInstance } from '../editorActions'
-import { toggleOrderedList, toggleUnorderedList } from '../editorActions'
+import { toggleCheckList, toggleOrderedList, toggleUnorderedList } from '../editorActions'
 
 /** Markdown typed into the editor. Parsing lives in Rust (src-tauri/src/markdown.rs). 
  * This module only covers as-you-type case with synchronous conversion on space for block prefixes and finished inline spans. */
@@ -108,6 +108,22 @@ function handleBlockLevelMarker(editor: EditorInstance): boolean {
       changeBlockNodeToType(editor, type)
       return true
     }
+  }
+
+  // - already turn the text into a list so to make a checkbutton you only need [] or [x]
+  const taskBox = marker.match(/^\[([ xX]?)\]$/)
+  if (taskBox) {
+    const [existing] = Editor.nodes(editor, {
+      match: (n) => SlateElement.isElement(n) && n.type === 'check',
+    })
+    removeInsertedMarkers(editor, context.path, marker.length)
+    if (!existing) toggleCheckList(editor)
+    Transforms.setNodes(
+      editor,
+      { checked: taskBox[1].toLowerCase() === 'x' } as Partial<SlateElement>,
+      { match: (n) => SlateElement.isElement(n) && n.type === 'check' },
+    )
+    return true
   }
 
   if (marker === '-' || marker === '*' || marker === '+') {

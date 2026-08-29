@@ -1,6 +1,6 @@
 import { useTranslation } from 'react-i18next';
 import { useState, useMemo, useCallback, useEffect, useLayoutEffect, useRef } from "react";
-import { createEditor, Descendant, BaseEditor, Transforms, Editor, Range as SlateRange, NodeEntry, Text } from "slate";
+import { createEditor, Descendant, BaseEditor, Transforms, Editor, Element as SlateElement, Range as SlateRange, NodeEntry, Text } from "slate";
 
 import {
   Slate,
@@ -90,6 +90,7 @@ export type CustomText = {
   fontFamily?: string;
 };
 
+const HEADING_TYPES = new Set<CustomElement["type"]>(["header", "header2", "header3", "header4"]);
 
 declare module "slate" {
   interface CustomTypes {
@@ -815,6 +816,30 @@ const MySlateEditor = () => {
           match: (n: any) => n.type === 'check',
         });
         return;
+      }
+
+      // Only list can carry their shape to the other lane
+      if (SlateRange.isCollapsed(selection)) {
+        const [blockNode] = Editor.nodes(editor, {
+          match: (n) => SlateElement.isElement(n) && Editor.isBlock(editor, n),
+          mode: 'lowest',
+        });
+
+        const isLeavingBlock = blockNode != null && Editor.isEnd(editor, selection.anchor, blockNode[1]);
+        const isBlockHeading = isLeavingBlock && HEADING_TYPES.has((blockNode[0] as CustomElement).type);
+        const conveysQuote = isLeavingBlock && Editor.marks(editor)?.quote === true;
+
+        if (isBlockHeading || conveysQuote) {
+          event.preventDefault();
+          editor.insertBreak();
+          if (isBlockHeading) {
+            Transforms.setNodes(editor, { type: 'paragraph' }, {
+              match: (n: any) => HEADING_TYPES.has(n.type),
+            });
+          }
+          if (conveysQuote) Editor.removeMark(editor, 'quote');
+          return;
+        }
       }
     }
 

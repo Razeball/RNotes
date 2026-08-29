@@ -177,6 +177,19 @@ fn extract_bullet_content(line: &str) -> Option<&str> {
         .find_map(|marker| trimmed.strip_prefix(marker))
 }
 
+///  [x] the done state and [] the text with the box stripped off.
+fn extract_content_from_task(line: &str) -> Option<(bool, &str)> {
+    let body = extract_bullet_content(line)?;
+    let (checked, rest) = [("[ ]", false), ("[]", false), ("[x]", true), ("[X]", true)]
+        .iter()
+        .find_map(|(box_marker, checked)| body.strip_prefix(box_marker).map(|rest| (*checked, rest)))?;
+
+    if !rest.is_empty() && !rest.starts_with(' ') {
+        return None;
+    }
+    Some((checked, rest.trim_start()))
+}
+
 fn extract_ordered_content(line: &str) -> Option<&str> {
     let trimmed = line.trim_start();
     let digits = trimmed.chars().take_while(|c| c.is_ascii_digit()).count();
@@ -281,15 +294,27 @@ pub fn from_markdown(text: &str) -> Vec<Node> {
             continue;
         }
 
+        if extract_content_from_task(line).is_some() {
+            while let Some((checked, body)) = lines.get(i).and_then(|line| extract_content_from_task(line)) {
+                nodes.push(Node::Check {
+                    alignment: None,
+                    checked: Some(checked),
+                    children: convert_inline_style(body),
+                });
+                i += 1;
+            }
+            continue;
+        }
+
         if extract_bullet_content(line).is_some() {
             let mut items = Vec::new();
             while i < lines.len() {
                 match extract_bullet_content(lines[i]) {
-                    Some(body) => {
+                    Some(body) if extract_content_from_task(lines[i]).is_none() => {
                         items.push(create_list_item(body));
                         i += 1;
                     }
-                    None => break,
+                    _ => break,
                 }
             }
             nodes.push(Node::UList { alignment: None, children: items });
@@ -375,7 +400,7 @@ fn contains_quote(children: &[TextNode]) -> bool {
 pub fn to_markdown(nodes: &[Node]) -> String {
     let mut out = String::new();
 
-    for node in nodes {
+    for (index, node) in nodes.iter().enumerate() {
         match node {
             Node::Header { children, .. } => {
                 out.push_str(&format!("# {}\n\n", node_text_to_markdown(children)));
@@ -416,9 +441,14 @@ pub fn to_markdown(nodes: &[Node]) -> String {
             Node::ListItem { children, .. } => {
                 out.push_str(&format!("- {}\n", node_text_to_markdown(children)));
             }
-            // Not implemented yet
-            Node::Check { children, .. } => {
-                out.push_str(&format!("{}\n\n", node_text_to_markdown(children)));
+            Node::Check { checked, children, .. } => {
+                let box_marker = if checked.unwrap_or(false) { "[x]" } else { "[ ]" };
+                out.push_str(&format!("- {} {}\n", box_marker, node_text_to_markdown(children)));
+
+                // whatever follows the list is not read as a part of it
+                if !matches!(nodes.get(index + 1), Some(Node::Check { .. })) {
+                    out.push('\n');
+                }
             }
             Node::Image { url, caption, title, .. } => {
                 let alt = caption.clone().or_else(|| title.clone()).unwrap_or_default();
