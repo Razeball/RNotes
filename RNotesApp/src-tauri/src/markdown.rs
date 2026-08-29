@@ -416,6 +416,10 @@ pub fn to_markdown(nodes: &[Node]) -> String {
             Node::ListItem { children, .. } => {
                 out.push_str(&format!("- {}\n", node_text_to_markdown(children)));
             }
+            // Not implemented yet
+            Node::Check { children, .. } => {
+                out.push_str(&format!("{}\n\n", node_text_to_markdown(children)));
+            }
             Node::Image { url, caption, title, .. } => {
                 let alt = caption.clone().or_else(|| title.clone()).unwrap_or_default();
                 out.push_str(&format!("![{}]({})\n\n", alt, url.clone().unwrap_or_default()));

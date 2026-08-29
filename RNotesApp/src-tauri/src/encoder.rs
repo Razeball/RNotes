@@ -3,7 +3,7 @@ use std::io::{Write, Result, Error, ErrorKind};
 
 // Magic bytes and version
 const MAGIC: &[u8; 3] = b"RDC";
-const VERSION: u8 = 3;
+const VERSION: u8 = 4;
 
 // Node type constants
 const NODE_PARAGRAPH: u8 = 0x01;
@@ -18,6 +18,7 @@ const NODE_IMAGE: u8 = 0x09;
 const NODE_TABLE: u8 = 0x0A;
 const NODE_TABLE_ROW: u8 = 0x0B;
 const NODE_TABLE_CELL: u8 = 0x0C;
+const NODE_CHECK: u8 = 0x0D;
 
 // Flag bit positions
 const FLAG_HAS_ALIGNMENT: u8 = 0;
@@ -27,6 +28,8 @@ const FLAG_IMAGE_EMBEDDED: u8 = 3;
 const FLAG_HAS_CAPTION: u8 = 4;
 const FLAG_HAS_SUBTITLE: u8 = 5;
 const FLAG_HAS_TITLE: u8 = 6;
+// Bits 0-6 belong to image nodes and bits 4-5 carry the alignment, so the check state takes bit 7.
+const FLAG_CHECK_CHECKED: u8 = 7;
 
 // Image format constants
 const IMAGE_FORMAT_PNG: u8 = 0;
@@ -117,6 +120,10 @@ fn encode_node(buffer: &mut Vec<u8>, node: &Node) -> Result<()> {
         Node::ListItem { alignment, children } => {
             encode_standard_node(buffer, NODE_LIST_ITEM, alignment, children)?;
         }
+        Node::Check { alignment, checked, children } => {
+            let extra = if checked.unwrap_or(false) { 1 << FLAG_CHECK_CHECKED } else { 0 };
+            encode_flagged_node(buffer, NODE_CHECK, alignment, extra, children)?;
+        }
         Node::Image { url, size, alignment, caption, subtitle, title, children } => {
             encode_image_node(buffer, url, size, alignment, caption, subtitle, title, children)?;
         }
@@ -140,11 +147,22 @@ fn encode_standard_node(
     alignment: &Option<Alignment>,
     children: &[TextNode],
 ) -> Result<()> {
+    encode_flagged_node(buffer, node_type, alignment, 0, children)
+}
+
+/// Same layout as a standard node, with room for flag bits the node type owns on its own.
+fn encode_flagged_node(
+    buffer: &mut Vec<u8>,
+    node_type: u8,
+    alignment: &Option<Alignment>,
+    extra_flags: u8,
+    children: &[TextNode],
+) -> Result<()> {
 
     buffer.write_all(&[node_type])?;
     
 
-    let mut flags: u8 = 0;
+    let mut flags: u8 = extra_flags;
     if let Some(align) = alignment {
         flags |= 1 << FLAG_HAS_ALIGNMENT;
         flags |= (alignment_to_u8(align) & 0x03) << 4;

@@ -27,6 +27,7 @@ fn extract_plain_text(nodes: &[Node]) -> String {
             | Node::Header3 { children, .. }
             | Node::Header4 { children, .. }
             | Node::ListItem { children, .. }
+            | Node::Check { children, .. }
             | Node::Image { children, .. }
             | Node::TableCell { children, .. } => {
                 for text_node in children {

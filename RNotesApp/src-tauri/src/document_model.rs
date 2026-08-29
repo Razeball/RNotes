@@ -82,6 +82,12 @@ pub enum Node {
         alignment: Option<Alignment>,
         children: Vec<TextNode>,
     },
+    #[serde(rename = "check")]
+    Check {
+        alignment: Option<Alignment>,
+        checked: Option<bool>,
+        children: Vec<TextNode>,
+    },
     #[serde(rename = "image")]
     Image {
         url: Option<String>,

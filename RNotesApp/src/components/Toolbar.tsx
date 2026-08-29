@@ -17,6 +17,7 @@ import {
     changeTextStyle as changeTextStyleAction,
     toggleUnorderedList,
     toggleOrderedList,
+    toggleCheckList,
     setFontSize as applyFontSize,
     setColor as applyColor,
     setFontFamily as applyFontFamily,
@@ -290,6 +291,11 @@ const Toolbar = (_props: ToolbarProps) => {
         toggleOrderedList(editor)
     }
 
+    const makeCheckList = (event: React.MouseEvent) => {
+        event.preventDefault()
+        toggleCheckList(editor)
+    }
+
     const handleFontSizeChange = (event: React.ChangeEvent<HTMLInputElement>) => {
         const value = event.target.value
         setFontSize(value)
@@ -452,6 +458,12 @@ const Toolbar = (_props: ToolbarProps) => {
             <button onMouseDown={alignJustify}><img src="Justify.svg" alt="" /></button>
             <button onMouseDown={makeUnorderedList}><img src="Unordered List.svg" alt="" /></button>
             <button onMouseDown={makeOrderedList}><img src="OrderedList.svg" alt="" /></button>
+            <Popup
+            content={t("Check list")}
+            position="bottom"
+            delay={300}>
+            <button onMouseDown={makeCheckList}><img src="Check.svg" alt="" /></button>
+            </Popup>
             
             <Dropdown
                 options={textStyleOption}

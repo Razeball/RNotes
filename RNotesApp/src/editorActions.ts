@@ -140,6 +140,34 @@ export const toggleOrderedList = (editor: EditorInstance) => {
     }
 }
 
+/** Blocks of text can become check and also come back from that */
+const CHECKABLE_TYPES = ['paragraph', 'header', 'header2', 'header3', 'header4', 'list-item']
+
+export const toggleCheckList = (editor: EditorInstance) => {
+    const { selection } = editor
+    if (!selection) return
+
+    const [match] = Editor.nodes(editor, {
+        match: (n) => SlateElement.isElement(n) && n.type === 'check',
+    })
+
+    if (match) {
+        Transforms.setNodes(editor, { type: 'paragraph', checked: undefined }, {
+            match: (n) => SlateElement.isElement(n) && n.type === 'check',
+        })
+    } else {
+        Transforms.unwrapNodes(editor, {
+            match: (n) => SlateElement.isElement(n) && (n.type === 'ulist' || n.type === 'olist'),
+            split: true,
+        })
+        Transforms.setNodes(editor, { type: 'check', checked: false }, {
+            match: (n) => SlateElement.isElement(n) && CHECKABLE_TYPES.includes(n.type),
+        })
+    }
+
+    ReactEditor.focus(editor)
+}
+
 // fontsize, color, font
 
 export const setFontSize = (editor: EditorInstance, size: number) => {

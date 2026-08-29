@@ -17,6 +17,7 @@ const NODE_IMAGE: u8 = 0x09;
 const NODE_TABLE: u8 = 0x0A;
 const NODE_TABLE_ROW: u8 = 0x0B;
 const NODE_TABLE_CELL: u8 = 0x0C;
+const NODE_CHECK: u8 = 0x0D;
 
 // Flag bit positions
 const FLAG_HAS_ALIGNMENT: u8 = 0;
@@ -26,6 +27,8 @@ const FLAG_IMAGE_EMBEDDED: u8 = 3;
 const FLAG_HAS_CAPTION: u8 = 4;
 const FLAG_HAS_SUBTITLE: u8 = 5;
 const FLAG_HAS_TITLE: u8 = 6;
+// Bits 0-6 belong to image nodes and bits 4-5 carry the alignment, so the check state takes bit 7.
+const FLAG_CHECK_CHECKED: u8 = 7;
 
 // Image format constants
 const IMAGE_FORMAT_PNG: u8 = 0;
@@ -66,10 +69,10 @@ pub fn decode_document_with_meta(data: &[u8]) -> Result<(Vec<Node>, DocumentMeta
     cursor.read_exact(&mut version)?;
     let version = version[0];
 
-    if version != 1 && version != 2 && version != 3 {
+    if !(1..=4).contains(&version) {
         return Err(Error::new(
             ErrorKind::InvalidData, 
-            format!("Unsupported version: {} (expected 1, 2, or 3)", version)
+            format!("Unsupported version: {} (expected 1 to 4)", version)
         ));
     }
 
@@ -145,6 +148,13 @@ fn decode_node(cursor: &mut Cursor<&[u8]>, version: u8) -> Result<Node> {
         NODE_LIST_ITEM => decode_standard_node(cursor, version, |alignment, children| {
             Node::ListItem { alignment, children }
         }),
+        NODE_CHECK => decode_flagged_node(cursor, version, |flags, alignment, children| {
+            Node::Check {
+                alignment,
+                checked: Some(flags & (1 << FLAG_CHECK_CHECKED) != 0),
+                children,
+            }
+        }),
         NODE_IMAGE => decode_image_node(cursor, version),
         NODE_TABLE => decode_table_node(cursor, version),
         NODE_TABLE_ROW => decode_table_row_node(cursor, version),
@@ -156,6 +166,14 @@ fn decode_node(cursor: &mut Cursor<&[u8]>, version: u8) -> Result<Node> {
 fn decode_standard_node<F>(cursor: &mut Cursor<&[u8]>, version: u8, constructor: F) -> Result<Node>
 where
     F: FnOnce(Option<Alignment>, Vec<TextNode>) -> Node,
+{
+    decode_flagged_node(cursor, version, |_flags, alignment, children| constructor(alignment, children))
+}
+
+/// Same layout as a standard node, but hands the raw flag byte to node types that own bits in it.
+fn decode_flagged_node<F>(cursor: &mut Cursor<&[u8]>, version: u8, constructor: F) -> Result<Node>
+where
+    F: FnOnce(u8, Option<Alignment>, Vec<TextNode>) -> Node,
 {
 
     let mut flags = [0u8; 1];
@@ -178,7 +196,7 @@ where
         children.push(text_node);
     }
     
-    Ok(constructor(alignment, children))
+    Ok(constructor(flags, alignment, children))
 }
 
 fn decode_list_node<F>(cursor: &mut Cursor<&[u8]>, version: u8, constructor: F) -> Result<Node>
@@ -665,6 +683,50 @@ mod tests {
             assert_eq!(children[0].children[1].children[0].text, "Cell 2");
         } else {
             panic!("Expected Table node");
+        }
+    }
+
+    #[test]
+    fn test_roundtrip_check_items() {
+        let item = |text: &str, checked: bool| Node::Check {
+            alignment: Some(Alignment::Start),
+            checked: Some(checked),
+            children: vec![TextNode {
+                text: text.to_string(),
+                bold: None,
+                italic: None,
+                underline: None,
+                code: None,
+                quote: None,
+                crossed_out: None,
+                font_size: None,
+                color: None,
+                link: None,
+                href: None,
+                font_family: None,
+            }],
+        };
+
+        // The checked state shares its byte with the alignment, so both have to survive together.
+        let original = vec![item("done", true), item("pending", false)];
+
+        let encoded = encode_document(&original).expect("Encoding failed");
+        let decoded = decode_document(&encoded).expect("Decoding failed");
+
+        assert_eq!(decoded.len(), 2);
+
+        match (&decoded[0], &decoded[1]) {
+            (
+                Node::Check { alignment, checked, children },
+                Node::Check { checked: second_checked, children: second_children, .. },
+            ) => {
+                assert!(matches!(alignment, Some(Alignment::Start)));
+                assert_eq!(*checked, Some(true));
+                assert_eq!(children[0].text, "done");
+                assert_eq!(*second_checked, Some(false));
+                assert_eq!(second_children[0].text, "pending");
+            }
+            other => panic!("Expected two Check nodes, got {:?}", other),
         }
     }
 

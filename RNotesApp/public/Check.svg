@@ -1,0 +1,11 @@
+<svg width="104" height="117" viewBox="0 0 104 117" fill="none" xmlns="http://www.w3.org/2000/svg">
+<defs>
+<path id="rn-check-glyph" d="M26 0C29.3137 0 32 2.68629 32 6V26C32 29.3137 29.3137 32 26 32H6C2.68629 32 0 29.3137 0 26V6C0 2.68629 2.68629 0 6 0H26ZM13.3027 19.2539L9.2666 15.9521L6.7334 19.0479L12.2334 23.5479L13.6963 24.7451L14.9746 23.3516L25.9746 11.3516L23.0254 8.64844L13.3027 19.2539Z"/>
+</defs>
+<use href="#rn-check-glyph" transform="translate(0 6) scale(0.75)" fill="white"/>
+<use href="#rn-check-glyph" transform="translate(0 46.5) scale(0.75)" fill="white"/>
+<use href="#rn-check-glyph" transform="translate(0 87) scale(0.75)" fill="white"/>
+<rect x="34" y="12" width="70" height="12" fill="white"/>
+<rect x="34" y="52.5" width="70" height="12" fill="white"/>
+<rect x="34" y="93" width="70" height="12" fill="white"/>
+</svg>

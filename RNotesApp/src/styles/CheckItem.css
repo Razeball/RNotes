@@ -1,0 +1,136 @@
+/* Check list block with text*/
+
+.rn-check-item {
+  --rn-check-size: 20px;
+  --rn-check-idle: #3a0000;
+  --rn-check-active: #730000;
+  --rn-check-hot: #b90101;
+
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.rn-check {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  height: 1.8em;
+  cursor: pointer;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.rn-check-face {
+  position: relative;
+  width: var(--rn-check-size);
+  height: var(--rn-check-size);
+}
+
+/* CheckNormal */
+.rn-check-box {
+  position: absolute;
+  inset: 0;
+  border: 1px solid var(--rn-check-idle);
+  /* 6px of the design's 32px box. */
+  border-radius: calc(var(--rn-check-size) * 0.1875);
+  transition: border-color 100ms ease, opacity 100ms ease;
+}
+
+/* CheckHover */
+.rn-check:hover .rn-check-box {
+  border-color: var(--rn-check-active);
+  scale: 1.2;
+}
+
+/* CheckedAnimCompleted */
+.rn-check-mark {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  fill: var(--rn-check-active);
+  opacity: 0;
+  transition: fill 100ms ease, opacity 100ms ease;
+}
+
+.rn-check[data-checked] .rn-check-box {
+  opacity: 0;
+}
+
+.rn-check[data-checked] .rn-check-mark {
+  opacity: 1;
+}
+
+/* CheckedHover */
+.rn-check[data-checked]:hover .rn-check-mark {
+  fill: var(--rn-check-hot);
+  scale: 1.2;
+}
+
+.rn-check[data-animating] .rn-check-face {
+  animation: rn-check-in var(--rn-check-anim, 300ms) ease-in-out;
+}
+
+.rn-check[data-animating] .rn-check-box {
+  animation: rn-check-empty var(--rn-check-anim, 300ms) ease-in-out;
+}
+
+.rn-check[data-animating] .rn-check-mark {
+  animation: rn-check-fill var(--rn-check-anim, 300ms) ease-in-out;
+}
+
+/*
+ * The click transition
+ */
+@keyframes rn-check-in {
+  0% {
+    transform: rotate(0deg) scale(1);
+  }
+  66.67% {
+    transform: rotate(45deg) scale(0.785);
+  }
+  100% {
+    transform: rotate(0deg) scale(1);
+  }
+}
+
+@keyframes rn-check-empty {
+  0% {
+    opacity: 1;
+  }
+  66.67%,
+  100% {
+    opacity: 0;
+  }
+}
+
+@keyframes rn-check-fill {
+  0% {
+    opacity: 0;
+  }
+  66.67%,
+  100% {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rn-check[data-animating] .rn-check-face,
+  .rn-check[data-animating] .rn-check-box,
+  .rn-check[data-animating] .rn-check-mark {
+    animation: none;
+  }
+}
+
+.rn-check-text {
+  flex: 1;
+  min-width: 0;
+  transition: opacity 150ms ease;
+}
+
+.rn-check-item[data-checked] .rn-check-text {
+  text-decoration: line-through;
+  opacity: 0.5;
+}

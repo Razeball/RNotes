@@ -37,6 +37,12 @@ const NON_COPY_ATTRIBUTES = new Set([
   'value',
 ])
 
+/** `data-*` and `aria-*` hooks are state, not copy — except aria-label, which is read aloud. */
+function isNonCopyAttribute(name) {
+  if (name === 'aria-label') return false
+  return NON_COPY_ATTRIBUTES.has(name) || name.startsWith('data-') || name.startsWith('aria-')
+}
+
 /** Functions whose string arguments end up on screen. */
 const MESSAGE_FUNCTIONS = new Set(['notify', 'alert', 'alertFn', 'showAlert', 'setErrorMsg'])
 
@@ -183,12 +189,12 @@ function isInJsxContext(node, source) {
   while (current) {
     if (ts.isJsxAttribute(current)) {
       // These attributes carry class names, CSS values and link semantics, never copy.
-      return !NON_COPY_ATTRIBUTES.has(current.name.getText(source))
+      return !isNonCopyAttribute(current.name.getText(source))
     }
     if (ts.isJsxExpression(current)) {
       // A JSX expression can itself be an attribute value; keep walking to find out which.
       if (current.parent && ts.isJsxAttribute(current.parent)) {
-        return !NON_COPY_ATTRIBUTES.has(current.parent.name.getText(source))
+        return !isNonCopyAttribute(current.parent.name.getText(source))
       }
       return true
     }

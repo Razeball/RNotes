@@ -20,6 +20,7 @@ import { TableElement} from "./components/Table";
 import ActionDropdown, { ActionDropdownItem } from "./components/ActionDropdown";
 import ContextMenu, { ContextMenuItem } from "./components/ContextMenu";
 import ImageElement from "./components/ImageElement";
+import CheckItemElement from "./components/CheckItem";
 import StatusBar from "./components/StatusBar";
 import TabBar, { Tab } from "./components/TabBar";
 import Settings, { AppSettings, defaultSettings, ViewMode } from "./components/Settings";
@@ -55,6 +56,7 @@ export type CustomElement = {
     | "ulist"
     | "olist"
     | "list-item"
+    | "check"
     | "image"
     | "table"
     | "table-row"
@@ -68,6 +70,7 @@ export type CustomElement = {
   subtitle?: string;
   title?: string;
   id?: string;
+  checked?: boolean;
   /** Only used for page-space, never saved */
   height?: number;
 };
@@ -227,6 +230,12 @@ const Element = ({ attributes, children, element }: RenderElementProps) => {
         <li {...attributes} style={style}>
           {children}
         </li>
+      );
+    case "check":
+      return (
+        <CheckItemElement attributes={attributes} element={element} style={style}>
+          {children}
+        </CheckItemElement>
       );
     default:
       return (
@@ -791,6 +800,20 @@ const MySlateEditor = () => {
         };
         Transforms.insertNodes(editor, newParagraph, { at: [imagePath[0] + 1] });
         Transforms.select(editor, [imagePath[0] + 1, 0]);
+        return;
+      }
+
+      const [checkNode] = Editor.nodes(editor, {
+        match: (n: any) => n.type === 'check',
+        mode: 'lowest',
+      });
+
+      if (checkNode) {
+        event.preventDefault();
+        editor.insertBreak();
+        Transforms.setNodes(editor, { checked: false }, {
+          match: (n: any) => n.type === 'check',
+        });
         return;
       }
     }
