@@ -21,6 +21,8 @@ import ActionDropdown, { ActionDropdownItem } from "./components/ActionDropdown"
 import ContextMenu, { ContextMenuItem } from "./components/ContextMenu";
 import ImageElement from "./components/ImageElement";
 import CheckItemElement from "./components/CheckItem";
+import SpellingReview, { useRuleLabel } from "./components/SpellingReview";
+import DictionarySettings from "./components/DictionarySettings";
 import StatusBar from "./components/StatusBar";
 import TabBar, { Tab } from "./components/TabBar";
 import Settings, { AppSettings, defaultSettings, ViewMode } from "./components/Settings";
@@ -42,6 +44,15 @@ import {
   stripPageSpacers,
   textOffsetOfPoint,
 } from "./services/pageSpacers";
+import {
+  addToPersonalDictionary,
+  invalidateSpellCheckCache,
+  isSpellPayload,
+  updateSpellingChecks,
+  extractSpellRangesFromNode,
+  type SpellPayload,
+} from "./services/spellcheck";
+import "./styles/Spellcheck.css";
 
 
 export type ImageSize = "small" | "medium" | "large" | "original";
@@ -250,6 +261,11 @@ const Leaf = ({ attributes, children, leaf }: RenderLeafProps) => {
   if ((leaf as any).searchHighlight) {
     styledChildren = <span style={{ backgroundColor: (leaf as any).activeHighlight ? 'rgba(255, 140, 0, 0.6)' : 'rgba(255, 215, 0, 0.4)' }}>{styledChildren}</span>;
   }
+  if ((leaf as any).spell) {
+    styledChildren = (
+      <span className="rn-spell-error" data-rn-spell={(leaf as any).spell}>{styledChildren}</span>
+    );
+  }
   if (leaf.bold) {
     styledChildren = <strong>{styledChildren}</strong>;
   }
@@ -346,7 +362,7 @@ interface TabData {
 }
 
 const MySlateEditor = () => {
-  const { t } = useTranslation();
+  const { t, i18n: i18nRuntime } = useTranslation();
   const notify = useAlert();
   const [tabs, setTabs] = useState<TabData[]>([
     { id: 'tab-1', name: 'Document', value: initialValue, changed: false, key: 0, viewMode: 'notepad', headerEnabled: false, footerEnabled: false, headerText: '', footerText: '' }
@@ -361,6 +377,16 @@ const MySlateEditor = () => {
   const [settings, setSettings] = useState<AppSettings>(defaultSettings);
   const settingsRef = useRef(settings);
   settingsRef.current = settings;
+
+  const [spellVersion, setSpellVersion] = useState(0);
+  const [spellingReviewOpen, setSpellingReviewOpen] = useState(false);
+  const [dictionaryOpen, setDictionaryOpen] = useState(false);
+  const [spellTarget, setSpellTarget] = useState<SpellPayload | null>(null);
+  const [spellHover, setSpellHover] = useState<{ payload: SpellPayload; x: number; y: number } | null>(null);
+  const spellHoverTimer = useRef<number | undefined>(undefined);
+  const spellRuleLabel = useRuleLabel();
+
+  const spellLanguage = settings.spellcheckLanguage || i18nRuntime.language || 'en';
   const [typeSpeed, setTypeSpeed] = useState<number | null>(null);
   const [pageCount, setPageCount] = useState(1);
   const [showFindPanel, setShowFindPanel] = useState(false);
@@ -400,6 +426,8 @@ const MySlateEditor = () => {
           restoreSession: loaded.restore_session ?? false,
           markdownEnabled: loaded.markdown_enabled ?? false,
           language: loaded.language ?? '',
+          spellcheckEnabled: loaded.spellcheck_enabled ?? true,
+          spellcheckLanguage: loaded.spellcheck_language ?? '',
         });
         	activatePreferredUserLanguage(loaded.language);
 
@@ -704,6 +732,89 @@ const MySlateEditor = () => {
     return ranges
   }, [searchMatches, currentMatchIndex])
 
+  /**
+   * Issues are stored per block, so this clips each one to the text
+   * node being decorated — a misspelled word split by a bold run gets one range per piece, all
+   * carrying the same payload for the whole word.
+   */
+  const decorateSpelling = useCallback(([node, path]: NodeEntry): SlateRange[] => {
+    if (!settingsRef.current.spellcheckEnabled || !Text.isText(node)) return []
+
+    const blockEntry = Editor.above(editor, {
+      at: path,
+      match: (n) => SlateElement.isElement(n) && Editor.isBlock(editor, n),
+    })
+    if (!blockEntry) return []
+
+    // Is it is block-wide then it is memoised
+    return extractSpellRangesFromNode(blockEntry[0], blockEntry[1], path, node.text.length)
+  }, [editor, spellVersion, settings.spellcheckEnabled])
+
+  const decorateAll = useCallback((entry: NodeEntry): SlateRange[] => {
+    return [...decorate(entry), ...decorateSpelling(entry)]
+  }, [decorate, decorateSpelling])
+
+  const runSpellcheck = useCallback(async () => {
+    if (!settingsRef.current.spellcheckEnabled) return
+    const changed = await updateSpellingChecks(editor, spellLanguage)
+    if (changed) setSpellVersion((version) => version + 1)
+  }, [editor, spellLanguage])
+
+  useEffect(() => {
+    if (!settings.spellcheckEnabled) return
+    const timer = window.setTimeout(() => { void runSpellcheck() }, 400)
+    return () => window.clearTimeout(timer)
+  }, [runSpellcheck, editorVersion, activeTabId, settings.spellcheckEnabled])
+
+  useEffect(() => {
+    invalidateSpellCheckCache(editor)
+    setSpellVersion((version) => version + 1)
+  }, [editor, spellLanguage])
+
+ /** Underlines appearing or leaving re-split blocks into leaves, replacing the DOM node with the caret and causing the browser to drop it to the block start while editor.
+  * selection stays correct until the next keystroke where damage becomes visible. 
+  * The repair is deferred rather than done in the layout phase because measured when 
+  * layout effects run both the DOM and Slate agree and Slate's own selection sync moves it afterwards, 
+  * so a later task is the first point where damage is visible. 
+  * */
+
+
+  useLayoutEffect(() => {
+    const repair = () => {
+      if (!editor.selection) return
+
+      const domSelection = window.getSelection()
+      if (!domSelection || domSelection.rangeCount === 0) return
+
+      try {
+        const editable = ReactEditor.toDOMNode(editor, editor)
+        if (!editable.contains(domSelection.anchorNode)) return
+
+        const domRange = ReactEditor.toDOMRange(editor, editor.selection)
+        const current = domSelection.getRangeAt(0)
+        const agrees =
+          current.startContainer === domRange.startContainer &&
+          current.startOffset === domRange.startOffset &&
+          current.endContainer === domRange.endContainer &&
+          current.endOffset === domRange.endOffset
+        if (agrees) return
+
+        domSelection.removeAllRanges()
+        domSelection.addRange(domRange)
+      } catch {
+        // the next pass fixes this
+      }
+    }
+
+    const id = window.setTimeout(repair, 0)
+    return () => window.clearTimeout(id)
+  }, [editor, spellVersion])
+
+  const recheckDocument = useCallback(() => {
+    invalidateSpellCheckCache(editor)
+    void runSpellcheck()
+  }, [editor, runSpellcheck])
+
   const calculateCharacterCount = useCallback((nodes: Descendant[]): number => {
     let count = 0;
     const countText = (node: any) => {
@@ -722,15 +833,6 @@ const MySlateEditor = () => {
     const next = selection
       ? getVisualPosition(editor, visualLinesRef.current, Editor.edges(editor, selection)[0])
       : { line: 1, column: 1 };
-    (window as any).__probe = {
-      next,
-      indexLen: visualLinesRef.current.length,
-      caret: selection ? Editor.edges(editor, selection)[0] : null,
-      firstStart: visualLinesRef.current[0]?.start,
-      lastStart: visualLinesRef.current[visualLinesRef.current.length - 1]?.start,
-      stack: new Error().stack?.split('\n').slice(1, 5).join(' | '),
-    };
-
     // runs after pagination pass
     setCursorPosition((previous) =>
       previous.line === next.line && previous.column === next.column ? previous : next
@@ -927,12 +1029,12 @@ const MySlateEditor = () => {
   const editableProps: EditableSurfaceProps = useMemo(() => ({
     renderElement,
     renderLeaf,
-    decorate,
+    decorate: decorateAll,
     onKeyDown: handleEditKeyDownEvent,
     onPaste: handlePaste,
     onDOMBeforeInput: handleDOMBeforeInput,
     placeholder: t("Start Writing something..."),
-  }), [renderElement, renderLeaf, decorate, handleEditKeyDownEvent, handlePaste, handleDOMBeforeInput]);
+  }), [renderElement, renderLeaf, decorateAll, handleEditKeyDownEvent, handlePaste, handleDOMBeforeInput]);
 
   type Data = [Descendant[], string, DocumentMeta];
 
@@ -1259,9 +1361,68 @@ const MySlateEditor = () => {
     }
   };
 
+  /** If clicked, read the payload */
+  const readPayloadAt = (target: EventTarget | null): SpellPayload | null => {
+    const element = (target as HTMLElement | null)?.closest?.('[data-rn-spell]') as HTMLElement | null;
+    if (!element?.dataset.rnSpell) return null;
+    try {
+      const parsed = JSON.parse(element.dataset.rnSpell);
+      return isSpellPayload(parsed) ? parsed : null;
+    } catch {
+      return null;
+    }
+  };
+
   const handleContextMenu = (e: React.MouseEvent) => {
     e.preventDefault();
+    setSpellTarget(readPayloadAt(e.target));
     setContextMenu({ x: e.clientX, y: e.clientY });
+  };
+
+  const keepSpellHover = () => window.clearTimeout(spellHoverTimer.current);
+
+  /** Time the pointers need to reach the word*/
+  const releaseSpellHover = () => {
+    window.clearTimeout(spellHoverTimer.current);
+    spellHoverTimer.current = window.setTimeout(() => setSpellHover(null), 250);
+  };
+
+  const handleEditorMouseOver = (e: React.MouseEvent) => {
+    const payload = readPayloadAt(e.target);
+    if (!payload) {
+      releaseSpellHover();
+      return;
+    }
+    keepSpellHover();
+    const element = (e.target as HTMLElement).closest('[data-rn-spell]') as HTMLElement;
+    const rect = element.getBoundingClientRect();
+    setSpellHover({ payload, x: rect.left + rect.width / 2, y: rect.bottom + 6 });
+  };
+
+  const applyWordSuggestion = (payload: SpellPayload, replacement: string) => {
+    Transforms.select(editor, payload.range);
+    if (replacement) {
+      Transforms.insertText(editor, replacement);
+    } else {
+      Transforms.delete(editor);
+    }
+    ReactEditor.focus(editor);
+  };
+
+  const handleSpellCorrect = () => {
+    handleCloseContextMenu();
+    if (!spellTarget) return;
+    const replacement = spellTarget.suggestions[0];
+    if (replacement === undefined) return;
+
+    applyWordSuggestion(spellTarget, replacement);
+  };
+
+  const handleSpellAddWord = async () => {
+    handleCloseContextMenu();
+    if (!spellTarget) return;
+    await addToPersonalDictionary(spellTarget.text);
+    recheckDocument();
   };
 
   const handleCloseContextMenu = () => {
@@ -1345,6 +1506,18 @@ const MySlateEditor = () => {
     { id: 'insertLink', label: t("Insert Link"), onClick: handleInsertLink },
     { id: 'linkToHeader', label: t("Link to Header"), onClick: handleLinkToHeader },
     { id: 'removeLink', label: t("Remove Link"), onClick: handleRemoveLink },
+    ...(spellTarget && spellTarget.suggestions.length > 0
+      ? [{
+          id: 'spellCorrect',
+          label: t("Correct"),
+          shortcut: spellTarget.suggestions[0] || undefined,
+          onClick: handleSpellCorrect,
+          divider: spellTarget.rule !== 'spelling',
+        }]
+      : []),
+    ...(spellTarget?.rule === 'spelling'
+      ? [{ id: 'spellAdd', label: t("Add to dictionary"), onClick: handleSpellAddWord, divider: true }]
+      : []),
   ];
 
 
@@ -1358,7 +1531,7 @@ const MySlateEditor = () => {
         onNewTab={handleNewTab}
       />
       <div className="miscellaneous-bar">
-        <Miscellaneousbar loadDocumentName={getDocumentName} onCommitDocumentName={handleCommitDocumentName} documentName={activeTab.name} editor={editor} editorVersion={editorVersion}>    
+        <Miscellaneousbar loadDocumentName={getDocumentName} onCommitDocumentName={handleCommitDocumentName} documentName={activeTab.name} editor={editor} editorVersion={editorVersion} onToolSelect={(tool) => tool === 'spelling' ? setSpellingReviewOpen(true) : setDictionaryOpen(true)}>    
           <ActionDropdown
           items={fileMenuItems}
           onSelect={handleFileAction}
@@ -1369,7 +1542,7 @@ const MySlateEditor = () => {
           />
         </Miscellaneousbar>
       </div>
-      <div className="editor-wrapper" onContextMenu={handleContextMenu} onWheel={(e) => {
+      <div className="editor-wrapper" onContextMenu={handleContextMenu} onMouseOver={handleEditorMouseOver} onMouseLeave={releaseSpellHover} onWheel={(e) => {
         if (e.ctrlKey) {
           e.preventDefault();
           setZoomLevel(prev => Math.min(200, Math.max(50, prev + (e.deltaY < 0 ? 10 : -10))));
@@ -1434,6 +1607,52 @@ const MySlateEditor = () => {
         zoomLevel={zoomLevel}
         onZoomReset={() => setZoomLevel(100)}
       />
+      <SpellingReview
+        isOpen={spellingReviewOpen}
+        onClose={() => setSpellingReviewOpen(false)}
+        editor={editor}
+        language={spellLanguage}
+        onCorrected={recheckDocument}
+      />
+
+      <DictionarySettings
+        isOpen={dictionaryOpen}
+        onClose={() => setDictionaryOpen(false)}
+        settings={settings}
+        onSettingsChange={setSettings}
+        onDictionaryChanged={recheckDocument}
+      />
+
+      {spellHover && !contextMenu && !spellingReviewOpen && !dictionaryOpen && !settingsOpen && (
+        <div
+          className="rn-spell-popup"
+          style={{ left: spellHover.x, top: spellHover.y }}
+          onMouseEnter={keepSpellHover}
+          onMouseLeave={releaseSpellHover}
+        >
+          <span className="rn-spell-suggestions-title">{spellRuleLabel(spellHover.payload.rule)}</span>
+          {spellHover.payload.suggestions.length === 0 ? (
+            <span className="rn-spell-suggestion-empty">{t("No suggestions")}</span>
+          ) : (
+            spellHover.payload.suggestions.slice(0, 5).map((suggestion, index) => (
+              <button
+                type="button"
+                className="rn-spell-suggestion"
+                key={`${suggestion}-${index}`}
+                // mousedown, and prevented, so the click never takes focus off the editor.
+                onMouseDown={(event) => {
+                  event.preventDefault();
+                  applyWordSuggestion(spellHover.payload, suggestion);
+                  setSpellHover(null);
+                }}
+              >
+                {suggestion === '' ? t("(remove)") : suggestion}
+              </button>
+            ))
+          )}
+        </div>
+      )}
+
       <Settings
         isOpen={settingsOpen}
         onClose={() => setSettingsOpen(false)}

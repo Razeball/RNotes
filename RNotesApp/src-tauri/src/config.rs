@@ -18,6 +18,18 @@ pub struct AppSettings {
     /// BCP-47 tag chosen in Settings. Empty means follow the operating system.
     #[serde(default)]
     pub language: String,
+    #[serde(default = "default_true")]
+    pub spellcheck_enabled: bool,
+    /// Dictionary to check against. Empty means follow the interface language.
+    #[serde(default)]
+    pub spellcheck_language: String,
+    /// Words the user told the checker to stop flagging. Kept sorted and deduplicated.
+    #[serde(default)]
+    pub personal_dictionary: Vec<String>,
+}
+
+fn default_true() -> bool {
+    true
 }
 
 fn default_page_size() -> String {
@@ -35,6 +47,9 @@ impl Default for AppSettings {
             restore_session: false,
             markdown_enabled: false,
             language: String::new(),
+            spellcheck_enabled: true,
+            spellcheck_language: String::new(),
+            personal_dictionary: Vec::new(),
         }
     }
 }
@@ -157,10 +172,46 @@ impl Config {
         self.settings.read().unwrap().clone()
     }
 
+    pub fn add_word_to_dictionary(&self, word: &str) -> Vec<String> {
+        let trimmed_word = word.trim();
+        if trimmed_word.is_empty() {
+            return self.get_settings().personal_dictionary;
+        }
+
+        let mut settings = self.settings.write().unwrap();
+        if !settings
+            .personal_dictionary
+            .iter()
+            .any(|existing| existing.to_lowercase() == trimmed_word.to_lowercase())
+        {
+            settings.personal_dictionary.push(trimmed_word.to_string());
+            settings.personal_dictionary.sort_by_key(|w| w.to_lowercase());
+        }
+        let updated = settings.clone();
+        drop(settings);
+
+        updated.save();
+        updated.personal_dictionary
+    }
+
+    pub fn delete_word_from_dictionary(&self, word: &str) -> Vec<String> {
+        let mut settings = self.settings.write().unwrap();
+        settings
+            .personal_dictionary
+            .retain(|existing| existing.to_lowercase() != word.to_lowercase());
+        let updated = settings.clone();
+        drop(settings);
+
+        updated.save();
+        updated.personal_dictionary
+    }
+
     pub fn update_settings(&self, new_settings: AppSettings) {
         let mut settings = self.settings.write().unwrap();
-        *settings = new_settings.clone();
+        let mut merged_settings = new_settings;
+        merged_settings.personal_dictionary = std::mem::take(&mut settings.personal_dictionary);
+        *settings = merged_settings.clone();
         drop(settings);
-        new_settings.save();
+        merged_settings.save();
     }
 }

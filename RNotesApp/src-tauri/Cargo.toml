@@ -1,6 +1,6 @@
 [package]
 name = "rnotesapp"
-version = "0.4.6"
+version = "0.4.7"
 description = "A note editor"
 authors = ["Razeball"]
 edition = "2024"
@@ -32,6 +32,7 @@ image = "0.25"
 arboard = "3"
 dirs = "5"
 percent-encoding = "2"
+spellbook = "0.4.2"
 
 [target.'cfg(windows)'.dependencies]
 webview2-com = "0.38"

@@ -18,8 +18,9 @@ export type MiscellaneousbarProps = {
     documentName: string
     editor: BaseEditor & ReactEditor & HistoryEditor
     editorVersion?: number
+    onToolSelect?: (tool: 'spelling' | 'dictionary') => void
 }
-export default function Miscellaneousbar({children, loadDocumentName, onCommitDocumentName, documentName, editor, editorVersion} : MiscellaneousbarProps) {
+export default function Miscellaneousbar({children, loadDocumentName, onCommitDocumentName, documentName, editor, editorVersion, onToolSelect} : MiscellaneousbarProps) {
   const { t } = useTranslation();
   
   const formatOptions: { value: 'quote' | 'code' | 'crossedOut' | 'highlight' | 'link', label: string, shortcut: string, tooltip: string }[] = [
@@ -286,6 +287,24 @@ export default function Miscellaneousbar({children, loadDocumentName, onCommitDo
     }
   };
 
+  const toolMenuItems: ActionDropdownItem[] = [
+    {
+      id: 'spelling',
+      label: t("Check spelling and grammar"),
+      tooltip: t("Check for all spelling and grammar errors and correct them"),
+      divider: true,
+    },
+    {
+      id: 'dictionary',
+      label: t("Dictionary"),
+      tooltip: t("Dictionary settings"),
+    },
+  ];
+
+  const handleToolAction = (actionId: string) => {
+    onToolSelect?.(actionId as 'spelling' | 'dictionary');
+  };
+
   const handleFormatAction = (actionId: string) => {
     handleFormatSelect(actionId as 'quote' | 'code' | 'crossedOut' | 'highlight' | 'link');
   };
@@ -322,6 +341,14 @@ export default function Miscellaneousbar({children, loadDocumentName, onCommitDo
           renderButton={(_isOpen, toggle) => (
             <button onMouseDown={(e) => { e.preventDefault(); toggle(); }}>
               {t("Format")}</button>
+          )}
+        />
+        <ActionDropdown
+          items={toolMenuItems}
+          onSelect={handleToolAction}
+          renderButton={(_isOpen, toggle) => (
+            <button onMouseDown={(e) => { e.preventDefault(); toggle(); }}>
+              {t("Tools")}</button>
           )}
         />
       </div>
