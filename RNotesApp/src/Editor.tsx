@@ -145,10 +145,7 @@ const initialValue: Descendant[] = [
   {
     type: "paragraph",
     alignment: "start",
-    children: [
-      { text: "write something ", italic: true, color: "red" },
-      { text: "Amazing", bold: true, color: "white" },
-    ],
+    children: [{ text: "" }],
   },
 ];
 

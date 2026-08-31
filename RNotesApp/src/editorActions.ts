@@ -42,6 +42,8 @@ export const toggleUnderline = (editor: EditorInstance) => {
     )
 }
 
+const ERASABLE_FORMATS = ['paragraph', 'header', 'header2', 'header3', 'header4', 'list-item', 'check']
+
 export const eraseFormatting = (editor: EditorInstance) => {
     const { selection } = editor
     if (!selection) return
@@ -62,6 +64,16 @@ export const eraseFormatting = (editor: EditorInstance) => {
             fontFamily: undefined,
         },
         { match: (n: any) => Text.isText(n), split: true }
+    )
+
+    Transforms.unwrapNodes(editor, {
+        match: (n) => SlateElement.isElement(n) && (n.type === 'ulist' || n.type === 'olist'),
+        split: true,
+    })
+    Transforms.setNodes(
+        editor,
+        { type: 'paragraph', alignment: 'start', checked: undefined },
+        { match: (n) => SlateElement.isElement(n) && ERASABLE_FORMATS.includes(n.type) }
     )
 }
 
