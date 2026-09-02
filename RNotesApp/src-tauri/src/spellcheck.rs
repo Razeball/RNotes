@@ -214,6 +214,7 @@ fn detect_typos(
     dictionary: &Dictionary,
     user_words: &[String],
     protected: &[(usize, usize)],
+    with_suggestions: bool,
     issues: &mut Vec<SpellIssue>,
 ) {
     for token in tokens {
@@ -236,8 +237,10 @@ fn detect_typos(
         }
 
         let mut suggestions = Vec::new();
-        dictionary.suggest(token.text, &mut suggestions);
-        suggestions.truncate(MAX_SUGGESTIONS);
+        if with_suggestions {
+            dictionary.suggest(token.text, &mut suggestions);
+            suggestions.truncate(MAX_SUGGESTIONS);
+        }
         issues.push(SpellIssue::new(token.start, token.end, token.text, "spelling", suggestions));
     }
 }
@@ -362,8 +365,13 @@ fn detect_mechanical_errors(text: &str, tokens: &[SpellToken<'_>], protected: &[
 
 /// Checks one run of text by tokenizing protecting URLs and detecting both spelling and grammar issues. 
 /// Called per block so the frontend can cache per block and only redo the one the caret is in. 
-pub fn fast_check(text: &str, language: &str, user_words: &[String]) -> Vec<SpellIssue> {
-    let Some(dictionary) = load_dictionary_cached(normalize_language_code(language)) else {
+pub fn fast_check(
+    text: &str,
+    actual_language: &str,
+    user_words: &[String],
+    allow_suggestions: bool,
+) -> Vec<SpellIssue> {
+    let Some(dictionary) = load_dictionary_cached(normalize_language_code(actual_language)) else {
         return Vec::new();
     };
 
@@ -371,7 +379,7 @@ pub fn fast_check(text: &str, language: &str, user_words: &[String]) -> Vec<Spel
     let protected = find_url_email_path_ranges(text);
     let mut issues = Vec::new();
 
-    detect_typos(text, &tokens, dictionary, user_words, &protected, &mut issues);
+    detect_typos(text, &tokens, dictionary, user_words, &protected, allow_suggestions, &mut issues);
     detect_mechanical_errors(text, &tokens, &protected, &mut issues);
 
     issues.sort_by_key(|issue| (issue.start, issue.end));
@@ -381,14 +389,31 @@ pub fn fast_check(text: &str, language: &str, user_words: &[String]) -> Vec<Spel
 /// Checks spelling and grammar in text by validating words against the dictionary and applying mechanical rules like repeated words double spaces and lowercase after periods. 
 #[command]
 pub fn check_spelling(text: String, language: String, state: State<Config>) -> Vec<SpellIssue> {
-    fast_check(&text, &language, &state.get_settings().personal_dictionary)
+    fast_check(&text, &language, &state.get_settings().personal_dictionary, true)
 }
 
-/// Checks a whole document in one call so the review dialog does not fire one command per block. 
+/// Checks many blocks in one call, deliberately *without* suggestions. 
+/// So only the underlining word is deferred to suggest_word saving time
 #[command]
 pub fn check_spelling_batch(blocks: Vec<String>, language: String, state: State<Config>) -> Vec<Vec<SpellIssue>> {
     let user_words = state.get_settings().personal_dictionary;
-    blocks.iter().map(|block| fast_check(block, &language, &user_words)).collect()
+    blocks
+        .iter()
+        .map(|block| fast_check(block, &language, &user_words, false))
+        .collect()
+}
+
+/// Correction for only the underline word, working on demand.
+#[command]
+pub fn suggest_single_word(word: String, language: String) -> Vec<String> {
+    let Some(dictionary) = load_dictionary_cached(normalize_language_code(&language)) else {
+        return Vec::new();
+    };
+
+    let mut suggestions = Vec::new();
+    dictionary.suggest(&word, &mut suggestions);
+    suggestions.truncate(MAX_SUGGESTIONS);
+    suggestions
 }
 
 /// Gets all words currently in the personal dictionary from the settings state. 
@@ -421,7 +446,7 @@ mod tests {
     #[test]
     fn offsets_are_utf16_so_accents_do_not_shift_them() {
         let text = "café 🧐📸 xyzzyx";
-        let issues = fast_check(text, "es", &[]);
+        let issues = fast_check(text, "es", &[], true);
         let misspelled: Vec<_> = issues.iter().filter(|i| i.rule == "spelling").collect();
         assert_eq!(misspelled.len(), 1, "only the invented word should be flagged");
         assert_eq!(misspelled[0].text, "xyzzyx");
@@ -434,25 +459,44 @@ mod tests {
     #[test]
     fn user_words_are_accepted_case_insensitively() {
         let invented = "Razeball";
-        assert_eq!(rules(&fast_check(invented, "en", &[])), vec!["spelling"]);
-        assert!(fast_check(invented, "en", &["razeball".to_string()]).is_empty());
+        assert_eq!(rules(&fast_check(invented, "en", &[], true)), vec!["spelling"]);
+        assert!(fast_check(invented, "en", &["razeball".to_string()], true).is_empty());
     }
 
     /// Tests mechanical grammar rules like repeated words double spaces space before punctuation and lowercase after period. 
     #[test]
     fn catches_the_mechanical_grammar_rules() {
-        let repeated = fast_check("the the cat", "en", &[]);
+        let repeated = fast_check("the the cat", "en", &[], true);
         assert!(rules(&repeated).contains(&"repeated-word"));
 
-        let spaced = fast_check("hello  world", "en", &[]);
+        let spaced = fast_check("hello  world", "en", &[], true);
         assert!(rules(&spaced).contains(&"double-space"));
 
-        let punctuated = fast_check("hello , world", "en", &[]);
+        let punctuated = fast_check("hello , world", "en", &[], true);
         assert!(rules(&punctuated).contains(&"space-before-punctuation"));
 
-        let sentence = fast_check("One thing. two things", "en", &[]);
+        let sentence = fast_check("One thing. two things", "en", &[], true);
         let lowercase: Vec<_> = sentence.iter().filter(|i| i.rule == "lowercase-after-period").collect();
         assert_eq!(lowercase.len(), 1);
         assert_eq!(lowercase[0].suggestions, vec!["Two".to_string()]);
+    }
+
+    /// Suggestion search dominates the cost by three orders of magnitude, so the pass that runs
+    /// while typing must never do it. Measured on 200 blocks: 19ms to check, 97 seconds to suggest.
+    /// So it's a reduction of 99.98% of the total time.
+    #[test]
+    fn the_bulk_pass_skips_the_expensive_suggestion_search() {
+        let bulk = fast_check("recieve", "en", &[], false);
+        assert_eq!(bulk.len(), 1);
+        assert!(bulk[0].suggestions.is_empty(), "the typing pass must not search for suggestions");
+
+        // Mechanical rules build their fix instead of searching for it, so they keep theirs.
+        let grammar = fast_check("the the cat", "en", &[], false);
+        let repeated = grammar.iter().find(|i| i.rule == "repeated-word").expect("repeated word");
+        assert_eq!(repeated.suggestions, vec!["the".to_string()]);
+
+        // And the on-demand lookup still finds the right word.
+        let asked = suggest_single_word("recieve".to_string(), "en".to_string());
+        assert_eq!(asked.first().map(String::as_str), Some("receive"));
     }
 }

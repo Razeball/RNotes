@@ -4,10 +4,11 @@ import { ReactEditor } from 'slate-react'
 import Modal from './Modal'
 import type { EditorInstance } from '../editorActions'
 import {
-  applyCorrectedSuggestions,
-  performSingleCorrection,
-  gatherAllIssues,
-  updateSpellingChecks,
+  batchApplySuggestedCorrections,
+  applySuggestedReplacement,
+  lookupSuggestions,
+  collectAllLocatedIssues,
+  refreshSpellingChecks,
   type LocatedIssue,
 } from '../services/spellcheck'
 import '../styles/Spellcheck.css'
@@ -46,12 +47,28 @@ export default function SpellingReview({ isOpen, onClose, editor, language, onCo
 
   const [issues, setIssues] = useState<LocatedIssue[]>([])
   const [scanning, setScanning] = useState(false)
+  const [resolved, setResolved] = useState(0)
 
   const rescan = useCallback(async () => {
     setScanning(true)
+    setResolved(0)
     try {
-      await updateSpellingChecks(editor, language)
-      setIssues(gatherAllIssues(editor))
+      await refreshSpellingChecks(editor, language)
+      const found = collectAllLocatedIssues(editor)
+      setIssues(found)
+      setScanning(false)
+
+      const filled = [...found]
+      for (let index = 0; index < filled.length; index += 1) {
+        const issue = filled[index]
+        if (issue.suggestions.length > 0) continue
+
+        filled[index] = { ...issue, suggestions: await lookupSuggestions(issue.text, language) }
+        setResolved(index + 1)
+        if (index % 10 === 9) setIssues([...filled])
+      }
+      setIssues(filled)
+      setResolved(filled.length)
     } finally {
       setScanning(false)
     }
@@ -70,18 +87,19 @@ export default function SpellingReview({ isOpen, onClose, editor, language, onCo
   const correctSingleWord = async (issue: LocatedIssue) => {
     const replacement = issue.suggestions[0]
     if (replacement === undefined) return
-    performSingleCorrection(editor, issue, replacement)
+    applySuggestedReplacement(editor, issue, replacement)
     ReactEditor.focus(editor)
     await afterEdit()
   }
 
   const correctAllWords = async () => {
-    applyCorrectedSuggestions(editor, issues)
+    batchApplySuggestedCorrections(editor, issues)
     ReactEditor.focus(editor)
     await afterEdit()
   }
 
   const fixable = issues.filter((issue) => issue.suggestions.length > 0)
+  const looking = !scanning && issues.length > 0 && resolved < issues.length
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} title={t("Check spelling and grammar")}>
@@ -122,7 +140,15 @@ export default function SpellingReview({ isOpen, onClose, editor, language, onCo
 
             <div className="rn-review-actions">
               <button onClick={onClose}>{t("Close")}</button>
-              <button disabled={fixable.length === 0} onClick={() => void correctAllWords()}>
+              {looking && (
+                <span className="rn-review-progress">
+                  {t("Looking for suggestions... ({{done}}/{{total}})", {
+                    done: resolved,
+                    total: issues.length,
+                  })}
+                </span>
+              )}
+              <button disabled={fixable.length === 0 || looking} onClick={() => void correctAllWords()}>
                 {t("Correct all ({{count}})", { count: fixable.length })}
               </button>
             </div>

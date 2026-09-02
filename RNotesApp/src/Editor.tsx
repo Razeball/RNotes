@@ -46,10 +46,12 @@ import {
 } from "./services/pageSpacers";
 import {
   addToPersonalDictionary,
-  invalidateSpellCheckCache,
+  clearSpellingCache,
   isSpellPayload,
-  updateSpellingChecks,
-  extractSpellRangesFromNode,
+  refreshSpellingChecks,
+  clipSpellDecorationsToNode,
+  getCachedSuggestions as savedSuggestions,
+  lookupSuggestions as fetchAllSuggestions,
   type SpellPayload,
 } from "./services/spellcheck";
 import "./styles/Spellcheck.css";
@@ -384,6 +386,8 @@ const MySlateEditor = () => {
   const [spellTarget, setSpellTarget] = useState<SpellPayload | null>(null);
   const [spellHover, setSpellHover] = useState<{ payload: SpellPayload; x: number; y: number } | null>(null);
   const spellHoverTimer = useRef<number | undefined>(undefined);
+  const [hoverSuggestions, setHoverSuggestions] = useState<string[] | null>(null);
+  const [targetSuggestions, setTargetSuggestions] = useState<string[] | null>(null);
   const spellRuleLabel = useRuleLabel();
 
   const spellLanguage = settings.spellcheckLanguage || i18nRuntime.language || 'en';
@@ -747,7 +751,7 @@ const MySlateEditor = () => {
     if (!blockEntry) return []
 
     // Is it is block-wide then it is memoised
-    return extractSpellRangesFromNode(blockEntry[0], blockEntry[1], path, node.text.length)
+    return clipSpellDecorationsToNode(blockEntry[0], blockEntry[1], path, node.text.length)
   }, [editor, spellVersion, settings.spellcheckEnabled])
 
   const decorateAll = useCallback((entry: NodeEntry): SlateRange[] => {
@@ -756,7 +760,9 @@ const MySlateEditor = () => {
 
   const runSpellcheck = useCallback(async () => {
     if (!settingsRef.current.spellcheckEnabled) return
-    const changed = await updateSpellingChecks(editor, spellLanguage)
+    const changed = await refreshSpellingChecks(editor, spellLanguage, () =>
+      setSpellVersion((version) => version + 1)
+    )
     if (changed) setSpellVersion((version) => version + 1)
   }, [editor, spellLanguage])
 
@@ -767,7 +773,7 @@ const MySlateEditor = () => {
   }, [runSpellcheck, editorVersion, activeTabId, settings.spellcheckEnabled])
 
   useEffect(() => {
-    invalidateSpellCheckCache(editor)
+    clearSpellingCache(editor)
     setSpellVersion((version) => version + 1)
   }, [editor, spellLanguage])
 
@@ -779,8 +785,7 @@ const MySlateEditor = () => {
   * */
 
 
-  useLayoutEffect(() => {
-    const repair = () => {
+  const repairDomSelection = useCallback(() => {
       if (!editor.selection) return
 
       const domSelection = window.getSelection()
@@ -804,14 +809,15 @@ const MySlateEditor = () => {
       } catch {
         // the next pass fixes this
       }
-    }
+  }, [editor])
 
-    const id = window.setTimeout(repair, 0)
+  useLayoutEffect(() => {
+    const id = window.setTimeout(repairDomSelection, 0)
     return () => window.clearTimeout(id)
-  }, [editor, spellVersion])
+  }, [repairDomSelection, spellVersion])
 
   const recheckDocument = useCallback(() => {
-    invalidateSpellCheckCache(editor)
+    clearSpellingCache(editor)
     void runSpellcheck()
   }, [editor, runSpellcheck])
 
@@ -980,6 +986,9 @@ const MySlateEditor = () => {
   }, [editor]);
 
   const handleEditKeyDownEvent = useCallback((event: React.KeyboardEvent) => {
+    // 'beforeinput' follows the DOM selection so the decorations changes can move, this mark the last moment where a character can land.
+    repairDomSelection();
+
     if (
       event.key === ' ' &&
       !event.ctrlKey &&
@@ -995,7 +1004,7 @@ const MySlateEditor = () => {
 
     handleKeyDown(event);
     if (event.key.length === 1) trackKeystroke();
-  }, [editor, handleKeyDown, trackKeystroke]);
+  }, [editor, handleKeyDown, trackKeystroke, repairDomSelection]);
 
   const handleDOMBeforeInput = useCallback((event: InputEvent) => {
     if (!event.inputType.startsWith('delete')) return;
@@ -1375,7 +1384,10 @@ const MySlateEditor = () => {
 
   const handleContextMenu = (e: React.MouseEvent) => {
     e.preventDefault();
-    setSpellTarget(readPayloadAt(e.target));
+    const payload = readPayloadAt(e.target);
+    setSpellTarget(payload);
+    setTargetSuggestions(null);
+    if (payload) void loadSuggestions(payload, setTargetSuggestions);
     setContextMenu({ x: e.clientX, y: e.clientY });
   };
 
@@ -1387,6 +1399,28 @@ const MySlateEditor = () => {
     spellHoverTimer.current = window.setTimeout(() => setSpellHover(null), 250);
   };
 
+  /**
+   * The spelling issue arrives without suggestion to be able to paste a large text, each mistake build the grammar rule
+   * instead of searching for it
+   */
+  const loadSuggestions = useCallback(
+    async (payload: SpellPayload, apply: (suggestions: string[]) => void) => {
+      if (payload.rule !== 'spelling') {
+        apply(payload.suggestions);
+        return payload.suggestions;
+      }
+      const known = savedSuggestions(payload.text, spellLanguage);
+      if (known) {
+        apply(known);
+        return known;
+      }
+      const found = await fetchAllSuggestions(payload.text, spellLanguage);
+      apply(found);
+      return found;
+    },
+    [spellLanguage]
+  );
+
   const handleEditorMouseOver = (e: React.MouseEvent) => {
     const payload = readPayloadAt(e.target);
     if (!payload) {
@@ -1394,9 +1428,20 @@ const MySlateEditor = () => {
       return;
     }
     keepSpellHover();
+
     const element = (e.target as HTMLElement).closest('[data-rn-spell]') as HTMLElement;
     const rect = element.getBoundingClientRect();
+
+    if (spellHover?.payload.text === payload.text && spellHover.payload.rule === payload.rule) return;
+
     setSpellHover({ payload, x: rect.left + rect.width / 2, y: rect.bottom + 6 });
+    setHoverSuggestions(null);
+    void loadSuggestions(payload, (found) => {
+      setSpellHover((current) => {
+        if (current?.payload.text === payload.text) setHoverSuggestions(found);
+        return current;
+      });
+    });
   };
 
   const applyWordSuggestion = (payload: SpellPayload, replacement: string) => {
@@ -1409,10 +1454,12 @@ const MySlateEditor = () => {
     ReactEditor.focus(editor);
   };
 
-  const handleSpellCorrect = () => {
+  const handleSpellCorrect = async () => {
     handleCloseContextMenu();
     if (!spellTarget) return;
-    const replacement = spellTarget.suggestions[0];
+
+    const suggestions = targetSuggestions ?? (await loadSuggestions(spellTarget, () => {}));
+    const replacement = suggestions[0];
     if (replacement === undefined) return;
 
     applyWordSuggestion(spellTarget, replacement);
@@ -1506,12 +1553,12 @@ const MySlateEditor = () => {
     { id: 'insertLink', label: t("Insert Link"), onClick: handleInsertLink },
     { id: 'linkToHeader', label: t("Link to Header"), onClick: handleLinkToHeader },
     { id: 'removeLink', label: t("Remove Link"), onClick: handleRemoveLink },
-    ...(spellTarget && spellTarget.suggestions.length > 0
+    ...(spellTarget && (spellTarget.rule === 'spelling' || spellTarget.suggestions.length > 0)
       ? [{
           id: 'spellCorrect',
           label: t("Correct"),
-          shortcut: spellTarget.suggestions[0] || undefined,
-          onClick: handleSpellCorrect,
+          shortcut: targetSuggestions?.[0] || undefined,
+          onClick: () => void handleSpellCorrect(),
           divider: spellTarget.rule !== 'spelling',
         }]
       : []),
@@ -1589,7 +1636,7 @@ const MySlateEditor = () => {
                 />
               ) : (
                 <div className="editor-content" ref={notepadRef}>
-                  <Editable {...editableProps} />
+                  <Editable {...editableProps} spellCheck={false} />
                 </div>
               )}
             </div>
@@ -1631,10 +1678,12 @@ const MySlateEditor = () => {
           onMouseLeave={releaseSpellHover}
         >
           <span className="rn-spell-suggestions-title">{spellRuleLabel(spellHover.payload.rule)}</span>
-          {spellHover.payload.suggestions.length === 0 ? (
+          {hoverSuggestions === null ? (
+            <span className="rn-spell-suggestion-empty">{t("Looking for suggestions...")}</span>
+          ) : hoverSuggestions.length === 0 ? (
             <span className="rn-spell-suggestion-empty">{t("No suggestions")}</span>
           ) : (
-            spellHover.payload.suggestions.slice(0, 5).map((suggestion, index) => (
+            hoverSuggestions.slice(0, 5).map((suggestion, index) => (
               <button
                 type="button"
                 className="rn-spell-suggestion"

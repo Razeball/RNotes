@@ -12,7 +12,7 @@ use file_handler::{open, save, save_as, open_in_tab, save_tab, save_tab_as, expo
 use pdf_export::{export_to_pdf, print_pdf};
 use session::{save_session, get_session};
 use markdown::parse_markdown;
-use spellcheck::{check_spelling, check_spelling_batch, get_dictionary_words, add_dictionary_word, remove_dictionary_word};
+use spellcheck::{check_spelling, check_spelling_batch, suggest_single_word, get_dictionary_words, add_dictionary_word, remove_dictionary_word};
 use config::{Config, AppSettings};
 use tauri::{Manager, State, WindowEvent, command, AppHandle};
 use tauri_plugin_dialog::{DialogExt, MessageDialogKind, MessageDialogButtons};
@@ -144,7 +144,7 @@ pub fn run() {
             save_session, get_session,
             get_startup_file,
             parse_markdown,
-            check_spelling, check_spelling_batch,
+            check_spelling, check_spelling_batch, suggest_single_word,
             get_dictionary_words, add_dictionary_word, remove_dictionary_word
         ])
         .on_window_event(|window, event|{

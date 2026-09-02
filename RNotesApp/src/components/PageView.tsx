@@ -200,6 +200,7 @@ const PageView: React.FC<PageViewProps> = ({
           }}
         >
           <Editable
+            spellCheck={false}
             renderElement={editableProps.renderElement}
             renderLeaf={editableProps.renderLeaf}
             decorate={editableProps.decorate}

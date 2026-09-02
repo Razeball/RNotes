@@ -171,3 +171,9 @@
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
   max-width: 260px;
 }
+
+.rn-review-progress {
+  align-self: center;
+  font-size: 11px;
+  opacity: 0.7;
+}
