@@ -8,12 +8,14 @@ mod pdf_export;
 mod session;
 mod markdown;
 mod spellcheck;
+mod splash;
 use file_handler::{open, save, save_as, open_in_tab, save_tab, save_tab_as, export_to_file, open_file_by_path, rename_tab_file};
 use pdf_export::{export_to_pdf, print_pdf};
 use session::{save_session, get_session};
 use markdown::parse_markdown;
 use spellcheck::{check_spelling, check_spelling_batch, suggest_single_word, get_dictionary_words, add_dictionary_word, remove_dictionary_word};
 use config::{Config, AppSettings};
+use splash::{SplashState, close_splash_window, is_main_window_ready, main_window_ready};
 use tauri::{Manager, State, WindowEvent, command, AppHandle};
 use tauri_plugin_dialog::{DialogExt, MessageDialogKind, MessageDialogButtons};
 use image::{insert_image_from_clipboard, insert_image_from_file};
@@ -116,6 +118,7 @@ pub fn run() {
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_process::init())
         .manage(Config::new())
+        .manage(SplashState::default())
         .setup(|app| {
             let args: Vec<String> = std::env::args().collect();
             let startup_file = args.get(1).and_then(|arg| {
@@ -145,7 +148,8 @@ pub fn run() {
             get_startup_file,
             parse_markdown,
             check_spelling, check_spelling_batch, suggest_single_word,
-            get_dictionary_words, add_dictionary_word, remove_dictionary_word
+            get_dictionary_words, add_dictionary_word, remove_dictionary_word,
+            main_window_ready, is_main_window_ready, close_splash_window
         ])
         .on_window_event(|window, event|{
             if let WindowEvent::CloseRequested { api, .. } = event {

@@ -12,10 +12,25 @@
   "app": {
     "windows": [
       {
+        "label": "main",
         "title": "RNotes",
         "width": 1000,
         "height": 600,
-        "devtools": false
+        "devtools": false,
+        "visible": false
+      },
+      {
+        "label": "splashscreen",
+        "url": "splashscreen.html",
+        "title": "RNotes",
+        "width": 400,
+        "height": 470,
+        "resizable": false,
+        "decorations": false,
+        "center": true,
+        "alwaysOnTop": true,
+        "skipTaskbar": true,
+        "additionalBrowserArgs": "--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection --autoplay-policy=no-user-gesture-required"
       }
     ],
     "security": {
@@ -45,18 +60,24 @@
     ],
     "fileAssociations": [
       {
-        "ext": ["rdocx"],
+        "ext": [
+          "rdocx"
+        ],
         "name": "RNotes Document",
         "description": "RNotes Document",
         "mimeType": "application/x-rdocx"
       },
       {
-        "ext": ["txt"],
+        "ext": [
+          "txt"
+        ],
         "name": "Text Document",
         "description": "Plain Text Document"
       },
       {
-        "ext": ["json"],
+        "ext": [
+          "json"
+        ],
         "name": "JSON Document",
         "description": "JSON Document"
       }
