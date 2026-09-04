@@ -54,6 +54,7 @@ import {
   lookupSuggestions as fetchAllSuggestions,
   type SpellPayload,
 } from "./services/spellcheck";
+import { shouldBeSoundedKey, triggerMechanicalKeyClick, loadKeySoundSamples } from "./services/keySound";
 import "./styles/Spellcheck.css";
 
 
@@ -379,6 +380,10 @@ const MySlateEditor = () => {
   const [settings, setSettings] = useState<AppSettings>(defaultSettings);
   const settingsRef = useRef(settings);
   settingsRef.current = settings;
+  // The sound happens when the setting turns on because decoding take a moment
+  useEffect(() => {
+    if (settings.keySoundEnabled) void loadKeySoundSamples();
+  }, [settings.keySoundEnabled]);
 
   const [spellVersion, setSpellVersion] = useState(0);
   const [spellingReviewOpen, setSpellingReviewOpen] = useState(false);
@@ -432,6 +437,7 @@ const MySlateEditor = () => {
           language: loaded.language ?? '',
           spellcheckEnabled: loaded.spellcheck_enabled ?? true,
           spellcheckLanguage: loaded.spellcheck_language ?? '',
+          keySoundEnabled: loaded.key_sound_enabled ?? true,
         });
         	activatePreferredUserLanguage(loaded.language);
 
@@ -988,6 +994,8 @@ const MySlateEditor = () => {
   const handleEditKeyDownEvent = useCallback((event: React.KeyboardEvent) => {
     // 'beforeinput' follows the DOM selection so the decorations changes can move, this mark the last moment where a character can land.
     repairDomSelection();
+
+    if (settingsRef.current.keySoundEnabled && shouldBeSoundedKey(event)) triggerMechanicalKeyClick();
 
     if (
       event.key === ' ' &&

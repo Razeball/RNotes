@@ -20,6 +20,7 @@ export interface AppSettings {
   language: string;
   spellcheckEnabled: boolean;
   spellcheckLanguage: string;
+  keySoundEnabled: boolean;
 }
 
 export const defaultSettings: AppSettings = {
@@ -33,6 +34,7 @@ export const defaultSettings: AppSettings = {
   language: '',
   spellcheckEnabled: true,
   spellcheckLanguage: '',
+  keySoundEnabled: true,
 };
 
 interface SettingsProps {
@@ -675,6 +677,7 @@ creación de este diccionario. Se agradece especialmente a:
       language: newSettings.language,
       spellcheck_enabled: newSettings.spellcheckEnabled,
       spellcheck_language: newSettings.spellcheckLanguage,
+      key_sound_enabled: newSettings.keySoundEnabled,
     }}).catch((err) => console.error("Failed to save settings:", err));
   };
 
@@ -782,6 +785,24 @@ creación de este diccionario. Se agradece especialmente a:
                 type="checkbox"
                 checked={settings.markdownEnabled}
                 onChange={(e) => updateSetting('markdownEnabled', e.target.checked)}
+              />
+              <span className="toggle-slider"></span>
+            </label>
+          </div>
+        </div>
+
+        <div className="settings-section">
+          <div className="settings-row">
+            <div className="settings-info">
+              <span className="settings-label">{t("Typing Sound")}</span>
+              <span className="settings-description">
+                {t("Play a mechanical keyboard click on every keystroke")}</span>
+            </div>
+            <label className="toggle-switch">
+              <input
+                type="checkbox"
+                checked={settings.keySoundEnabled}
+                onChange={(e) => updateSetting('keySoundEnabled', e.target.checked)}
               />
               <span className="toggle-slider"></span>
             </label>

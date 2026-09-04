@@ -59,8 +59,58 @@ function startFadeOut(audio: HTMLAudioElement | null): void {
 
   requestAnimationFrame(step)
 }
+const CREDIT_TEXT = 'Powered by RzCorp'
+
+const TYPE_DURATION_FROM = 0.69767
+const TYPE_DURATION_TO = 0.93023
+
+const CREDIT_CENTRE_PX = 136.5
+
+/**
+ * Type one letter at a time
+ */
+function typeAppCredit(): void {
+  const credit = document.getElementById('credit')
+  if (!credit) return
+
+  credit.textContent = CREDIT_TEXT
+  credit.style.left = `${CREDIT_CENTRE_PX - credit.offsetWidth / 2}px`
+  credit.textContent = ''
+
+  const animation = credit.getAnimations()[0]
+  if (!animation) {
+    credit.textContent = CREDIT_TEXT
+    return
+  }
+
+  const total = Number(animation.effect?.getComputedTiming().duration ?? 0)
+  if (!total) {
+    credit.textContent = CREDIT_TEXT
+    return
+  }
+
+  let shown = -1
+
+  const step = () => {
+    const timeElapsed = Number(animation.currentTime ?? 0) / total
+    const progress = (timeElapsed - TYPE_DURATION_FROM) / (TYPE_DURATION_TO - TYPE_DURATION_FROM)
+    // The first letter is already there when typing starts, hence the 1 plus the rest.
+    const letters = Math.max(0, Math.min(CREDIT_TEXT.length, 1 + Math.floor(progress * (CREDIT_TEXT.length - 1))))
+
+    if (letters !== shown) {
+      shown = letters
+      credit.textContent = CREDIT_TEXT.slice(0, letters)
+    }
+
+    if (letters < CREDIT_TEXT.length) requestAnimationFrame(step)
+  }
+
+  requestAnimationFrame(step)
+}
 
 async function start(): Promise<void> {
+  typeAppCredit()
+
   const audio = playIntroSound()
 
   await Promise.all([wait(MINIMUM_ANIMATION_TIME_MS), waitForAppNotification()])

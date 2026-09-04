@@ -26,6 +26,8 @@ pub struct AppSettings {
     /// Words the user told the checker to stop flagging. Kept sorted and deduplicated.
     #[serde(default)]
     pub personal_dictionary: Vec<String>,
+    #[serde(default = "default_true")]
+    pub typing_sound_enable: bool,
 }
 
 fn default_true() -> bool {
@@ -50,6 +52,7 @@ impl Default for AppSettings {
             spellcheck_enabled: true,
             spellcheck_language: String::new(),
             personal_dictionary: Vec::new(),
+            typing_sound_enable: true,
         }
     }
 }
