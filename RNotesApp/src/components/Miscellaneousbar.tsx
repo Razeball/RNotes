@@ -243,7 +243,7 @@ export default function Miscellaneousbar({children, loadDocumentName, onCommitDo
                   width: '14px',
                   height: '14px',
                   border: '1px solid #666',
-                  backgroundColor: isHighlighted ? '#0078d4' : '#333',
+                  backgroundColor: isHighlighted ? 'var(--rn-accent)' : '#333',
                   cursor: 'pointer',
                   borderRadius: '2px',
                 }}
@@ -425,7 +425,7 @@ export default function Miscellaneousbar({children, loadDocumentName, onCommitDo
             }}
             style={{
               padding: '8px 16px',
-              backgroundColor: '#4dabf7',
+              backgroundColor: 'var(--rn-accent)',
               border: 'none',
               borderRadius: '4px',
               color: '#fff',

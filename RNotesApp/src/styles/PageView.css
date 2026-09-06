@@ -91,18 +91,18 @@
 }
 
 .pv-chrome-edit-header.editing {
-  border-bottom-color: #4dabf7;
+  border-bottom-color: var(--rn-accent-text);
 }
 
 .pv-chrome-edit-footer.editing {
-  border-top-color: #4dabf7;
+  border-top-color: var(--rn-accent-text);
 }
 
 .pv-chrome-input {
   width: 100%;
   background: transparent !important;
   border: none !important;
-  border-bottom: 1px solid #4dabf7 !important;
+  border-bottom: 1px solid var(--rn-accent-text) !important;
   color: #e0e0e0 !important;
   font-size: 11px !important;
   text-align: center;

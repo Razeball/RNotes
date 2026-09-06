@@ -33,7 +33,7 @@
 }
 
 .find-replace-panel input[type="text"]:focus {
-  border-color: #4dabf7;
+  border-color: var(--rn-accent);
 }
 
 .find-replace-panel input[type="text"]::placeholder {
@@ -61,13 +61,13 @@
 }
 
 .find-replace-btn.active {
-  background-color: #0078d4;
-  border-color: #0078d4;
+  background-color: var(--rn-accent);
+  border-color: var(--rn-accent);
   color: #fff;
 }
 
 .find-replace-btn.active:hover {
-  background-color: #1a8ae8;
+  background-color: var(--rn-accent-hover);
 }
 
 .find-match-count {

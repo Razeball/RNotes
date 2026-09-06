@@ -24,7 +24,7 @@ import CheckItemElement from "./components/CheckItem";
 import SpellingReview, { useRuleLabel } from "./components/SpellingReview";
 import DictionarySettings from "./components/DictionarySettings";
 import StatusBar from "./components/StatusBar";
-import TabBar, { Tab } from "./components/TabBar";
+import TitleBar, { Tab } from "./components/TitleBar";
 import Settings, { AppSettings, defaultSettings, ViewMode } from "./components/Settings";
 import PageView, { EditableSurfaceProps } from "./components/PageView";
 import { EditorWithLinkActions, removeLink as removeLinkAction, SearchMatch, type EditorInstance } from "./editorActions";
@@ -309,9 +309,9 @@ const Leaf = ({ attributes, children, leaf }: RenderLeafProps) => {
           rel={isInternalLink ? undefined : "noopener noreferrer"} 
           onClick={handleClick}
           style={{
-            color: '#4dabf7', 
+            color: 'var(--rn-accent-text)', 
             textDecoration: isInternalLink ? 'none' : 'underline',
-            borderBottom: isInternalLink ? '1px dashed #4dabf7' : 'none',
+            borderBottom: isInternalLink ? '1px dashed var(--rn-accent-text)' : 'none',
             cursor: 'pointer',
           }}
         >
@@ -1302,6 +1302,15 @@ const MySlateEditor = () => {
     await handleNewTab();
   }
 
+  const handleTabReorder = (fromIndex: number, toIndex: number) => {
+    setTabs(previous => {
+      const reordered = [...previous];
+      const [moved] = reordered.splice(fromIndex, 1);
+      reordered.splice(toIndex, 0, moved);
+      return reordered;
+    });
+  };
+
   const tabBarTabs: Tab[] = tabs.map(t => ({
     id: t.id,
     name: t.name,
@@ -1578,12 +1587,13 @@ const MySlateEditor = () => {
 
   return (
     <div>
-      <TabBar
+      <TitleBar
         tabs={tabBarTabs}
         activeTabId={activeTabId}
         onTabClick={handleTabClick}
         onTabClose={handleTabClose}
         onNewTab={handleNewTab}
+        onReorder={handleTabReorder}
       />
       <div className="miscellaneous-bar">
         <Miscellaneousbar loadDocumentName={getDocumentName} onCommitDocumentName={handleCommitDocumentName} documentName={activeTab.name} editor={editor} editorVersion={editorVersion} onToolSelect={(tool) => tool === 'spelling' ? setSpellingReviewOpen(true) : setDictionaryOpen(true)}>    

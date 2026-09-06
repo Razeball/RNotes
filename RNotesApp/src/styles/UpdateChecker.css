@@ -60,12 +60,12 @@
 }
 
 .update-btn-primary {
-  background-color: #0078d4;
+  background-color: var(--rn-accent);
   color: #fff;
 }
 
 .update-btn-primary:hover {
-  background-color: #1a8ae8;
+  background-color: var(--rn-accent-hover);
 }
 
 .update-btn-secondary {
@@ -88,7 +88,7 @@
 
 .update-progress-fill {
   height: 100%;
-  background-color: #0078d4;
+  background-color: var(--rn-accent);
   border-radius: 3px;
   transition: width 0.2s ease;
 }

@@ -216,7 +216,7 @@ const ImageElement = ({ attributes, children, element }: RenderElementProps) => 
         />
         <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
           <button onClick={() => setShowTitleModal(false)} style={{ padding: '8px 16px', backgroundColor: '#444', border: 'none', borderRadius: '4px', color: '#fff', cursor: 'pointer' }}>{t("Cancel")}</button>
-          <button onClick={applyTitle} style={{ padding: '8px 16px', backgroundColor: '#4dabf7', border: 'none', borderRadius: '4px', color: '#fff', cursor: 'pointer' }}>{t("Apply")}</button>
+          <button onClick={applyTitle} style={{ padding: '8px 16px', backgroundColor: 'var(--rn-accent)', border: 'none', borderRadius: '4px', color: '#fff', cursor: 'pointer' }}>{t("Apply")}</button>
         </div>
       </Modal>
       <Modal isOpen={showSubtitleModal} onClose={() => setShowSubtitleModal(false)} title={t("Add Subtitle")}>
@@ -229,7 +229,7 @@ const ImageElement = ({ attributes, children, element }: RenderElementProps) => 
         />
         <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
           <button onClick={() => setShowSubtitleModal(false)} style={{ padding: '8px 16px', backgroundColor: '#444', border: 'none', borderRadius: '4px', color: '#fff', cursor: 'pointer' }}>{t("Cancel")}</button>
-          <button onClick={applySubtitle} style={{ padding: '8px 16px', backgroundColor: '#4dabf7', border: 'none', borderRadius: '4px', color: '#fff', cursor: 'pointer' }}>{t("Apply")}</button>
+          <button onClick={applySubtitle} style={{ padding: '8px 16px', backgroundColor: 'var(--rn-accent)', border: 'none', borderRadius: '4px', color: '#fff', cursor: 'pointer' }}>{t("Apply")}</button>
         </div>
       </Modal>
       <Modal isOpen={showCaptionModal} onClose={() => setShowCaptionModal(false)} title={t("Add Caption")}>
@@ -242,7 +242,7 @@ const ImageElement = ({ attributes, children, element }: RenderElementProps) => 
         />
         <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
           <button onClick={() => setShowCaptionModal(false)} style={{ padding: '8px 16px', backgroundColor: '#444', border: 'none', borderRadius: '4px', color: '#fff', cursor: 'pointer' }}>{t("Cancel")}</button>
-          <button onClick={applyCaption} style={{ padding: '8px 16px', backgroundColor: '#4dabf7', border: 'none', borderRadius: '4px', color: '#fff', cursor: 'pointer' }}>{t("Apply")}</button>
+          <button onClick={applyCaption} style={{ padding: '8px 16px', backgroundColor: 'var(--rn-accent)', border: 'none', borderRadius: '4px', color: '#fff', cursor: 'pointer' }}>{t("Apply")}</button>
         </div>
       </Modal>
     </div>

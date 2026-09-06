@@ -45,7 +45,7 @@
 
 .notice-button {
   padding: 8px 20px;
-  background-color: #4dabf7;
+  background-color: var(--rn-accent);
   border: none;
   border-radius: 4px;
   color: #fff;

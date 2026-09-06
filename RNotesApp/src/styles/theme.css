@@ -1,0 +1,50 @@
+/*
+ * How to add a theme
+ *   1. Copy the block below to `[data-theme='light'] { … }` and change the values.
+ *   2. Set `document.documentElement.dataset.theme = 'light'`.
+ */
+
+:root {
+  color-scheme: dark;
+
+  /* Surfaces */
+  --rn-bg-window: #1a1a1a;
+  --rn-bg-sunken: #1e1e1e;
+  --rn-bg: #2a2a2a;
+  --rn-bg-raised: #2f2f2f;
+  --rn-bg-overlay: #343434;
+  --rn-bg-hover: #3a3a3a;
+  --rn-bg-active: #4d4d4d;
+
+  /* Lines. */
+  --rn-line: #555;
+  --rn-line-subtle: #333;
+
+  --rn-text: #e0e0e0;
+  --rn-text-strong: #fff;
+  --rn-text-muted: #999;
+  --rn-text-faint: #666;
+
+  /* selection, focus, primary buttons, links. */
+  --rn-accent: #b42828;
+  --rn-accent-hover: #d13232;
+  --rn-accent-quiet: #7a1414;
+  /* Links and inline accents  */
+  --rn-accent-text: #ff7b7b;
+
+  /* Status*/
+  --rn-warning: #ea6527;
+  --rn-danger: #e5484d;
+  --rn-success: #7cc47c;
+  --rn-highlight: rgba(255, 215, 0, 0.4);
+  --rn-highlight-active: rgba(255, 140, 0, 0.6);
+
+  /*
+   * Title bar.
+   */
+  --rn-titlebar-bg: #260e0e;
+  --rn-titlebar-tab-active: #572b2b;
+  --rn-titlebar-hover: rgba(255, 255, 255, 0.25);
+  --rn-titlebar-win-hover: rgba(255, 255, 255, 0.15);
+  --rn-titlebar-close-hover: rgba(255, 0, 0, 0.46);
+}

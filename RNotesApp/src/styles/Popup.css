@@ -41,7 +41,7 @@
 }
 
 .popup-interactive button.active {
-  background: #0078d4;
+  background: var(--rn-accent);
 }
 
 .popup-top {
@@ -135,9 +135,9 @@
 }
 
 .table-size-cell.highlighted {
-  background-color: #0078d4;
+  background-color: var(--rn-accent);
 }
 
 .table-size-cell:hover {
-  background-color: #0078d4;
+  background-color: var(--rn-accent);
 }

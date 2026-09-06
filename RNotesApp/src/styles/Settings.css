@@ -86,7 +86,7 @@
 }
 
 .toggle-switch input:checked + .toggle-slider {
-  background-color: #4dabf7;
+  background-color: var(--rn-accent);
 }
 
 .toggle-switch input:checked + .toggle-slider::before {
@@ -117,9 +117,9 @@
 }
 
 .interval-button.active {
-  border-color: #4dabf7 !important;
-  background-color: #1a3a5c !important;
-  color: #4dabf7 !important;
+  border-color: var(--rn-accent-text) !important;
+  background-color: var(--rn-accent-quiet) !important;
+  color: var(--rn-accent-text) !important;
 }
 
 /* Licenses section */

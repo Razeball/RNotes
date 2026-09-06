@@ -591,7 +591,7 @@ const Toolbar = (_props: ToolbarProps) => {
                     />
                     <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
                         <button onClick={() => setShowLinkModal(false)}>{t("Cancel")}</button>
-                        <button onClick={insertLink} style={{ backgroundColor: '#4dabf7' }}>{t("Insert")}</button>
+                        <button onClick={insertLink} style={{ backgroundColor: 'var(--rn-accent)' }}>{t("Insert")}</button>
                     </div>
                 </div>
             </Modal>
