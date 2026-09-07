@@ -1,5 +1,5 @@
 .update-checker {
-  color: #ccc;
+  color: var(--rn-text);
   font-size: 14px;
 }
 
@@ -9,11 +9,11 @@
 }
 
 .update-message strong {
-  color: #fff;
+  color: var(--rn-text-strong);
 }
 
 .update-error {
-  color: #ff6b6b;
+  color: var(--rn-danger);
 }
 
 .update-release-notes {
@@ -23,15 +23,15 @@
 .update-release-notes-title {
   margin: 0 0 6px 0;
   font-size: 13px;
-  color: #aaa;
+  color: var(--rn-text-muted);
   font-weight: 500;
 }
 
 .update-release-notes-body {
   font-size: 12px;
-  color: #ccc;
-  background-color: #1a1a1a;
-  border: 1px solid #333;
+  color: var(--rn-text);
+  background-color: var(--rn-bg-window);
+  border: 1px solid var(--rn-line-subtle);
   border-radius: 4px;
   padding: 10px;
   max-height: 200px;
@@ -61,7 +61,7 @@
 
 .update-btn-primary {
   background-color: var(--rn-accent);
-  color: #fff;
+  color: var(--rn-on-accent);
 }
 
 .update-btn-primary:hover {
@@ -69,18 +69,18 @@
 }
 
 .update-btn-secondary {
-  background-color: #333;
-  color: #ccc;
+  background-color: var(--rn-bg-overlay);
+  color: var(--rn-text);
 }
 
 .update-btn-secondary:hover {
-  background-color: #444;
+  background-color: var(--rn-bg-hover);
 }
 
 .update-progress-bar {
   width: 100%;
   height: 6px;
-  background-color: #333;
+  background-color: var(--rn-bg-overlay);
   border-radius: 3px;
   overflow: hidden;
   margin-bottom: 8px;
@@ -97,5 +97,5 @@
   margin: 0;
   text-align: center;
   font-size: 12px;
-  color: #888;
+  color: var(--rn-text-muted);
 }

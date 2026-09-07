@@ -3,7 +3,7 @@
 .rn-spell-error {
   text-decoration-line: underline;
   text-decoration-style: wavy;
-  text-decoration-color: #e5484d;
+  text-decoration-color: var(--rn-danger);
   text-decoration-skip-ink: none;
   text-underline-offset: 3px;
   cursor: help;
@@ -34,8 +34,8 @@
 }
 
 .rn-spell-suggestion:hover {
-  background: #343434;
-  border-color: #666;
+  background: var(--rn-bg-overlay);
+  border-color: var(--rn-line-strong);
 }
 
 .rn-spell-suggestion-empty {
@@ -70,8 +70,8 @@
   align-items: center;
   gap: 10px;
   padding: 8px 10px;
-  background: #2f2f2f;
-  border: 1px solid #444;
+  background: var(--rn-bg-raised);
+  border: 1px solid var(--rn-line);
   border-radius: 6px;
 }
 
@@ -82,7 +82,7 @@
 
 .rn-review-word {
   font-weight: 600;
-  color: #e5484d;
+  color: var(--rn-danger);
   word-break: break-word;
 }
 
@@ -93,7 +93,7 @@
 }
 
 .rn-review-fix {
-  color: #7cc47c;
+  color: var(--rn-success);
 }
 
 .rn-review-actions {
@@ -126,8 +126,8 @@
 .rn-dictionary-add input {
   flex: 1;
   padding: 6px 8px;
-  background: #2f2f2f;
-  border: 1px solid #555;
+  background: var(--rn-bg-raised);
+  border: 1px solid var(--rn-line);
   border-radius: 6px;
   color: inherit;
 }
@@ -146,8 +146,8 @@
   justify-content: space-between;
   gap: 10px;
   padding: 6px 10px;
-  background: #2f2f2f;
-  border: 1px solid #444;
+  background: var(--rn-bg-raised);
+  border: 1px solid var(--rn-line);
   border-radius: 6px;
 }
 
@@ -165,10 +165,10 @@
   flex-direction: column;
   gap: 2px;
   padding: 8px 10px;
-  background: #1f1f1f;
-  border: 1px solid #555;
+  background: var(--rn-bg-float);
+  border: 1px solid var(--rn-line);
   border-radius: 6px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+  box-shadow: 0 4px 12px var(--rn-shadow);
   max-width: 260px;
 }
 

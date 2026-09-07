@@ -174,7 +174,7 @@ const ImageElement = ({ attributes, children, element }: RenderElementProps) => 
   return (
     <div {...attributes} style={{...getAlignmentStyle(), margin: "10px 0"}}>
       {element.title && <div style={{ fontWeight: 'bold', fontSize: '18px', marginBottom: '4px' }} contentEditable={false}>{element.title}</div>}
-      {element.subtitle && <div style={{ fontStyle: 'italic', fontSize: '14px', color: '#aaa', marginBottom: '8px' }} contentEditable={false}>{element.subtitle}</div>}
+      {element.subtitle && <div style={{ fontStyle: 'italic', fontSize: '14px', color: 'var(--rn-text-muted)', marginBottom: '8px' }} contentEditable={false}>{element.subtitle}</div>}
       <Popup 
         content={sizeButtons} 
         position="top" 
@@ -196,7 +196,7 @@ const ImageElement = ({ attributes, children, element }: RenderElementProps) => 
           />
         </Popup>
       </Popup>
-      {element.caption && <div style={{ fontSize: '12px', color: '#888', marginTop: '4px', fontStyle: 'italic' }} contentEditable={false}>{element.caption}</div>}
+      {element.caption && <div style={{ fontSize: '12px', color: 'var(--rn-text-muted)', marginTop: '4px', fontStyle: 'italic' }} contentEditable={false}>{element.caption}</div>}
       {children}
       {imageContextMenu && (
         <ContextMenu
@@ -212,11 +212,11 @@ const ImageElement = ({ attributes, children, element }: RenderElementProps) => 
           value={titleText} 
           onChange={e => setTitleText(e.target.value)} 
           placeholder={t("Image title")} 
-          style={{ width: '100%', padding: '8px', marginBottom: '10px', backgroundColor: '#1e1e1e', border: '1px solid #444', borderRadius: '4px', color: '#fff' }} 
+          style={{ width: '100%', padding: '8px', marginBottom: '10px', backgroundColor: 'var(--rn-bg-sunken)', border: '1px solid var(--rn-line)', borderRadius: '4px', color: 'var(--rn-text)' }} 
         />
         <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
-          <button onClick={() => setShowTitleModal(false)} style={{ padding: '8px 16px', backgroundColor: '#444', border: 'none', borderRadius: '4px', color: '#fff', cursor: 'pointer' }}>{t("Cancel")}</button>
-          <button onClick={applyTitle} style={{ padding: '8px 16px', backgroundColor: 'var(--rn-accent)', border: 'none', borderRadius: '4px', color: '#fff', cursor: 'pointer' }}>{t("Apply")}</button>
+          <button onClick={() => setShowTitleModal(false)} style={{ padding: '8px 16px', backgroundColor: 'var(--rn-bg-active)', border: 'none', borderRadius: '4px', color: 'var(--rn-text)', cursor: 'pointer' }}>{t("Cancel")}</button>
+          <button onClick={applyTitle} style={{ padding: '8px 16px', backgroundColor: 'var(--rn-accent)', border: 'none', borderRadius: '4px', color: 'var(--rn-on-accent)', cursor: 'pointer' }}>{t("Apply")}</button>
         </div>
       </Modal>
       <Modal isOpen={showSubtitleModal} onClose={() => setShowSubtitleModal(false)} title={t("Add Subtitle")}>
@@ -225,11 +225,11 @@ const ImageElement = ({ attributes, children, element }: RenderElementProps) => 
           value={subtitleText} 
           onChange={e => setSubtitleText(e.target.value)} 
           placeholder={t("Image subtitle")} 
-          style={{ width: '100%', padding: '8px', marginBottom: '10px', backgroundColor: '#1e1e1e', border: '1px solid #444', borderRadius: '4px', color: '#fff' }} 
+          style={{ width: '100%', padding: '8px', marginBottom: '10px', backgroundColor: 'var(--rn-bg-sunken)', border: '1px solid var(--rn-line)', borderRadius: '4px', color: 'var(--rn-text)' }} 
         />
         <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
-          <button onClick={() => setShowSubtitleModal(false)} style={{ padding: '8px 16px', backgroundColor: '#444', border: 'none', borderRadius: '4px', color: '#fff', cursor: 'pointer' }}>{t("Cancel")}</button>
-          <button onClick={applySubtitle} style={{ padding: '8px 16px', backgroundColor: 'var(--rn-accent)', border: 'none', borderRadius: '4px', color: '#fff', cursor: 'pointer' }}>{t("Apply")}</button>
+          <button onClick={() => setShowSubtitleModal(false)} style={{ padding: '8px 16px', backgroundColor: 'var(--rn-bg-active)', border: 'none', borderRadius: '4px', color: 'var(--rn-text)', cursor: 'pointer' }}>{t("Cancel")}</button>
+          <button onClick={applySubtitle} style={{ padding: '8px 16px', backgroundColor: 'var(--rn-accent)', border: 'none', borderRadius: '4px', color: 'var(--rn-on-accent)', cursor: 'pointer' }}>{t("Apply")}</button>
         </div>
       </Modal>
       <Modal isOpen={showCaptionModal} onClose={() => setShowCaptionModal(false)} title={t("Add Caption")}>
@@ -238,11 +238,11 @@ const ImageElement = ({ attributes, children, element }: RenderElementProps) => 
           value={captionText} 
           onChange={e => setCaptionText(e.target.value)} 
           placeholder={t("Image caption")} 
-          style={{ width: '100%', padding: '8px', marginBottom: '10px', backgroundColor: '#1e1e1e', border: '1px solid #444', borderRadius: '4px', color: '#fff' }} 
+          style={{ width: '100%', padding: '8px', marginBottom: '10px', backgroundColor: 'var(--rn-bg-sunken)', border: '1px solid var(--rn-line)', borderRadius: '4px', color: 'var(--rn-text)' }} 
         />
         <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
-          <button onClick={() => setShowCaptionModal(false)} style={{ padding: '8px 16px', backgroundColor: '#444', border: 'none', borderRadius: '4px', color: '#fff', cursor: 'pointer' }}>{t("Cancel")}</button>
-          <button onClick={applyCaption} style={{ padding: '8px 16px', backgroundColor: 'var(--rn-accent)', border: 'none', borderRadius: '4px', color: '#fff', cursor: 'pointer' }}>{t("Apply")}</button>
+          <button onClick={() => setShowCaptionModal(false)} style={{ padding: '8px 16px', backgroundColor: 'var(--rn-bg-active)', border: 'none', borderRadius: '4px', color: 'var(--rn-text)', cursor: 'pointer' }}>{t("Cancel")}</button>
+          <button onClick={applyCaption} style={{ padding: '8px 16px', backgroundColor: 'var(--rn-accent)', border: 'none', borderRadius: '4px', color: 'var(--rn-on-accent)', cursor: 'pointer' }}>{t("Apply")}</button>
         </div>
       </Modal>
     </div>

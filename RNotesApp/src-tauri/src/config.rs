@@ -28,6 +28,12 @@ pub struct AppSettings {
     pub personal_dictionary: Vec<String>,
     #[serde(default = "default_true")]
     pub typing_sound_enable: bool,
+    #[serde(default = "default_theme")]
+    pub theme: String,
+}
+
+fn default_theme() -> String {
+    "dark".to_string()
 }
 
 fn default_true() -> bool {
@@ -53,6 +59,7 @@ impl Default for AppSettings {
             spellcheck_language: String::new(),
             personal_dictionary: Vec::new(),
             typing_sound_enable: true,
+            theme: default_theme(),
         }
     }
 }

@@ -2,10 +2,6 @@
 
 .rn-check-item {
   --rn-check-size: 20px;
-  --rn-check-idle: #3a0000;
-  --rn-check-active: #730000;
-  --rn-check-hot: #b90101;
-
   display: flex;
   align-items: flex-start;
   gap: 10px;

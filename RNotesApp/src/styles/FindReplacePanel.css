@@ -3,14 +3,14 @@
   top: 4px;
   right: 20px;
   z-index: 100;
-  background-color: #2f2f2f;
-  border: 1px solid #555;
+  background-color: var(--rn-bg-raised);
+  border: 1px solid var(--rn-line);
   border-radius: 6px;
   padding: 8px 12px;
   display: flex;
   flex-direction: column;
   gap: 6px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+  box-shadow: 0 4px 12px var(--rn-shadow);
   min-width: 340px;
 }
 
@@ -23,10 +23,10 @@
 .find-replace-panel input[type="text"] {
   flex: 1;
   padding: 4px 8px;
-  background-color: #1a1a1a;
-  border: 1px solid #555;
+  background-color: var(--rn-bg-window);
+  border: 1px solid var(--rn-line);
   border-radius: 4px;
-  color: #eee;
+  color: var(--rn-text);
   font-size: 13px;
   outline: none;
   min-width: 0;
@@ -37,14 +37,14 @@
 }
 
 .find-replace-panel input[type="text"]::placeholder {
-  color: #888;
+  color: var(--rn-text-muted);
 }
 
 .find-replace-btn {
   background: transparent;
   border: 1px solid transparent;
   border-radius: 4px;
-  color: #ccc;
+  color: var(--rn-text);
   cursor: pointer;
   padding: 3px 6px;
   font-size: 13px;
@@ -56,14 +56,14 @@
 }
 
 .find-replace-btn:hover {
-  background-color: #3c3c3c;
-  border-color: #666;
+  background-color: var(--rn-bg-hover);
+  border-color: var(--rn-line-strong);
 }
 
 .find-replace-btn.active {
   background-color: var(--rn-accent);
   border-color: var(--rn-accent);
-  color: #fff;
+  color: var(--rn-on-accent);
 }
 
 .find-replace-btn.active:hover {
@@ -72,7 +72,7 @@
 
 .find-match-count {
   font-size: 12px;
-  color: #888;
+  color: var(--rn-text-muted);
   white-space: nowrap;
   min-width: 60px;
   text-align: center;
@@ -82,7 +82,7 @@
 .find-replace-close {
   background: transparent;
   border: none;
-  color: #ccc;
+  color: var(--rn-text);
   cursor: pointer;
   font-size: 16px;
   padding: 2px 6px;
@@ -93,13 +93,13 @@
 }
 
 .find-replace-close:hover {
-  background-color: #3c3c3c;
+  background-color: var(--rn-bg-hover);
 }
 
 .find-replace-expand {
   background: transparent;
   border: none;
-  color: #ccc;
+  color: var(--rn-text);
   cursor: pointer;
   font-size: 14px;
   padding: 2px 4px;
@@ -113,7 +113,7 @@
 }
 
 .find-replace-expand:hover {
-  background-color: #3c3c3c;
+  background-color: var(--rn-bg-hover);
 }
 
 .find-replace-expand.expanded {

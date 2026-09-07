@@ -494,7 +494,7 @@ const Toolbar = (_props: ToolbarProps) => {
                         style={{ 
                             backgroundColor: value, 
                             color: value === 'white' || value === 'black' ? (value === 'white' ? 'black' : 'white') : 'white',
-                            border: '1px solid #ccc',
+                            border: '1px solid var(--rn-line)',
                             width: '40px',
                             height: '30px',
                             marginLeft: '10px'
@@ -551,7 +551,7 @@ const Toolbar = (_props: ToolbarProps) => {
                         onMouseLeave={() => closeFontDropdown()}
                     >
                         {filteredFonts.length === 0 ? (
-                            <div style={{ padding: '8px 16px', color: '#888', fontSize: '13px' }}>
+                            <div style={{ padding: '8px 16px', color: 'var(--rn-text-muted)', fontSize: '13px' }}>
                                 {t("No matching font found")}</div>
                         ) : (
                             (() => {
@@ -586,7 +586,7 @@ const Toolbar = (_props: ToolbarProps) => {
                         value={linkUrl}
                         onChange={(e) => setLinkUrl(e.target.value)}
                         placeholder="https://example.com"
-                        style={{ padding: '8px', borderRadius: '4px', border: '1px solid #555' }}
+                        style={{ padding: '8px', borderRadius: '4px', border: '1px solid var(--rn-line)' }}
                         autoFocus
                     />
                     <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
@@ -600,7 +600,7 @@ const Toolbar = (_props: ToolbarProps) => {
             <Modal isOpen={showHeaderLinkModal} onClose={() => setShowHeaderLinkModal(false)} title={t("Link to Header")}>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', maxHeight: '300px', overflowY: 'auto' }}>
                     {headers.length === 0 ? (
-                        <p style={{ color: '#888' }}>{t("No headers found in the document. Create headers first.")}</p>
+                        <p style={{ color: 'var(--rn-text-muted)' }}>{t("No headers found in the document. Create headers first.")}</p>
                     ) : (
                         headers.map((header, index) => (
                             <button
@@ -609,8 +609,8 @@ const Toolbar = (_props: ToolbarProps) => {
                                 style={{
                                     padding: '10px',
                                     textAlign: 'left',
-                                    backgroundColor: '#2f2f2f',
-                                    border: '1px solid #555',
+                                    backgroundColor: 'var(--rn-bg-raised)',
+                                    border: '1px solid var(--rn-line)',
                                     borderRadius: '4px',
                                     cursor: 'pointer',
                                     paddingLeft: header.type === 'header2' ? '20px' : 
@@ -618,7 +618,7 @@ const Toolbar = (_props: ToolbarProps) => {
                                                  header.type === 'header4' ? '60px' : '10px'
                                 }}
                             >
-                                <span style={{ color: '#888', marginRight: '10px' }}>
+                                <span style={{ color: 'var(--rn-text-muted)', marginRight: '10px' }}>
                                     {header.type === 'header' ? 'H1' : 
                                      header.type === 'header2' ? 'H2' : 
                                      header.type === 'header3' ? 'H3' : 'H4'}

@@ -5,7 +5,7 @@
   overflow-y: auto;
   height: 100%;
   padding: 24px 0;
-  background-color: #1a1a1a;
+  background-color: var(--rn-bg-window);
 }
 
 /* Positioning context shared by the sheets layer and the text flow on top of it. */
@@ -29,10 +29,10 @@
   position: absolute;
   left: 0;
   right: 0;
-  background-color: #2a2a2a;
-  border: 1px solid #555;
+  background-color: var(--rn-bg);
+  border: 1px solid var(--rn-line);
   border-radius: 4px;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+  box-shadow: 0 4px 16px var(--rn-shadow);
   box-sizing: border-box;
 }
 
@@ -49,17 +49,17 @@
 
 .pv-sheet-header {
   top: 0;
-  border-bottom: 1px dashed #3a3a3a;
+  border-bottom: 1px dashed var(--rn-line-subtle);
 }
 
 .pv-sheet-footer {
   bottom: 0;
-  border-top: 1px dashed #3a3a3a;
+  border-top: 1px dashed var(--rn-line-subtle);
 }
 
 .pv-chrome-text {
   font-size: 11px;
-  color: #555;
+  color: var(--rn-text-faint);
   font-style: italic;
   text-align: center;
   width: 100%;
@@ -87,7 +87,7 @@
 }
 
 .pv-chrome-edit.editing {
-  background-color: #2a2a2a;
+  background-color: var(--rn-bg);
 }
 
 .pv-chrome-edit-header.editing {
@@ -103,7 +103,7 @@
   background: transparent !important;
   border: none !important;
   border-bottom: 1px solid var(--rn-accent-text) !important;
-  color: #e0e0e0 !important;
+  color: var(--rn-text) !important;
   font-size: 11px !important;
   text-align: center;
   padding: 2px 6px !important;
@@ -134,7 +134,7 @@
 }
 
 .pv-editor-surface [data-slate-placeholder='true'] {
-  color: #666 !important;
+  color: var(--rn-text-faint) !important;
   opacity: 1 !important;
   font-style: italic;
 }
@@ -175,7 +175,7 @@
 .pv-page-count-label {
   text-align: center;
   font-size: 10px;
-  color: #555;
+  color: var(--rn-text-faint);
   padding: 6px 0;
   user-select: none;
 }

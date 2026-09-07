@@ -77,7 +77,7 @@ function ActionDropdown({ items, onSelect, renderButton, closeOnSelect = true }:
             <div
                 onMouseDown={handleSelect(item)}
                 onMouseEnter={(e) => {
-                    if (!item.disabled) e.currentTarget.style.backgroundColor = '#333';
+                    if (!item.disabled) e.currentTarget.style.backgroundColor = 'var(--rn-bg-hover)';
                     if (hasSubmenu) {
                         setActiveSubmenu(item.id);
                         item.onHover?.();
@@ -109,10 +109,10 @@ function ActionDropdown({ items, onSelect, renderButton, closeOnSelect = true }:
                     <span>{item.label}</span>
                 </div>
                 {item.shortcut && (
-                    <span style={{ fontSize: '12px', color: '#888' }}>{item.shortcut}</span>
+                    <span style={{ fontSize: '12px', color: 'var(--rn-text-muted)' }}>{item.shortcut}</span>
                 )}
                 {hasSubmenu && (
-                    <span style={{ fontSize: '12px', color: '#888' }}>▶</span>
+                    <span style={{ fontSize: '12px', color: 'var(--rn-text-muted)' }}>▶</span>
                 )}
             </div>
         );
@@ -123,10 +123,10 @@ function ActionDropdown({ items, onSelect, renderButton, closeOnSelect = true }:
                     position: 'absolute',
                     left: '100%',
                     top: '0',
-                    backgroundColor: 'rgba(0, 0, 0, 0.95)',
-                    border: '1px solid #444',
+                    backgroundColor: 'var(--rn-bg-float)',
+                    border: '1px solid var(--rn-line)',
                     borderRadius: '4px',
-                    boxShadow: '0 2px 8px rgba(0, 0, 0, 0.3)',
+                    boxShadow: '0 2px 8px var(--rn-shadow)',
                     zIndex: 1002,
                 }}
                 onMouseEnter={() => setActiveSubmenu(item.id)}

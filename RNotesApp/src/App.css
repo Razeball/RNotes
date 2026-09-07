@@ -153,7 +153,7 @@ button {
   color: var(--rn-text);
   background-color: var(--rn-bg-overlay);
   transition: border-color 0.25s;
-  box-shadow: 0 2px 2px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 2px 2px var(--rn-shadow);
 }
 
 button {
@@ -187,8 +187,7 @@ button {
   background: var(--rn-bg-overlay);
 }
 .toolbar button:hover{
-  
-  border-color: white;
+  border-color: var(--rn-text-strong);
   background-color: var(--rn-bg-hover);
 }
 .toolbar button:active{
@@ -197,12 +196,20 @@ button {
 .toolbar button.active {
   background-color: var(--rn-accent);
   border-color: var(--rn-accent);
-  color: var(--rn-text-strong);
+  color: var(--rn-on-accent);
 }
 .toolbar button.active:hover {
   background-color: var(--rn-accent-hover);
   border-color: var(--rn-accent-hover);
 }
+[data-theme='light'] .toolbar button img {
+  filter: invert(1);
+}
+
+[data-theme='light'] .toolbar button.active img {
+  filter: none;
+}
+
 .toolbar button img{
   width: 20px;
   height: 20px;
@@ -225,7 +232,7 @@ button {
   background-color: var(--rn-bg-raised);
   border: 1px solid var(--rn-line);
   border-radius: 4px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 4px 12px var(--rn-shadow);
 }
 
 .editor-content {
@@ -290,7 +297,7 @@ button {
 
 
 .miscellaneousbar{
-  background-color: var(--rn-bg-raised);
+  background: linear-gradient(to bottom, var(--rn-titlebar-bg) 0, var(--rn-bg-raised) 44px);
   display: grid;
   justify-content: start;
   align-items: flex-start;
@@ -301,6 +308,7 @@ button {
 }
 .misc-image{
   grid-area: logo;
+  padding-top: 12px;
 }
 .document-name{
   display: flex;

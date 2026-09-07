@@ -242,8 +242,8 @@ export default function Miscellaneousbar({children, loadDocumentName, onCommitDo
                 style={{
                   width: '14px',
                   height: '14px',
-                  border: '1px solid #666',
-                  backgroundColor: isHighlighted ? 'var(--rn-accent)' : '#333',
+                  border: '1px solid var(--rn-line-strong)',
+                  backgroundColor: isHighlighted ? 'var(--rn-accent)' : 'var(--rn-bg-overlay)',
                   cursor: 'pointer',
                   borderRadius: '2px',
                 }}
@@ -325,7 +325,7 @@ export default function Miscellaneousbar({children, loadDocumentName, onCommitDo
             }
         }}/>
       </div>
-      <div style={{display: "flex", background: "#2f2f2f", padding: "4px", borderRadius: "8px", gap: "4px", marginTop: "8px"}}>
+      <div style={{display: "flex", background: "var(--rn-bg-raised)", padding: "4px", borderRadius: "8px", gap: "4px", marginTop: "8px"}}>
         {children}
         <ActionDropdown
           items={insertMenuItems}
@@ -371,10 +371,10 @@ export default function Miscellaneousbar({children, loadDocumentName, onCommitDo
             style={{
               width: '100%',
               padding: '8px',
-              backgroundColor: '#1e1e1e',
-              border: '1px solid #444',
+              backgroundColor: 'var(--rn-bg-sunken)',
+              border: '1px solid var(--rn-line)',
               borderRadius: '4px',
-              color: '#fff',
+              color: 'var(--rn-text)',
               fontSize: '14px',
             }}
             autoFocus
@@ -391,10 +391,10 @@ export default function Miscellaneousbar({children, loadDocumentName, onCommitDo
               style={{
                 width: '100%',
                 padding: '8px',
-                backgroundColor: '#1e1e1e',
-                border: '1px solid #444',
+                backgroundColor: 'var(--rn-bg-sunken)',
+                border: '1px solid var(--rn-line)',
                 borderRadius: '4px',
-                color: '#fff',
+                color: 'var(--rn-text)',
                 fontSize: '14px',
               }}
             />
@@ -410,10 +410,10 @@ export default function Miscellaneousbar({children, loadDocumentName, onCommitDo
             }}
             style={{
               padding: '8px 16px',
-              backgroundColor: '#444',
+              backgroundColor: 'var(--rn-bg-active)',
               border: 'none',
               borderRadius: '4px',
-              color: '#fff',
+              color: 'var(--rn-text)',
               cursor: 'pointer',
             }}
           >
@@ -428,7 +428,7 @@ export default function Miscellaneousbar({children, loadDocumentName, onCommitDo
               backgroundColor: 'var(--rn-accent)',
               border: 'none',
               borderRadius: '4px',
-              color: '#fff',
+              color: 'var(--rn-on-accent)',
               cursor: 'pointer',
             }}
           >

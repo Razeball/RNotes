@@ -75,10 +75,10 @@ const ContextMenu: React.FC<ContextMenuProps> = ({ x, y, items, onClose }) => {
         top: position.top,
         bottom: position.bottom,
         left: position.left,
-        backgroundColor: '#252525',
-        border: '1px solid #484848',
+        backgroundColor: 'var(--rn-bg-float)',
+        border: '1px solid var(--rn-line)',
         borderRadius: '7px',
-        boxShadow: '0 8px 24px rgba(0,0,0,0.55)',
+        boxShadow: '0 8px 24px var(--rn-shadow)',
         zIndex: 1000,
         minWidth: '190px',
         padding: '4px 0',
@@ -101,24 +101,24 @@ const ContextMenu: React.FC<ContextMenuProps> = ({ x, y, items, onClose }) => {
               minHeight: '30px',
               fontSize: '13px',
               lineHeight: '1.4',
-              color: '#e0e0e0',
+              color: 'var(--rn-text)',
               borderRadius: '4px',
               margin: '1px 4px',
               transition: 'background-color 0.08s ease',
             }}
-            onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#363636')}
+            onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'var(--rn-bg-hover)')}
             onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
             onClick={item.onClick}
           >
             <span>{item.label}</span>
             {item.shortcut && (
-              <span style={{ color: '#777', fontSize: '11.5px', marginLeft: '28px', flexShrink: 0 }}>
+              <span style={{ color: 'var(--rn-text-muted)', fontSize: '11.5px', marginLeft: '28px', flexShrink: 0 }}>
                 {item.shortcut}
               </span>
             )}
           </div>
           {item.divider && index < items.length - 1 && (
-            <div style={{ height: '1px', backgroundColor: '#3e3e3e', margin: '3px 10px' }} />
+            <div style={{ height: '1px', backgroundColor: 'var(--rn-line)', margin: '3px 10px' }} />
           )}
         </div>
       ))}

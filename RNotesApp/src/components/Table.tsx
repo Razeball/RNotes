@@ -112,32 +112,32 @@ export const TableElement = ({ attributes, children, element }: RenderElementPro
       <button
         onClick={() => addRow(position)}
         style={{
-          background: '#444',
+          background: 'var(--rn-bg-active)',
           border: 'none',
-          color: 'white',
+          color: 'var(--rn-text)',
           padding: '2px 8px',
           borderRadius: '4px',
           cursor: 'pointer',
           fontSize: '14px',
         }}
-        onMouseEnter={(e) => e.currentTarget.style.background = '#666'}
-        onMouseLeave={(e) => e.currentTarget.style.background = '#444'}
+        onMouseEnter={(e) => e.currentTarget.style.background = 'var(--rn-line-strong)'}
+        onMouseLeave={(e) => e.currentTarget.style.background = 'var(--rn-bg-active)'}
       >
         + {t('Row')}
       </button>
       <button
         onClick={() => removeRow(position)}
         style={{
-          background: '#c42b1c',
+          background: 'var(--rn-danger)',
           border: 'none',
-          color: 'white',
+          color: 'var(--rn-on-accent)',
           padding: '2px 8px',
           borderRadius: '4px',
           cursor: 'pointer',
           fontSize: '14px',
         }}
-        onMouseEnter={(e) => e.currentTarget.style.background = '#d13438'}
-        onMouseLeave={(e) => e.currentTarget.style.background = '#c42b1c'}
+        onMouseEnter={(e) => e.currentTarget.style.background = 'var(--rn-danger-hover)'}
+        onMouseLeave={(e) => e.currentTarget.style.background = 'var(--rn-danger)'}
       >
         ✕ {t('Row')}
       </button>
@@ -145,17 +145,17 @@ export const TableElement = ({ attributes, children, element }: RenderElementPro
         <button
           onClick={deleteTable}
           style={{
-            background: '#8b0000',
+            background: 'var(--rn-danger-strong)',
             border: 'none',
-            color: 'white',
+            color: 'var(--rn-on-accent)',
             padding: '2px 8px',
             borderRadius: '4px',
             cursor: 'pointer',
             fontSize: '14px',
             fontWeight: 'bold',
           }}
-          onMouseEnter={(e) => e.currentTarget.style.background = '#a00000'}
-          onMouseLeave={(e) => e.currentTarget.style.background = '#8b0000'}
+          onMouseEnter={(e) => e.currentTarget.style.background = 'var(--rn-danger-strong-hover)'}
+          onMouseLeave={(e) => e.currentTarget.style.background = 'var(--rn-danger-strong)'}
         >
           ✕ {t('All Table')}
         </button>
@@ -177,34 +177,34 @@ export const TableElement = ({ attributes, children, element }: RenderElementPro
       <button
         onClick={() => addColumn(position)}
         style={{
-          background: '#444',
+          background: 'var(--rn-bg-active)',
           border: 'none',
-          color: 'white',
+          color: 'var(--rn-text)',
           padding: '8px 2px',
           borderRadius: '4px',
           cursor: 'pointer',
           fontSize: '14px',
           writingMode: 'vertical-rl',
         }}
-        onMouseEnter={(e) => e.currentTarget.style.background = '#666'}
-        onMouseLeave={(e) => e.currentTarget.style.background = '#444'}
+        onMouseEnter={(e) => e.currentTarget.style.background = 'var(--rn-line-strong)'}
+        onMouseLeave={(e) => e.currentTarget.style.background = 'var(--rn-bg-active)'}
       >
         + {t('Column')}
       </button>
       <button
         onClick={() => removeColumn(position)}
         style={{
-          background: '#c42b1c',
+          background: 'var(--rn-danger)',
           border: 'none',
-          color: 'white',
+          color: 'var(--rn-on-accent)',
           padding: '8px 2px',
           borderRadius: '4px',
           cursor: 'pointer',
           fontSize: '14px',
           writingMode: 'vertical-rl',
         }}
-        onMouseEnter={(e) => e.currentTarget.style.background = '#d13438'}
-        onMouseLeave={(e) => e.currentTarget.style.background = '#c42b1c'}
+        onMouseEnter={(e) => e.currentTarget.style.background = 'var(--rn-danger-hover)'}
+        onMouseLeave={(e) => e.currentTarget.style.background = 'var(--rn-danger)'}
       >
         ✕ {t('Column')}
       </button>

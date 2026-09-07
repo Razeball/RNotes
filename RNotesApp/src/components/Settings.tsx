@@ -9,6 +9,26 @@ import { Trans } from 'react-i18next';
 import { SUPPORTED_LANGUAGES, 	activatePreferredUserLanguage } from '../i18n';
 export type ViewMode = 'notepad' | 'document';
 
+export type ThemeName = 'dark' | 'light' | 'red';
+
+/**
+ * The themes offered in Settings. `swatch` is what the circle shows: the theme's own surface, ringed
+ * in its accent, so the pair reads as the theme rather than as a colour.
+ *
+ * The circles name tokens instead of colours because Settings draws all three themes at once, and
+ * only two of them are ever the theme in force. theme.css defines them globally for that reason.
+ */
+export const THEMES: { name: ThemeName; swatch: string; accent: string }[] = [
+  { name: 'dark', swatch: 'var(--rn-swatch-dark)', accent: 'var(--rn-swatch-dark-accent)' },
+  { name: 'light', swatch: 'var(--rn-swatch-light)', accent: 'var(--rn-swatch-light-accent)' },
+  { name: 'red', swatch: 'var(--rn-swatch-red)', accent: 'var(--rn-swatch-red-accent)' },
+];
+
+/** Themes live on the root element; theme.css keys every block off this attribute. */
+export function applyTheme(theme: ThemeName): void {
+  document.documentElement.dataset.theme = theme;
+}
+
 export interface AppSettings {
   autoSaveEnabled: boolean;
   autoSaveInterval: 5 | 10 | 30;
@@ -21,6 +41,7 @@ export interface AppSettings {
   spellcheckEnabled: boolean;
   spellcheckLanguage: string;
   keySoundEnabled: boolean;
+  theme: ThemeName;
 }
 
 export const defaultSettings: AppSettings = {
@@ -35,6 +56,7 @@ export const defaultSettings: AppSettings = {
   spellcheckEnabled: true,
   spellcheckLanguage: '',
   keySoundEnabled: true,
+  theme: 'dark',
 };
 
 interface SettingsProps {
@@ -116,6 +138,10 @@ Licensed under the Apache License, Version 2.0 (the "License"); you may not use 
     http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the specific language governing permissions and limitations under the License.`;
+
+  /* Written out rather than looked up, so the extractor can see the three strings. */
+  const themeLabel = (name: ThemeName) =>
+    name === 'light' ? t("Light") : name === 'red' ? t("Red") : t("Dark");
 
   const licenses = [
     {
@@ -665,6 +691,7 @@ creación de este diccionario. Se agradece especialmente a:
   const updateSetting = <K extends keyof AppSettings>(key: K, value: AppSettings[K]) => {
     const newSettings = { ...settings, [key]: value };
     onSettingsChange(newSettings);
+    if (key === 'theme') applyTheme(newSettings.theme);
     if (key === 'language') 	activatePreferredUserLanguage(newSettings.language);
     invoke("update_settings", { settings: {
       auto_save_enabled: newSettings.autoSaveEnabled,
@@ -677,7 +704,8 @@ creación de este diccionario. Se agradece especialmente a:
       language: newSettings.language,
       spellcheck_enabled: newSettings.spellcheckEnabled,
       spellcheck_language: newSettings.spellcheckLanguage,
-      key_sound_enabled: newSettings.keySoundEnabled,
+      typing_sound_enable: newSettings.keySoundEnabled,
+      theme: newSettings.theme,
     }}).catch((err) => console.error("Failed to save settings:", err));
   };
 
@@ -794,6 +822,30 @@ creación de este diccionario. Se agradece especialmente a:
         <div className="settings-section">
           <div className="settings-row">
             <div className="settings-info">
+              <span className="settings-label">{t("Theme")}</span>
+              <span className="settings-description">
+                {t("Colours used across the whole application")}</span>
+            </div>
+            <div className="theme-swatches">
+              {THEMES.map((option) => (
+                <button
+                  key={option.name}
+                  type="button"
+                  className={`theme-swatch ${settings.theme === option.name ? 'is-selected' : ''}`}
+                  style={{ '--swatch': option.swatch, '--swatch-accent': option.accent } as React.CSSProperties}
+                  aria-label={themeLabel(option.name)}
+                  aria-pressed={settings.theme === option.name}
+                  title={themeLabel(option.name)}
+                  onClick={() => updateSetting('theme', option.name)}
+                />
+              ))}
+            </div>
+          </div>
+        </div>
+
+        <div className="settings-section">
+          <div className="settings-row">
+            <div className="settings-info">
               <span className="settings-label">{t("Typing Sound")}</span>
               <span className="settings-description">
                 {t("Play a mechanical keyboard click on every keystroke")}</span>
@@ -837,9 +889,9 @@ creación de este diccionario. Se agradece especialmente a:
                   style={{
                     marginLeft: '8px',
                     fontSize: '11px',
-                    color: '#aaa',
-                    backgroundColor: '#3a3a3a',
-                    border: '1px solid #555',
+                    color: 'var(--rn-text-muted)',
+                    backgroundColor: 'var(--rn-bg-hover)',
+                    border: '1px solid var(--rn-line)',
                     borderRadius: '4px',
                     padding: '1px 6px',
                     fontFamily: 'monospace',

@@ -74,7 +74,7 @@ function Dropdown<T>({ options, selectedValue, onSelect, renderButton }: Dropdow
                                     width: '20px',
                                     height: '20px',
                                     backgroundColor: option.color,
-                                    border: '1px solid #ccc',
+                                    border: '1px solid var(--rn-line)',
                                     borderRadius: '2px'
                                 }}></div>
                             )}

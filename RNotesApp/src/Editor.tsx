@@ -25,7 +25,7 @@ import SpellingReview, { useRuleLabel } from "./components/SpellingReview";
 import DictionarySettings from "./components/DictionarySettings";
 import StatusBar from "./components/StatusBar";
 import TitleBar, { Tab } from "./components/TitleBar";
-import Settings, { AppSettings, defaultSettings, ViewMode } from "./components/Settings";
+import Settings, { AppSettings, applyTheme, defaultSettings, ViewMode } from "./components/Settings";
 import PageView, { EditableSurfaceProps } from "./components/PageView";
 import { EditorWithLinkActions, removeLink as removeLinkAction, SearchMatch, type EditorInstance } from "./editorActions";
 import { getCssPageSize, getPageModel } from "./models/pageModel";
@@ -197,7 +197,7 @@ const Element = ({ attributes, children, element }: RenderElementProps) => {
       );
     case "table-cell":
       return (
-        <td {...attributes} style={{ border: '1px solid #555', padding: '8px' }}>
+        <td {...attributes} style={{ border: '1px solid var(--rn-line)', padding: '8px' }}>
           {children}
         </td>
       );
@@ -262,7 +262,7 @@ const Element = ({ attributes, children, element }: RenderElementProps) => {
 const Leaf = ({ attributes, children, leaf }: RenderLeafProps) => {
   let styledChildren = children;
   if ((leaf as any).searchHighlight) {
-    styledChildren = <span style={{ backgroundColor: (leaf as any).activeHighlight ? 'rgba(255, 140, 0, 0.6)' : 'rgba(255, 215, 0, 0.4)' }}>{styledChildren}</span>;
+    styledChildren = <span style={{ backgroundColor: (leaf as any).activeHighlight ? 'var(--rn-highlight-active)' : 'var(--rn-highlight)' }}>{styledChildren}</span>;
   }
   if ((leaf as any).spell) {
     styledChildren = (
@@ -437,8 +437,10 @@ const MySlateEditor = () => {
           language: loaded.language ?? '',
           spellcheckEnabled: loaded.spellcheck_enabled ?? true,
           spellcheckLanguage: loaded.spellcheck_language ?? '',
-          keySoundEnabled: loaded.key_sound_enabled ?? true,
+          keySoundEnabled: loaded.typing_sound_enable ?? true,
+          theme: loaded.theme ?? 'dark',
         });
+        applyTheme(loaded.theme ?? 'dark');
         	activatePreferredUserLanguage(loaded.language);
 
         let counter = 1;
@@ -1337,7 +1339,7 @@ const MySlateEditor = () => {
           key={f.id}
           style={submenuItemStyle}
           onMouseDown={(e) => { e.preventDefault(); handler(f.id); }}
-          onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.backgroundColor = '#333'; }}
+          onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.backgroundColor = 'var(--rn-bg-hover)'; }}
           onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.backgroundColor = 'transparent'; }}
         >
           {f.label}

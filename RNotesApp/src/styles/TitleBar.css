@@ -71,7 +71,7 @@
   white-space: nowrap;
   font-size: 13px;
   font-weight: 600;
-  color: var(--rn-titlebar-text, var(--rn-text-strong));
+  color: var(--rn-titlebar-text);
 }
 
 .tb-tab-close {
@@ -96,7 +96,7 @@
 .tb-x {
   width: 9px;
   height: 9px;
-  stroke: var(--rn-text-strong);
+  stroke: var(--rn-titlebar-text);
   stroke-width: 4;
   transition: width 120ms ease, height 120ms ease, stroke-width 120ms ease;
 }
@@ -155,7 +155,7 @@
 .tb-new svg {
   width: 13px;
   height: 13px;
-  stroke: var(--rn-text-strong);
+  stroke: var(--rn-titlebar-text);
   stroke-width: 2.6;
 }
 
@@ -206,7 +206,7 @@
 .tb-win svg {
   width: 10px;
   height: 10px;
-  stroke: var(--rn-text-strong);
+  stroke: var(--rn-titlebar-text);
   stroke-width: 1.3;
 }
 

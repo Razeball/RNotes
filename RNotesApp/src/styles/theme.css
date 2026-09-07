@@ -1,13 +1,12 @@
 /*
- * How to add a theme
- *   1. Copy the block below to `[data-theme='light'] { … }` and change the values.
- *   2. Set `document.documentElement.dataset.theme = 'light'`.
+ * The app's colour palette.
  */
 
-:root {
+:root,
+[data-theme='dark'] {
   color-scheme: dark;
 
-  /* Surfaces */
+  /* Surfaces, from the window backdrop up to the topmost floating thing. */
   --rn-bg-window: #1a1a1a;
   --rn-bg-sunken: #1e1e1e;
   --rn-bg: #2a2a2a;
@@ -16,7 +15,6 @@
   --rn-bg-hover: #3a3a3a;
   --rn-bg-active: #4d4d4d;
 
-  /* Lines. */
   --rn-line: #555;
   --rn-line-subtle: #333;
 
@@ -25,26 +23,155 @@
   --rn-text-muted: #999;
   --rn-text-faint: #666;
 
-  /* selection, focus, primary buttons, links. */
+  /* Selection, focus, filled controls, links. */
   --rn-accent: #b42828;
   --rn-accent-hover: #d13232;
   --rn-accent-quiet: #7a1414;
-  /* Links and inline accents  */
   --rn-accent-text: #ff7b7b;
 
-  /* Status*/
   --rn-warning: #ea6527;
   --rn-danger: #e5484d;
+  --rn-danger-hover: #f0666a;
   --rn-success: #7cc47c;
   --rn-highlight: rgba(255, 215, 0, 0.4);
   --rn-highlight-active: rgba(255, 140, 0, 0.6);
 
-  /*
-   * Title bar.
-   */
+  /* Menus, dialogs */
+  --rn-bg-float: #1c1c1c;
+  --rn-line-strong: #6e6e6e;
+  --rn-scrim: rgba(0, 0, 0, 0.5);
+  --rn-shadow: rgba(0, 0, 0, 0.5);
+
+  /* Tooltips */
+  --rn-tooltip-bg: rgba(0, 0, 0, 0.88);
+  --rn-tooltip-text: #fff;
+
+  /* The knob of a toggle */
+  --rn-knob: #e0e0e0;
+
+  /* Check items. */
+  --rn-check-idle: #3a0000;
+  --rn-check-active: #730000;
+  --rn-check-hot: #b90101;
+
+}
+
+[data-theme='light'] {
+  color-scheme: light;
+
+  --rn-bg-window: #dcdcdc;
+  --rn-bg-sunken: #e6e6e6;
+  --rn-bg: #ffffff;
+  --rn-bg-raised: #f2f2f2;
+  --rn-bg-overlay: #e9e9e9;
+  --rn-bg-hover: #d8d8d8;
+  --rn-bg-active: #c6c6c6;
+
+  --rn-line: #b8b8b8;
+  --rn-line-subtle: #d5d5d5;
+
+  --rn-text: #1f1f1f;
+  --rn-text-strong: #000;
+  --rn-text-muted: #5c5c5c;
+  --rn-text-faint: #8a8a8a;
+
+  --rn-accent: #b42828;
+  --rn-accent-hover: #8d1c1c;
+  --rn-accent-quiet: #f6dede;
+  --rn-accent-text: #9e1f1f;
+
+  --rn-warning: #b64a12;
+  --rn-danger: #c62b30;
+  --rn-danger-hover: #a81f24;
+  --rn-success: #2f7d32;
+  --rn-highlight: rgba(255, 215, 0, 0.55);
+  --rn-highlight-active: rgba(255, 140, 0, 0.7);
+
+  --rn-bg-float: #ffffff;
+  --rn-line-strong: #9a9a9a;
+  --rn-scrim: rgba(0, 0, 0, 0.35);
+  --rn-shadow: rgba(0, 0, 0, 0.18);
+
+  --rn-tooltip-bg: rgba(28, 28, 28, 0.94);
+  --rn-tooltip-text: #fff;
+
+  --rn-knob: #ffffff;
+
+  --rn-check-idle: #d9a8a8;
+  --rn-check-active: #b42828;
+  --rn-check-hot: #d13232;
+
+}
+
+[data-theme='red'] {
+  color-scheme: dark;
+
+  --rn-bg-window: #170d0d;
+  --rn-bg-sunken: #1d1111;
+  --rn-bg: #291919;
+  --rn-bg-raised: #311e1e;
+  --rn-bg-overlay: #392323;
+  --rn-bg-hover: #452b2b;
+  --rn-bg-active: #573535;
+
+  --rn-line: #6b3d3d;
+  --rn-line-subtle: #3a2222;
+
+  --rn-text: #f0dede;
+  --rn-text-strong: #fff;
+  --rn-text-muted: #b09696;
+  --rn-text-faint: #7d6060;
+
+  --rn-accent: #e03a3a;
+  --rn-accent-hover: #f45050;
+  --rn-accent-quiet: #6d1616;
+  --rn-accent-text: #ff9a9a;
+
+  --rn-warning: #ff8a3d;
+  --rn-danger: #ff5a5f;
+  --rn-danger-hover: #ff7b7f;
+  --rn-success: #86cc86;
+  --rn-highlight: rgba(255, 215, 0, 0.4);
+  --rn-highlight-active: rgba(255, 140, 0, 0.6);
+
+  --rn-bg-float: #1f1212;
+  --rn-line-strong: #7d4747;
+  --rn-scrim: rgba(0, 0, 0, 0.55);
+  --rn-shadow: rgba(0, 0, 0, 0.55);
+
+  --rn-tooltip-bg: rgba(20, 10, 10, 0.92);
+  --rn-tooltip-text: #fff;
+
+  --rn-knob: #f0dede;
+
+  --rn-check-idle: #5a1a1a;
+  --rn-check-active: #b42828;
+  --rn-check-hot: #e03a3a;
+
+}
+
+/*
+ * Title bar
+ */
+:root {
   --rn-titlebar-bg: #260e0e;
   --rn-titlebar-tab-active: #572b2b;
+  --rn-titlebar-text: #fff;
   --rn-titlebar-hover: rgba(255, 255, 255, 0.25);
   --rn-titlebar-win-hover: rgba(255, 255, 255, 0.15);
   --rn-titlebar-close-hover: rgba(255, 0, 0, 0.46);
+
+  /*
+   * Shared by every theme
+   */
+  --rn-on-accent: #fff;
+  --rn-danger-strong: #8b0000;
+  --rn-danger-strong-hover: #a00000;
+
+  --rn-swatch-dark: #2a2a2a;
+  --rn-swatch-dark-accent: #b42828;
+  --rn-swatch-light: #ffffff;
+  --rn-swatch-light-accent: #b42828;
+  --rn-swatch-red: #291919;
+  --rn-swatch-red-accent: #e03a3a;
 }
