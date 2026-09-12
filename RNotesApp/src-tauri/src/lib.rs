@@ -14,7 +14,7 @@ use pdf_export::{export_to_pdf, print_pdf};
 use session::{save_session, get_session};
 use markdown::parse_markdown;
 use spellcheck::{check_spelling, check_spelling_batch, suggest_single_word, get_dictionary_words, add_dictionary_word, remove_dictionary_word};
-use config::{Config, AppSettings};
+use config::{Config, AppSettings, PendingChangelog};
 use splash::{SplashState, close_splash_window, is_main_window_ready, main_window_ready};
 use tauri::{Manager, State, WindowEvent, command, AppHandle};
 use tauri_plugin_dialog::{DialogExt, MessageDialogKind, MessageDialogButtons};
@@ -60,6 +60,22 @@ fn get_settings(state: State<Config>) -> AppSettings {
 #[command]
 fn update_settings(settings: AppSettings, state: State<Config>) {
     state.update_settings(settings);
+}
+
+#[command]
+fn store_pending_changelog(version: String, body: String) {
+    PendingChangelog::store(&version, &body);
+}
+
+#[command]
+fn take_changelog_for(version: String) -> Option<PendingChangelog> {
+    match PendingChangelog::read() {
+        Some(pending) if pending.version.trim_start_matches('v') == version.trim_start_matches('v') => {
+            PendingChangelog::clear();
+            Some(pending)
+        }
+        _ => None,
+    }
 }
 
 #[command]
@@ -149,7 +165,8 @@ pub fn run() {
             parse_markdown,
             check_spelling, check_spelling_batch, suggest_single_word,
             get_dictionary_words, add_dictionary_word, remove_dictionary_word,
-            main_window_ready, is_main_window_ready, close_splash_window
+            main_window_ready, is_main_window_ready, close_splash_window,
+            store_pending_changelog, take_changelog_for
         ])
         .on_window_event(|window, event|{
             if let WindowEvent::CloseRequested { api, .. } = event {

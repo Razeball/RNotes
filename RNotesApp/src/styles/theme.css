@@ -54,6 +54,14 @@
   --rn-check-active: #730000;
   --rn-check-hot: #b90101;
 
+  /*
+   * Releases lines
+   */
+  --rn-change-added: #7cc47c;
+  --rn-change-fixed: #e3c04a;
+  --rn-change-changed: #f0803c;
+  --rn-change-deleted: #e5484d;
+
 }
 
 [data-theme='light'] {
@@ -101,6 +109,12 @@
   --rn-check-active: #b42828;
   --rn-check-hot: #d13232;
 
+  
+  --rn-change-added: #2f7d32;
+  --rn-change-fixed: #8a6a00;
+  --rn-change-changed: #b64a12;
+  --rn-change-deleted: #c62b30;
+
 }
 
 [data-theme='red'] {
@@ -147,6 +161,11 @@
   --rn-check-idle: #5a1a1a;
   --rn-check-active: #b42828;
   --rn-check-hot: #e03a3a;
+
+  --rn-change-added: #86cc86;
+  --rn-change-fixed: #e8c95a;
+  --rn-change-changed: #ff8a3d;
+  --rn-change-deleted: #ff5a5f;
 
 }
 

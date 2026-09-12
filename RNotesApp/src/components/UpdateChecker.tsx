@@ -2,10 +2,21 @@ import { Trans, useTranslation } from 'react-i18next';
 import { useEffect, useState, useRef } from 'react';
 import { check, Update } from '@tauri-apps/plugin-updater';
 import { relaunch } from '@tauri-apps/plugin-process';
+import { invoke } from '@tauri-apps/api/core';
+import { getVersion } from '@tauri-apps/api/app';
 import Modal from './Modal';
+import WaveText from './WaveText';
+import { parseReleaseNotes, type ChangeKind, type Changelog } from '../services/changelog';
 import '../styles/UpdateChecker.css';
 
 type UpdateState = 'checking' | 'available' | 'downloading' | 'idle' | 'error' | 'post-update';
+
+interface PendingChangelog {
+  version: string;
+  body: string;
+}
+const LETTER_STAGGER = 26;
+const LINE_STAGGER = 180;
 
 export default function UpdateChecker() {
   const { t } = useTranslation();
@@ -18,20 +29,27 @@ export default function UpdateChecker() {
   const totalRef = useRef(0);
 
   useEffect(() => {
-    const pending = localStorage.getItem('rnotes_pending_changelog');
-    if (pending) {
-      try {
-        const data = JSON.parse(pending);
-        setUpdatedVersion(data.version || '');
-        setReleaseNotes(data.body || '');
+    void start();
+  }, []);
+
+  async function start() {
+    const current = await getVersion().catch(() => '');
+
+    if (current) {
+      const pending = await invoke<PendingChangelog | null>('take_changelog_for', {
+        version: current,
+      }).catch(() => null);
+
+      if (pending) {
+        setUpdatedVersion(pending.version);
+        setReleaseNotes(pending.body ?? '');
         setState('post-update');
-        localStorage.removeItem('rnotes_pending_changelog');
         return;
-      } catch { }
+      }
     }
 
-    checkForUpdate();
-  }, []);
+    await checkForUpdate();
+  }
 
   async function checkForUpdate() {
     try {
@@ -41,6 +59,10 @@ export default function UpdateChecker() {
         setUpdate(result);
         setReleaseNotes(result.body ?? '');
         setState('available');
+        void invoke('store_pending_changelog', {
+          version: result.version,
+          body: result.body ?? '',
+        }).catch(() => {});
       } else {
         setState('idle');
       }
@@ -55,10 +77,10 @@ export default function UpdateChecker() {
     try {
       setState('downloading');
       let downloaded = 0;
-      localStorage.setItem('rnotes_pending_changelog', JSON.stringify({
+      await invoke('store_pending_changelog', {
         version: update.version,
         body: update.body ?? '',
-      }));
+      }).catch(() => {});
 
       await update.downloadAndInstall((event) => {
         switch (event.event) {
@@ -80,7 +102,6 @@ export default function UpdateChecker() {
       await relaunch();
     } catch (e) {
       console.error('Update failed:', e);
-      localStorage.removeItem('rnotes_pending_changelog');
       setErrorMsg(String(e));
       setState('error');
     }
@@ -93,31 +114,33 @@ export default function UpdateChecker() {
 
   if (state === 'idle' || state === 'checking') return null;
 
+  const isPostUpdate = state === 'post-update';
+  const changelog = isPostUpdate ? parseReleaseNotes(releaseNotes, updatedVersion) : null;
+
   return (
     <Modal
       isOpen={true}
       onClose={state === 'downloading' ? () => {} : dismiss}
+      className={isPostUpdate ? 'update-modal update-modal-glow' : ''}
       title={
-        state === 'post-update'
-          ? t('Updated to v{{version}}', { version: updatedVersion })
-          : t("Update Available")
+        isPostUpdate && changelog ? (
+          <WaveText
+            className="update-version-title"
+            text={`v${changelog.version}`}
+            stagger={LETTER_STAGGER}
+          />
+        ) : (
+          t('Update Available')
+        )
       }
     >
       <div className="update-checker">
-        {state === 'post-update' && (
+        {isPostUpdate && changelog && (
           <>
-            {releaseNotes && (
-              <div className="update-release-notes">
-                <p className="update-release-notes-title">{t("What's New:")}</p>
-                <pre className="update-release-notes-body">{releaseNotes}</pre>
-              </div>
-            )}
-            {!releaseNotes && (
-              <p className="update-message">{t("The app updated successfully.")}</p>
-            )}
+            <ReleaseNotes changelog={changelog} />
             <div className="update-actions">
               <button className="update-btn update-btn-primary" onClick={dismiss}>
-                {t("Accept")}</button>
+                {t('Accept')}</button>
             </div>
           </>
         )}
@@ -139,9 +162,9 @@ export default function UpdateChecker() {
             )}
             <div className="update-actions">
               <button className="update-btn update-btn-primary" onClick={startDownload}>
-                {t("Update")}</button>
+                {t('Update')}</button>
               <button className="update-btn update-btn-secondary" onClick={dismiss}>
-                {t("Later")}</button>
+                {t('Later')}</button>
             </div>
           </>
         )}
@@ -166,11 +189,61 @@ export default function UpdateChecker() {
             </p>
             <div className="update-actions">
               <button className="update-btn update-btn-secondary" onClick={dismiss}>
-                {t("Close")}</button>
+                {t('Close')}</button>
             </div>
           </>
         )}
       </div>
     </Modal>
   );
+}
+
+function ReleaseNotes({ changelog }: { changelog: Changelog }) {
+  const { t } = useTranslation();
+
+  if (!changelog.sections.length) {
+    return changelog.plain.length ? (
+      <ul className="update-plain">
+        {changelog.plain.map((line, index) => (
+          <li key={index}>{line}</li>
+        ))}
+      </ul>
+    ) : (
+      <p className="update-message">{t('The app updated successfully.')}</p>
+    );
+  }
+
+  return (
+    <>
+      {changelog.sections.map((section, index) => (
+        <div key={index} className={`update-section update-section-${section.kind}`}>
+          <p className="update-section-title">
+            <WaveText
+              text={sectionLabel(section.kind, t)}
+              stagger={LETTER_STAGGER}
+              delay={(index + 1) * LINE_STAGGER}
+            />
+          </p>
+          <ul className="update-section-items">
+            {section.items.map((item, itemIndex) => (
+              <li key={itemIndex}>{item}</li>
+            ))}
+          </ul>
+        </div>
+      ))}
+    </>
+  );
+}
+
+function sectionLabel(kind: ChangeKind, t: (key: string) => string): string {
+  switch (kind) {
+    case 'added':
+      return t('Added');
+    case 'fixed':
+      return t('Fixed');
+    case 'changed':
+      return t('Changed');
+    case 'deleted':
+      return t('Deleted');
+  }
 }

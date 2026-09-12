@@ -1588,7 +1588,7 @@ const MySlateEditor = () => {
 
 
   return (
-    <div>
+    <div className="app-shell">
       <TitleBar
         tabs={tabBarTabs}
         activeTabId={activeTabId}

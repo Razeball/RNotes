@@ -93,6 +93,43 @@ impl AppSettings {
     }
 }
 
+#[derive(Clone, Serialize, Deserialize)]
+pub struct PendingChangelog {
+    /// The release version
+    pub version: String,
+    /// The release body
+    pub body: String,
+}
+
+impl PendingChangelog {
+    fn path() -> PathBuf {
+        let mut path = dirs::config_dir().unwrap_or_else(|| PathBuf::from("."));
+        path.push("RNotesApp");
+        std::fs::create_dir_all(&path).ok();
+        path.push("pending_changelog.json");
+        path
+    }
+
+    pub fn store(version: &str, body: &str) {
+        let pending = PendingChangelog {
+            version: version.to_string(),
+            body: body.to_string(),
+        };
+        if let Ok(json) = serde_json::to_string_pretty(&pending) {
+            std::fs::write(Self::path(), json).ok();
+        }
+    }
+
+    pub fn read() -> Option<PendingChangelog> {
+        let content = std::fs::read_to_string(Self::path()).ok()?;
+        serde_json::from_str(&content).ok()
+    }
+
+    pub fn clear() {
+        std::fs::remove_file(Self::path()).ok();
+    }
+}
+
 #[derive(Clone)]
 pub struct TabInfo {
     pub save_path: PathBuf,

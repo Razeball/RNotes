@@ -99,3 +99,147 @@
   font-size: 12px;
   color: var(--rn-text-muted);
 }
+
+/* 
+ * The "what's new" window.
+ */
+.update-modal {
+  animation: rn-update-grow 420ms cubic-bezier(0.22, 1.2, 0.36, 1) both;
+}
+
+@keyframes rn-update-grow {
+  from {
+    transform: translate(-50%, -50%) scale(0.55);
+    opacity: 0;
+  }
+  70% {
+    transform: translate(-50%, -50%) scale(1.03);
+    opacity: 1;
+  }
+  to {
+    transform: translate(-50%, -50%) scale(1);
+    opacity: 1;
+  }
+}
+
+/*
+ * The halo 
+ */
+.update-modal.update-modal-glow {
+  animation:
+    rn-update-grow 420ms cubic-bezier(0.22, 1.2, 0.36, 1) both,
+    rn-update-halo 3.2s ease-in-out 420ms infinite;
+}
+
+@keyframes rn-update-halo {
+  0%,
+  100% {
+    box-shadow:
+      0 0 0 1px color-mix(in srgb, var(--rn-accent) 45%, transparent),
+      0 0 18px color-mix(in srgb, var(--rn-accent) 30%, transparent),
+      0 4px 16px var(--rn-shadow);
+  }
+  50% {
+    box-shadow:
+      0 0 0 1px color-mix(in srgb, var(--rn-accent) 75%, transparent),
+      0 0 40px color-mix(in srgb, var(--rn-accent) 55%, transparent),
+      0 4px 16px var(--rn-shadow);
+  }
+}
+
+.update-version-title {
+  font-size: 18px;
+  letter-spacing: 0.5px;
+  color: var(--rn-accent-text);
+}
+
+.update-section {
+  margin: 0 0 14px 0;
+  color: var(--rn-change-color);
+  text-align: left;
+}
+
+.update-section-added {
+  --rn-change-color: var(--rn-change-added);
+}
+.update-section-fixed {
+  --rn-change-color: var(--rn-change-fixed);
+}
+.update-section-changed {
+  --rn-change-color: var(--rn-change-changed);
+}
+.update-section-deleted {
+  --rn-change-color: var(--rn-change-deleted);
+}
+
+.update-section-title {
+  margin: 0 0 6px 0;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+}
+
+.update-section-items {
+  margin: 0;
+  padding-left: 18px;
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.update-section-items li {
+  margin-bottom: 3px;
+}
+
+.update-plain {
+  margin: 0 0 14px 0;
+  padding-left: 0;
+  list-style: none;
+  text-align: left;
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--rn-text);
+}
+
+/* Wave animation*/
+
+.rn-wave-letter {
+  display: inline-block;
+  white-space: pre;
+  animation: rn-wave-rise 620ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes rn-wave-rise {
+  0% {
+    transform: translateY(0.5em);
+    opacity: 0;
+  }
+  55% {
+    transform: translateY(-0.18em);
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .update-modal,
+  .update-modal.update-modal-glow {
+    animation: rn-update-fade 200ms ease-out both;
+  }
+
+  .rn-wave-letter {
+    animation: none;
+  }
+
+  @keyframes rn-update-fade {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+}
