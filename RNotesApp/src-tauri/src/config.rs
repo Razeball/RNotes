@@ -1,5 +1,16 @@
 use std::sync::{Arc, RwLock};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
+
+/// Drops a UTF-8 byte order mark, which `serde_json` refuses to parse past.
+///
+/// Every file under the config directory is plain JSON that someone may reasonably open in an
+/// editor, and Notepad and PowerShell both write a BOM. The failure is silent and total — the
+/// settings quietly revert to their defaults, or the release notes quietly do not appear — so
+/// tolerating it is worth the one line. Found by writing `settings.txt` from PowerShell and watching
+/// the app come up in the wrong language.
+pub fn strip_bom(text: &str) -> &str {
+    text.trim_start_matches('\u{feff}')
+}
 use std::collections::HashMap;
 use serde::{Serialize, Deserialize};
 
@@ -30,6 +41,8 @@ pub struct AppSettings {
     pub typing_sound_enable: bool,
     #[serde(default = "default_theme")]
     pub theme: String,
+    #[serde(default)]
+    pub run_in_background: bool,
 }
 
 fn default_theme() -> String {
@@ -60,6 +73,7 @@ impl Default for AppSettings {
             personal_dictionary: Vec::new(),
             typing_sound_enable: true,
             theme: default_theme(),
+            run_in_background: false,
         }
     }
 }
@@ -77,7 +91,7 @@ impl AppSettings {
         let path = Self::config_path();
         if path.exists() {
             if let Ok(content) = std::fs::read_to_string(&path) {
-                if let Ok(settings) = serde_json::from_str::<AppSettings>(&content) {
+                if let Ok(settings) = serde_json::from_str::<AppSettings>(strip_bom(&content)) {
                     return settings;
                 }
             }
@@ -94,39 +108,111 @@ impl AppSettings {
 }
 
 #[derive(Clone, Serialize, Deserialize)]
-pub struct PendingChangelog {
-    /// The release version
+pub struct StoredChangelog {
     pub version: String,
-    /// The release body
-    pub body: String,
+    pub release_body: String,
+    #[serde(default)]
+    pub version_seen: bool,
 }
 
-impl PendingChangelog {
-    fn path() -> PathBuf {
-        let mut path = dirs::config_dir().unwrap_or_else(|| PathBuf::from("."));
-        path.push("RNotesApp");
-        std::fs::create_dir_all(&path).ok();
-        path.push("pending_changelog.json");
-        path
+/// What the frontend needs to know at startup, in one round trip.
+#[derive(Serialize)]
+pub struct ChangelogStartup {
+    pub body: Option<String>,
+    pub needs_fetch: bool,
+}
+
+fn changelog_dir() -> PathBuf {
+    let mut path = dirs::config_dir().unwrap_or_else(|| PathBuf::from("."));
+    path.push("RNotesApp");
+    std::fs::create_dir_all(&path).ok();
+    path
+}
+
+impl StoredChangelog {
+    fn path_in(dir: &Path) -> PathBuf {
+        dir.join("pending_changelog.json")
     }
 
-    pub fn store(version: &str, body: &str) {
-        let pending = PendingChangelog {
+    fn read_in(dir: &Path) -> Option<StoredChangelog> {
+        let content = std::fs::read_to_string(Self::path_in(dir)).ok()?;
+        serde_json::from_str(strip_bom(&content)).ok()
+    }
+
+    pub fn store(version: &str, body: &str, seen: bool) {
+        Self::store_in(&changelog_dir(), version, body, seen);
+    }
+
+    fn store_in(dir: &Path, version: &str, body: &str, seen: bool) {
+        let stored = StoredChangelog {
             version: version.to_string(),
-            body: body.to_string(),
+            release_body: body.to_string(),
+            version_seen: seen,
         };
-        if let Ok(json) = serde_json::to_string_pretty(&pending) {
-            std::fs::write(Self::path(), json).ok();
+        if let Ok(json) = serde_json::to_string_pretty(&stored) {
+            std::fs::write(Self::path_in(dir), json).ok();
         }
     }
 
-    pub fn read() -> Option<PendingChangelog> {
-        let content = std::fs::read_to_string(Self::path()).ok()?;
-        serde_json::from_str(&content).ok()
+    pub fn body_for(version: &str) -> Option<String> {
+        Self::body_for_in(&changelog_dir(), version)
     }
 
-    pub fn clear() {
-        std::fs::remove_file(Self::path()).ok();
+    fn body_for_in(dir: &Path, version: &str) -> Option<String> {
+        let stored = Self::read_in(dir)?;
+        if is_same_version(&stored.version, version) && !stored.release_body.trim().is_empty() {
+            Some(stored.release_body)
+        } else {
+            None
+        }
+    }
+
+    pub fn startup(current: &str) -> ChangelogStartup {
+        Self::startup_in(&changelog_dir(), current)
+    }
+
+    fn startup_in(dir: &Path, current: &str) -> ChangelogStartup {
+        let first_launch_on_this_version = LastVersion::take_differs_from_in(dir, current);
+
+        if let Some(stored) = Self::read_in(dir)
+            && is_same_version(&stored.version, current)
+            && !stored.release_body.trim().is_empty()
+        {
+            if !stored.version_seen || first_launch_on_this_version {
+                Self::store_in(dir, current, &stored.release_body, true);
+                return ChangelogStartup {
+                    body: Some(stored.release_body),
+                    needs_fetch: false,
+                };
+            }
+        }
+
+        ChangelogStartup {
+            body: None,
+            needs_fetch: first_launch_on_this_version,
+        }
+    }
+}
+
+fn is_same_version(a: &str, b: &str) -> bool {
+    a.trim().trim_start_matches(['v', 'V']) == b.trim().trim_start_matches(['v', 'V'])
+}
+
+struct LastVersion;
+
+impl LastVersion {
+    fn path_in(dir: &Path) -> PathBuf {
+        dir.join("last_version.txt")
+    }
+
+    fn take_differs_from_in(dir: &Path, current: &str) -> bool {
+        let previous = std::fs::read_to_string(Self::path_in(dir)).ok();
+        std::fs::write(Self::path_in(dir), current).ok();
+
+        match previous {
+            Some(previous) => !is_same_version(&previous, current),
+            None => false,
+        }
     }
 }
 
@@ -260,5 +346,138 @@ impl Config {
         *settings = merged_settings.clone();
         drop(settings);
         merged_settings.save();
+    }
+}
+
+#[cfg(test)]
+mod changelog_tests {
+    use super::*;
+
+    struct TempDir(PathBuf);
+
+    impl TempDir {
+        fn new(name: &str) -> TempDir {
+            let dir = std::env::temp_dir().join(format!("rnotes_changelog_{name}"));
+            std::fs::remove_dir_all(&dir).ok();
+            std::fs::create_dir_all(&dir).unwrap();
+            TempDir(dir)
+        }
+
+        fn path(&self) -> &Path {
+            &self.0
+        }
+
+        fn write_raw(&self, contents: &str) {
+            std::fs::write(self.0.join("pending_changelog.json"), contents).unwrap();
+        }
+    }
+
+    impl Drop for TempDir {
+        fn drop(&mut self) {
+            std::fs::remove_dir_all(&self.0).ok();
+        }
+    }
+
+    #[test]
+    fn first_ever_launch_shows_nothing() {
+        let dir = TempDir::new("first_launch");
+        let startup = StoredChangelog::startup_in(dir.path(), "0.6.0");
+        assert!(startup.body.is_none());
+        assert!(!startup.needs_fetch);
+    }
+
+
+    #[test]
+    fn in_app_update_shows_the_stored_notes_once() {
+        let dir = TempDir::new("in_app");
+        StoredChangelog::store_in(dir.path(), "0.6.0", "Added:\n- a thing", false);
+
+        let first = StoredChangelog::startup_in(dir.path(), "0.6.0");
+        assert_eq!(first.body.as_deref(), Some("Added:\n- a thing"));
+
+
+        let second = StoredChangelog::startup_in(dir.path(), "0.6.0");
+        assert!(second.body.is_none());
+        assert!(!second.needs_fetch);
+    }
+
+
+    #[test]
+    fn reads_the_file_written_by_0_5_3() {
+        let dir = TempDir::new("legacy");
+        dir.write_raw(r#"{"version":"0.6.0","body":"Fixed:\n- the window"}"#);
+
+        let startup = StoredChangelog::startup_in(dir.path(), "0.6.0");
+        assert_eq!(startup.body.as_deref(), Some("Fixed:\n- the window"));
+    }
+
+    #[test]
+    fn a_new_version_with_no_stored_notes_asks_for_them() {
+        let dir = TempDir::new("manual");
+
+        StoredChangelog::startup_in(dir.path(), "0.5.9");
+
+        let startup = StoredChangelog::startup_in(dir.path(), "0.6.0");
+        assert!(startup.body.is_none());
+        assert!(startup.needs_fetch, "a version never run before must ask for its notes");
+
+        let next = StoredChangelog::startup_in(dir.path(), "0.6.0");
+        assert!(!next.needs_fetch);
+    }
+
+    #[test]
+    fn notes_for_another_version_are_not_shown() {
+        let dir = TempDir::new("mismatch");
+        StoredChangelog::store_in(dir.path(), "0.7.0", "Added:\n- the next one", false);
+
+        let startup = StoredChangelog::startup_in(dir.path(), "0.6.0");
+        assert!(startup.body.is_none());
+        assert_eq!(StoredChangelog::body_for_in(dir.path(), "0.6.0"), None);
+    }
+
+    #[test]
+    fn the_v_prefix_does_not_change_the_version() {
+        let dir = TempDir::new("vprefix");
+        StoredChangelog::store_in(dir.path(), "v0.6.0", "Changed:\n- something", false);
+
+        let startup = StoredChangelog::startup_in(dir.path(), "0.6.0");
+        assert_eq!(startup.body.as_deref(), Some("Changed:\n- something"));
+    }
+
+    #[test]
+    fn body_for_keeps_answering_after_the_window_was_shown() {
+        let dir = TempDir::new("settings_click");
+        StoredChangelog::store_in(dir.path(), "0.6.0", "Added:\n- a thing", false);
+        StoredChangelog::startup_in(dir.path(), "0.6.0");
+
+        assert_eq!(
+            StoredChangelog::body_for_in(dir.path(), "0.6.0").as_deref(),
+            Some("Added:\n- a thing")
+        );
+        assert_eq!(
+            StoredChangelog::body_for_in(dir.path(), "0.6.0").as_deref(),
+            Some("Added:\n- a thing"),
+            "asking twice must not consume the notes"
+        );
+    }
+
+    #[test]
+    fn reads_a_hand_written_file_with_a_byte_order_mark() {
+        let dir = TempDir::new("bom");
+        dir.write_raw("\u{feff}{\"version\":\"0.6.0\",\"body\":\"Added:\\n- a thing\"}");
+
+        let startup = StoredChangelog::startup_in(dir.path(), "0.6.0");
+        assert_eq!(startup.body.as_deref(), Some("Added:\n- a thing"));
+    }
+
+
+    #[test]
+    fn empty_notes_are_treated_as_absent() {
+        let dir = TempDir::new("empty");
+        StoredChangelog::store_in(dir.path(), "0.6.0", "   \n  ", false);
+
+        let startup = StoredChangelog::startup_in(dir.path(), "0.6.0");
+        assert!(startup.body.is_none());
+        assert_eq!(StoredChangelog::body_for_in(dir.path(), "0.6.0"), None);
     }
 }

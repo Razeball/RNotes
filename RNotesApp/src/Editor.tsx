@@ -439,6 +439,7 @@ const MySlateEditor = () => {
           spellcheckLanguage: loaded.spellcheck_language ?? '',
           keySoundEnabled: loaded.typing_sound_enable ?? true,
           theme: loaded.theme ?? 'dark',
+          runInBackground: loaded.run_in_background ?? false,
         });
         applyTheme(loaded.theme ?? 'dark');
         	activatePreferredUserLanguage(loaded.language);

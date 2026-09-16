@@ -5,18 +5,17 @@ import { relaunch } from '@tauri-apps/plugin-process';
 import { invoke } from '@tauri-apps/api/core';
 import { getVersion } from '@tauri-apps/api/app';
 import Modal from './Modal';
-import WaveText from './WaveText';
-import { parseReleaseNotes, type ChangeKind, type Changelog } from '../services/changelog';
+import { ReleaseContentDialog } from './ReleaseNotes';
+import { fetchReleaseNotes, storeReleaseNotes } from '../services/updateNotes';
 import '../styles/UpdateChecker.css';
 
 type UpdateState = 'checking' | 'available' | 'downloading' | 'idle' | 'error' | 'post-update';
 
-interface PendingChangelog {
-  version: string;
-  body: string;
+/** What Rust answers at startup: the notes if it has them, and whether it should go and look. */
+interface ChangelogStartup {
+  body: string | null;
+  needs_fetch: boolean;
 }
-const LETTER_STAGGER = 26;
-const LINE_STAGGER = 180;
 
 export default function UpdateChecker() {
   const { t } = useTranslation();
@@ -27,8 +26,11 @@ export default function UpdateChecker() {
   const [releaseNotes, setReleaseNotes] = useState('');
   const [updatedVersion, setUpdatedVersion] = useState('');
   const totalRef = useRef(0);
+  const startedRef = useRef(false);
 
   useEffect(() => {
+    if (startedRef.current) return;
+    startedRef.current = true;
     void start();
   }, []);
 
@@ -36,19 +38,32 @@ export default function UpdateChecker() {
     const current = await getVersion().catch(() => '');
 
     if (current) {
-      const pending = await invoke<PendingChangelog | null>('take_changelog_for', {
+      const startup = await invoke<ChangelogStartup>('changelog_startup', {
         version: current,
       }).catch(() => null);
 
-      if (pending) {
-        setUpdatedVersion(pending.version);
-        setReleaseNotes(pending.body ?? '');
-        setState('post-update');
+      if (startup?.body) {
+        showNotes(current, startup.body);
         return;
+      }
+
+      if (startup?.needs_fetch) {
+        const fetched = await fetchReleaseNotes(current);
+        if (fetched) {
+          await storeReleaseNotes(current, fetched, true);
+          showNotes(current, fetched);
+          return;
+        }
       }
     }
 
     await checkForUpdate();
+  }
+
+  function showNotes(version: string, body: string) {
+    setUpdatedVersion(version);
+    setReleaseNotes(body);
+    setState('post-update');
   }
 
   async function checkForUpdate() {
@@ -59,10 +74,7 @@ export default function UpdateChecker() {
         setUpdate(result);
         setReleaseNotes(result.body ?? '');
         setState('available');
-        void invoke('store_pending_changelog', {
-          version: result.version,
-          body: result.body ?? '',
-        }).catch(() => {});
+        void storeReleaseNotes(result.version, result.body ?? '', false);
       } else {
         setState('idle');
       }
@@ -77,10 +89,7 @@ export default function UpdateChecker() {
     try {
       setState('downloading');
       let downloaded = 0;
-      await invoke('store_pending_changelog', {
-        version: update.version,
-        body: update.body ?? '',
-      }).catch(() => {});
+      await storeReleaseNotes(update.version, update.body ?? '', false);
 
       await update.downloadAndInstall((event) => {
         switch (event.event) {
@@ -114,37 +123,24 @@ export default function UpdateChecker() {
 
   if (state === 'idle' || state === 'checking') return null;
 
-  const isPostUpdate = state === 'post-update';
-  const changelog = isPostUpdate ? parseReleaseNotes(releaseNotes, updatedVersion) : null;
+  if (state === 'post-update') {
+    return (
+      <ReleaseContentDialog
+        isOpen={true}
+        onClose={dismiss}
+        release_body={releaseNotes}
+        version={updatedVersion}
+      />
+    );
+  }
 
   return (
     <Modal
       isOpen={true}
       onClose={state === 'downloading' ? () => {} : dismiss}
-      className={isPostUpdate ? 'update-modal update-modal-glow' : ''}
-      title={
-        isPostUpdate && changelog ? (
-          <WaveText
-            className="update-version-title"
-            text={`v${changelog.version}`}
-            stagger={LETTER_STAGGER}
-          />
-        ) : (
-          t('Update Available')
-        )
-      }
+      title={t('Update Available')}
     >
       <div className="update-checker">
-        {isPostUpdate && changelog && (
-          <>
-            <ReleaseNotes changelog={changelog} />
-            <div className="update-actions">
-              <button className="update-btn update-btn-primary" onClick={dismiss}>
-                {t('Accept')}</button>
-            </div>
-          </>
-        )}
-
         {state === 'available' && update && (
           <>
             <p className="update-message">
@@ -196,54 +192,4 @@ export default function UpdateChecker() {
       </div>
     </Modal>
   );
-}
-
-function ReleaseNotes({ changelog }: { changelog: Changelog }) {
-  const { t } = useTranslation();
-
-  if (!changelog.sections.length) {
-    return changelog.plain.length ? (
-      <ul className="update-plain">
-        {changelog.plain.map((line, index) => (
-          <li key={index}>{line}</li>
-        ))}
-      </ul>
-    ) : (
-      <p className="update-message">{t('The app updated successfully.')}</p>
-    );
-  }
-
-  return (
-    <>
-      {changelog.sections.map((section, index) => (
-        <div key={index} className={`update-section update-section-${section.kind}`}>
-          <p className="update-section-title">
-            <WaveText
-              text={sectionLabel(section.kind, t)}
-              stagger={LETTER_STAGGER}
-              delay={(index + 1) * LINE_STAGGER}
-            />
-          </p>
-          <ul className="update-section-items">
-            {section.items.map((item, itemIndex) => (
-              <li key={itemIndex}>{item}</li>
-            ))}
-          </ul>
-        </div>
-      ))}
-    </>
-  );
-}
-
-function sectionLabel(kind: ChangeKind, t: (key: string) => string): string {
-  switch (kind) {
-    case 'added':
-      return t('Added');
-    case 'fixed':
-      return t('Fixed');
-    case 'changed':
-      return t('Changed');
-    case 'deleted':
-      return t('Deleted');
-  }
 }

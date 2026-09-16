@@ -207,12 +207,28 @@
   font-family: 'Google Sans Code', monospace;
 }
 
+
 .settings-version {
+  display: block;
+  width: 100%;
   text-align: right;
   font-size: 11px;
   color: var(--rn-text-faint);
-  padding-top: 12px;
+  padding: 12px 0 0 0;
   margin-top: 4px;
+  background: none;
+  border: none;
+  font-family: inherit;
+  cursor: pointer;
+  transition: color 0.15s ease;
+}
+
+.settings-version:hover:not(:disabled) {
+  color: var(--rn-accent-text);
+}
+
+.settings-version:disabled {
+  cursor: default;
 }
 
 /* Theme picker */

@@ -9,12 +9,13 @@ mod session;
 mod markdown;
 mod spellcheck;
 mod splash;
+mod tray;
 use file_handler::{open, save, save_as, open_in_tab, save_tab, save_tab_as, export_to_file, open_file_by_path, rename_tab_file};
 use pdf_export::{export_to_pdf, print_pdf};
 use session::{save_session, get_session};
 use markdown::parse_markdown;
 use spellcheck::{check_spelling, check_spelling_batch, suggest_single_word, get_dictionary_words, add_dictionary_word, remove_dictionary_word};
-use config::{Config, AppSettings, PendingChangelog};
+use config::{Config, AppSettings, ChangelogStartup, StoredChangelog};
 use splash::{SplashState, close_splash_window, is_main_window_ready, main_window_ready};
 use tauri::{Manager, State, WindowEvent, command, AppHandle};
 use tauri_plugin_dialog::{DialogExt, MessageDialogKind, MessageDialogButtons};
@@ -63,19 +64,18 @@ fn update_settings(settings: AppSettings, state: State<Config>) {
 }
 
 #[command]
-fn store_pending_changelog(version: String, body: String) {
-    PendingChangelog::store(&version, &body);
+fn store_changelog(version: String, body: String, seen: bool) {
+    StoredChangelog::store(&version, &body, seen);
 }
 
 #[command]
-fn take_changelog_for(version: String) -> Option<PendingChangelog> {
-    match PendingChangelog::read() {
-        Some(pending) if pending.version.trim_start_matches('v') == version.trim_start_matches('v') => {
-            PendingChangelog::clear();
-            Some(pending)
-        }
-        _ => None,
-    }
+fn changelog_startup(version: String) -> ChangelogStartup {
+    StoredChangelog::startup(&version)
+}
+
+#[command]
+fn changelog_for(version: String) -> Option<String> {
+    StoredChangelog::body_for(&version)
 }
 
 #[command]
@@ -128,6 +128,9 @@ fn confirm_close_tab(app: AppHandle, tab_id: String, state: State<Config>) -> bo
 pub fn run() {
 
     tauri::Builder::default()
+        .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
+            tray::show_main_window(app);
+        }))
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_dialog::init())
@@ -149,6 +152,7 @@ pub fn run() {
                 }
             });
             app.manage(StartupFile(std::sync::Mutex::new(startup_file)));
+            tray::setup(app.handle())?;
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -166,12 +170,17 @@ pub fn run() {
             check_spelling, check_spelling_batch, suggest_single_word,
             get_dictionary_words, add_dictionary_word, remove_dictionary_word,
             main_window_ready, is_main_window_ready, close_splash_window,
-            store_pending_changelog, take_changelog_for
+            store_changelog, changelog_startup, changelog_for
         ])
         .on_window_event(|window, event|{
             if let WindowEvent::CloseRequested { api, .. } = event {
                let state = window.state::<Config>();
                let settings = state.get_settings();
+               if settings.run_in_background && !tray::is_quitting() {
+                   api.prevent_close();
+                   let _ = window.hide();
+                   return;
+               }
 
                if !settings.show_unsaved_warning {
                    return;
@@ -199,6 +208,8 @@ pub fn run() {
                         .show(move |confirmed| {
                             if confirmed {
                                 let _ = window_for_callback.destroy();
+                            } else {
+                                tray::QUITTING.store(false, std::sync::atomic::Ordering::SeqCst);
                             }
                         });
                }

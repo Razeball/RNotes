@@ -28,7 +28,7 @@ impl SessionState {
         let path = Self::session_path();
         if path.exists() {
             if let Ok(content) = std::fs::read_to_string(&path) {
-                if let Ok(state) = serde_json::from_str::<SessionState>(&content) {
+                if let Ok(state) = serde_json::from_str::<SessionState>(crate::config::strip_bom(&content)) {
                     return state;
                 }
             }

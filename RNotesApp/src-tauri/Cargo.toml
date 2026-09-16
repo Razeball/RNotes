@@ -1,6 +1,6 @@
 [package]
 name = "rnotesapp"
-version = "0.5.3"
+version = "0.5.4"
 description = "A note editor"
 authors = ["Razeball"]
 edition = "2024"
@@ -18,12 +18,17 @@ crate-type = ["staticlib", "cdylib", "rlib"]
 tauri-build = { version = "2", features = [] }
 
 [dependencies]
-tauri = { version = "2", features = ["protocol-asset"] }
+# "tray-icon" is what makes the background mode possible; "image-png" lets the tray reuse the
+# bundled window icon rather than shipping a second copy of it.
+tauri = { version = "2", features = ["protocol-asset", "tray-icon", "image-png"] }
 tauri-plugin-opener = "2"
 tauri-plugin-fs = "2"
 tauri-plugin-dialog = "2"
 tauri-plugin-updater = "2"
 tauri-plugin-process = "2"
+# Launching the shortcut while the app sits in the tray has to raise that window, not start a
+# second copy fighting it over settings.txt.
+tauri-plugin-single-instance = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 rfd = "0.14"

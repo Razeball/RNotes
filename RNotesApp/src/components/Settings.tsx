@@ -7,6 +7,8 @@ import { getVersion } from '@tauri-apps/api/app';
 import type { PageSize } from '../models/pageModel';
 import { Trans } from 'react-i18next';
 import { SUPPORTED_LANGUAGES, 	activatePreferredUserLanguage } from '../i18n';
+import { ReleaseContentDialog } from './ReleaseNotes';
+import { releaseNotesFor } from '../services/updateNotes';
 export type ViewMode = 'notepad' | 'document';
 
 export type ThemeName = 'dark' | 'light' | 'red';
@@ -42,6 +44,7 @@ export interface AppSettings {
   spellcheckLanguage: string;
   keySoundEnabled: boolean;
   theme: ThemeName;
+  runInBackground: boolean;
 }
 
 export const defaultSettings: AppSettings = {
@@ -57,6 +60,7 @@ export const defaultSettings: AppSettings = {
   spellcheckLanguage: '',
   keySoundEnabled: true,
   theme: 'dark',
+  runInBackground: false,
 };
 
 interface SettingsProps {
@@ -77,10 +81,21 @@ const Settings: React.FC<SettingsProps> = ({ isOpen, onClose, settings, onSettin
   const { t } = useTranslation();
   const [expandedLicense, setExpandedLicense] = useState<string | null>(null);
   const [appVersion, setAppVersion] = useState('');
+  /** The notes behind the version in the footer: null while unknown, '' once known to be absent. */
+  const [versionNotes, setVersionNotes] = useState<string | null>(null);
+  const [showVersionNotes, setShowVersionNotes] = useState(false);
 
   useEffect(() => {
     getVersion().then(setAppVersion).catch(() => {});
   }, []);
+
+  // Looked up when the panel opens rather than when the version is clicked: the lookup can reach the
+  // network, and a button that takes a second to decide whether it does anything is worse than one
+  // that is simply disabled until it can.
+  useEffect(() => {
+    if (!isOpen || !appVersion || versionNotes !== null) return;
+    releaseNotesFor(appVersion).then((notes) => setVersionNotes(notes ?? ''));
+  }, [isOpen, appVersion, versionNotes]);
 
   const APACHE_2_0 = `Apache License
 Version 2.0, January 2004
@@ -706,6 +721,7 @@ creación de este diccionario. Se agradece especialmente a:
       spellcheck_language: newSettings.spellcheckLanguage,
       typing_sound_enable: newSettings.keySoundEnabled,
       theme: newSettings.theme,
+      run_in_background: newSettings.runInBackground,
     }}).catch((err) => console.error("Failed to save settings:", err));
   };
 
@@ -855,6 +871,24 @@ creación de este diccionario. Se agradece especialmente a:
                 type="checkbox"
                 checked={settings.keySoundEnabled}
                 onChange={(e) => updateSetting('keySoundEnabled', e.target.checked)}
+              />
+              <span className="toggle-slider"></span>
+            </label>
+          </div>
+        </div>
+
+        <div className="settings-section">
+          <div className="settings-row">
+            <div className="settings-info">
+              <span className="settings-label">{t("Keep Running in the Background")}</span>
+              <span className="settings-description">
+                {t("Closing the window hides it in the system tray instead of quitting, so reopening is instant and your tabs stay open. Quit from the tray icon.")}</span>
+            </div>
+            <label className="toggle-switch">
+              <input
+                type="checkbox"
+                checked={settings.runInBackground}
+                onChange={(e) => updateSetting('runInBackground', e.target.checked)}
               />
               <span className="toggle-slider"></span>
             </label>
@@ -1027,10 +1061,27 @@ creación de este diccionario. Se agradece especialmente a:
           ))}
         </div>
 
-        <div className="settings-version">
+        {/* The way back to the release notes. Disabled rather than hidden when there are none to
+            show, so the version still reads as a version rather than as a missing button. */}
+        <button
+          type="button"
+          className="settings-version"
+          disabled={!versionNotes}
+          title={versionNotes ? t("See what's new in this version") : undefined}
+          onClick={() => setShowVersionNotes(true)}
+        >
           {t('v{{version}}', { version: appVersion })}
-        </div>
+        </button>
       </div>
+
+      {showVersionNotes && versionNotes && (
+        <ReleaseContentDialog
+          isOpen={true}
+          onClose={() => setShowVersionNotes(false)}
+          release_body={versionNotes}
+          version={appVersion}
+        />
+      )}
     </Modal>
   );
 };
