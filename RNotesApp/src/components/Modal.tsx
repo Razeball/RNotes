@@ -1,4 +1,5 @@
 import React from 'react';
+import { createPortal } from 'react-dom';
 import '../styles/Modal.css'
 export type ModalProps = {
   isOpen: boolean;
@@ -8,10 +9,11 @@ export type ModalProps = {
   className?: string;
 };
 
+
 export default function Modal({ isOpen, onClose, title, children, className = '' }: ModalProps) {
   if (!isOpen) return null;
 
-  return (
+  return createPortal(
     <>
       <div
        className='modal-background'
@@ -26,6 +28,7 @@ export default function Modal({ isOpen, onClose, title, children, className = ''
         </h3>
         {children}
       </div>
-    </>
+    </>,
+    document.body,
   );
 }

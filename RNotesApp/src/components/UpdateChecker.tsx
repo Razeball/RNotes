@@ -6,7 +6,7 @@ import { invoke } from '@tauri-apps/api/core';
 import { getVersion } from '@tauri-apps/api/app';
 import Modal from './Modal';
 import { ReleaseContentDialog } from './ReleaseNotes';
-import { fetchReleaseNotes, storeReleaseNotes } from '../services/updateNotes';
+import { bundledReleaseNotes, fetchReleaseNotes, storeReleaseNotes } from '../services/updateNotes';
 import '../styles/UpdateChecker.css';
 
 type UpdateState = 'checking' | 'available' | 'downloading' | 'idle' | 'error' | 'post-update';
@@ -48,10 +48,10 @@ export default function UpdateChecker() {
       }
 
       if (startup?.needs_fetch) {
-        const fetched = await fetchReleaseNotes(current);
-        if (fetched) {
-          await storeReleaseNotes(current, fetched, true);
-          showNotes(current, fetched);
+        const found = bundledReleaseNotes() ?? (await fetchReleaseNotes(current));
+        if (found) {
+          await storeReleaseNotes(current, found, true);
+          showNotes(current, found);
           return;
         }
       }

@@ -27,6 +27,17 @@ export async function fetchReleaseNotes(version: string): Promise<string | null>
   }
 }
 
+const bundled = import.meta.glob<string>('../../RELEASE_NOTES.md', {
+  query: '?raw',
+  import: 'default',
+  eager: true,
+})
+
+export function bundledReleaseNotes(): string | null {
+  const notes = (Object.values(bundled)[0] ?? '').trim()
+  return notes || null
+}
+
 export function storedReleaseNotes(version: string): Promise<string | null> {
   return invoke<string | null>('changelog_for', { version }).catch(() => null)
 }
@@ -39,7 +50,7 @@ export async function releaseNotesFor(version: string): Promise<string | null> {
   const stored = await storedReleaseNotes(version)
   if (stored) return stored
 
-  const fetched = await fetchReleaseNotes(version)
-  if (fetched) await storeReleaseNotes(version, fetched, true)
-  return fetched
+  const found = bundledReleaseNotes() ?? (await fetchReleaseNotes(version))
+  if (found) await storeReleaseNotes(version, found, true)
+  return found
 }

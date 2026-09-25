@@ -12,6 +12,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       release_id: ${{ steps.create-release.outputs.result }}
+      notes: ${{ steps.changelog.outputs.notes }}
 
     steps:
       - name: Checkout repository
@@ -25,9 +26,9 @@ jobs:
         run: |
           PREV_TAG=$(git tag --sort=-v:refname | head -n 2 | tail -n 1)
           if [ -z "$PREV_TAG" ] || [ "$PREV_TAG" = "${{ github.ref_name }}" ]; then
-            NOTES=$(git log --pretty=format:"- %s" -20)
+            NOTES=$(git log --pretty=format:"%B" -1)
           else
-            NOTES=$(git log --pretty=format:"- %s" "$PREV_TAG".."${{ github.ref_name }}")
+            NOTES=$(git log --pretty=format:"%B" "$PREV_TAG".."${{ github.ref_name }}")
           fi
           EOF=$(dd if=/dev/urandom bs=15 count=1 status=none | base64)
           echo "notes<<$EOF" >> "$GITHUB_OUTPUT"
@@ -98,6 +99,12 @@ jobs:
         working-directory: RNotesApp
         run: npm install
 
+      - name: Write release notes into the app
+        shell: bash
+        env:
+          NOTES: ${{ needs.create-release.outputs.notes }}
+        run: printf '%s\n' "$NOTES" > RNotesApp/RELEASE_NOTES.md
+
       - name: Build Tauri app
         uses: tauri-apps/tauri-action@v0
         env:
@@ -106,6 +113,7 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
           releaseId: ${{ needs.create-release.outputs.release_id }}
+          releaseBody: ${{ needs.create-release.outputs.notes }}
           projectPath: RNotesApp
 
   publish-release:

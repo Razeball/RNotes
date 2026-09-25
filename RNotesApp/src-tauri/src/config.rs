@@ -110,8 +110,9 @@ impl AppSettings {
 #[derive(Clone, Serialize, Deserialize)]
 pub struct StoredChangelog {
     pub version: String,
+    #[serde(alias = "body")]
     pub release_body: String,
-    #[serde(default)]
+    #[serde(default, alias = "seen")]
     pub version_seen: bool,
 }
 
