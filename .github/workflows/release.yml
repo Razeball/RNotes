@@ -24,12 +24,7 @@ jobs:
         id: changelog
         shell: bash
         run: |
-          PREV_TAG=$(git tag --sort=-v:refname | head -n 2 | tail -n 1)
-          if [ -z "$PREV_TAG" ] || [ "$PREV_TAG" = "${{ github.ref_name }}" ]; then
-            NOTES=$(git log --pretty=format:"%B" -1)
-          else
-            NOTES=$(git log --pretty=format:"%B" "$PREV_TAG".."${{ github.ref_name }}")
-          fi
+          NOTES=$(git log -1 --pretty=format:"%B" "${{ github.ref_name }}")
           EOF=$(dd if=/dev/urandom bs=15 count=1 status=none | base64)
           echo "notes<<$EOF" >> "$GITHUB_OUTPUT"
           echo "$NOTES" >> "$GITHUB_OUTPUT"
@@ -60,6 +55,13 @@ jobs:
       contents: write
     strategy:
       fail-fast: false
+      # One build at a time. Each job reads latest.json from the release, adds its own platform,
+      # deletes the old asset and uploads the merged one — a read-modify-write with no locking. Two
+      # jobs finishing together race on it: v0.5.5 failed with "Not Found" when both uploads landed
+      # in the same second and Windows tried to delete the latest.json that Linux had just replaced.
+      # The worse case would not even fail: each job merging only its own platform and the last
+      # upload silently dropping the other. Costs one build's worth of time per release.
+      max-parallel: 1
       matrix:
         platform:
           - os: windows-latest
