@@ -10,6 +10,7 @@ mod markdown;
 mod spellcheck;
 mod splash;
 mod tray;
+mod dropped;
 use file_handler::{open, save, save_as, open_in_tab, save_tab, save_tab_as, export_to_file, open_file_by_path, rename_tab_file};
 use pdf_export::{export_to_pdf, print_pdf};
 use session::{save_session, get_session};
@@ -19,7 +20,8 @@ use config::{Config, AppSettings, ChangelogStartup, StoredChangelog};
 use splash::{SplashState, close_splash_window, is_main_window_ready, main_window_ready};
 use tauri::{Manager, State, WindowEvent, command, AppHandle};
 use tauri_plugin_dialog::{DialogExt, MessageDialogKind, MessageDialogButtons};
-use image::{insert_image_from_clipboard, insert_image_from_file};
+use image::{insert_image_from_clipboard, insert_image_from_file, insert_image_from_path};
+use dropped::classify_dropped_files;
 
 struct StartupFile(std::sync::Mutex<Option<String>>);
 
@@ -158,7 +160,9 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             save, open, save_as, 
             save_tab, open_in_tab, save_tab_as, open_file_by_path, rename_tab_file,
-            insert_image_from_file, insert_image_from_clipboard, 
+            insert_image_from_file, insert_image_from_clipboard, insert_image_from_path,
+            classify_dropped_files,
+            
             editor_changed, confirm_discard_changes,
             create_tab, remove_tab, is_tab_changed, confirm_close_tab,
             is_tab_saved_to_disk, get_settings, update_settings,

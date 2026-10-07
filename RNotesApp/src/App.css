@@ -153,6 +153,14 @@ h1 {
   text-align: center;
 }
 
+[data-slate-editor] {
+  text-align: start;
+}
+
+[data-slate-editor] :is(h1, h2, h3, h4) {
+  text-align: start;
+}
+
 input,
 button {
   border-radius: 8px;

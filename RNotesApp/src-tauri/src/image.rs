@@ -89,3 +89,28 @@ pub fn insert_image_from_clipboard(state: tauri::State<Config>) -> Result<String
 
     Ok(dest_path.to_string_lossy().to_string())
 }
+
+pub fn image_extension_of(header: &[u8]) -> Option<&'static str> {
+    match image::guess_format(header).ok()? {
+        ImageFormat::Png => Some("png"),
+        ImageFormat::Jpeg => Some("jpg"),
+        ImageFormat::Gif => Some("gif"),
+        ImageFormat::WebP => Some("webp"),
+        ImageFormat::Bmp => Some("bmp"),
+        _ => None,
+    }
+}
+
+#[tauri::command]
+pub fn insert_image_from_path(tab_id: String, source_path: String, state: tauri::State<Config>) -> Result<String, String> {
+    let source = PathBuf::from(&source_path);
+    let bytes = std::fs::read(&source).map_err(|e| format!("Error reading image: {}", e))?;
+    let extension = image_extension_of(&bytes).ok_or_else(|| crate::file_handler::NOT_A_DOCUMENT.to_string())?;
+
+    let save_path = state.get_tab_info(&tab_id).map(|t| t.save_path).unwrap_or_default();
+    let images_dir = get_images_dir(&save_path)?;
+    let dest_path = images_dir.join(format!("{}.{}", Uuid::new_v4(), extension));
+
+    std::fs::write(&dest_path, &bytes).map_err(|e| format!("Error copying image: {}", e))?;
+    Ok(dest_path.to_string_lossy().to_string())
+}

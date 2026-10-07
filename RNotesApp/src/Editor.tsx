@@ -1,6 +1,6 @@
 import { useTranslation } from 'react-i18next';
 import { useState, useMemo, useCallback, useEffect, useLayoutEffect, useRef } from "react";
-import { createEditor, Descendant, BaseEditor, Transforms, Editor, Element as SlateElement, Range as SlateRange, NodeEntry, Text } from "slate";
+import { createEditor, Descendant, BaseEditor, Transforms, Editor, Element as SlateElement, Range as SlateRange, NodeEntry, Text, Node as SlateNode } from "slate";
 
 import {
   Slate,
@@ -24,6 +24,8 @@ import CheckItemElement from "./components/CheckItem";
 import SpellingReview, { useRuleLabel } from "./components/SpellingReview";
 import DictionarySettings from "./components/DictionarySettings";
 import StatusBar from "./components/StatusBar";
+import DropOverlay, { type DroppedFile } from "./components/DropOverlay";
+import { describeOpenError } from "./services/openErrors";
 import TitleBar, { Tab } from "./components/TitleBar";
 import Settings, { AppSettings, applyTheme, defaultSettings, ViewMode } from "./components/Settings";
 import PageView, { EditableSurfaceProps } from "./components/PageView";
@@ -1281,7 +1283,10 @@ const MySlateEditor = () => {
 
   async function open() {
     try {
-      const [loadedDocument, loadedName, meta] = await invoke<Data>("open_in_tab", { tabId: activeTabId });
+      const [loadedDocument, loadedName, meta] = await invoke<Data>("open_in_tab", {
+        tabId: activeTabId,
+        allLabel: t("All supported files"),
+      });
       isInitialMount.current = true;
       updateTab({ 
         value: loadedDocument, 
@@ -1296,10 +1301,91 @@ const MySlateEditor = () => {
       });
     } catch (error) {
       if (error !== "The operation was cancelled") {
-        notify(String(error), t("Could not open file"));
+        notify(describeOpenError(error, t), t("Could not open file"));
       }
     }
   }
+
+
+  const handleDroppedFiles = async (files: DroppedFile[]) => {
+    const failures: string[] = [];
+    const refused = t("This file isn't a document RNotes can open.");
+
+    for (const file of files.filter(f => f.kind === 'unsupported')) {
+      failures.push(`${file.name}: ${refused}`);
+    }
+
+    for (const file of files.filter(f => f.kind === 'image')) {
+      try {
+        const path = await invoke<string>("insert_image_from_path", { tabId: activeTabId, sourcePath: file.path });
+        insertImage(editor, path);
+      } catch (error) {
+        failures.push(`${file.name}: ${describeOpenError(error, t)}`);
+      }
+    }
+
+    const documents = files.filter(f => f.kind === 'document');
+    if (documents.length) {
+      const currentIsEmpty =
+        editor.children.length === 1 &&
+        SlateElement.isElement(editor.children[0]) &&
+        editor.children[0].type === 'paragraph' &&
+        SlateNode.string(editor.children[0]) === '';
+      const currentIsUnsaved = currentIsEmpty
+        ? !(await invoke<boolean>("is_tab_saved_to_disk", { tabId: activeTabId }).catch(() => true))
+        : false;
+      let mayReplaceCurrent = currentIsEmpty && currentIsUnsaved;
+
+      let counter = tabCounter;
+      const opened: TabData[] = [];
+      let replacement: TabData | null = null;
+
+      for (const file of documents) {
+        const useCurrent = mayReplaceCurrent;
+        const tabId = useCurrent ? activeTabId : `tab-${++counter}`;
+        try {
+          if (!useCurrent) await invoke("create_tab", { tabId });
+          const [loadedDocument, loadedName, meta] = await invoke<Data>("open_file_by_path", { tabId, filePath: file.path });
+          const tab: TabData = {
+            id: tabId,
+            name: loadedName,
+            value: loadedDocument,
+            changed: false,
+            key: Date.now() + counter,
+            viewMode: meta.view_mode === 'document' ? 'document' : 'notepad',
+            headerEnabled: meta.header_enabled,
+            footerEnabled: meta.footer_enabled,
+            headerText: meta.header_text,
+            footerText: meta.footer_text,
+          };
+          if (useCurrent) {
+            replacement = tab;
+            mayReplaceCurrent = false;
+          } else {
+            opened.push(tab);
+          }
+        } catch (error) {
+          if (!useCurrent) await invoke("remove_tab", { tabId }).catch(() => {});
+          failures.push(`${file.name}: ${describeOpenError(error, t)}`);
+        }
+      }
+
+      setTabCounter(counter);
+      const replaced = replacement;
+      if (replaced || opened.length) {
+        setTabs(previous => [
+          ...previous.map(tab => (replaced && tab.id === replaced.id ? replaced : tab)),
+          ...opened,
+        ]);
+        isInitialMount.current = true;
+        setActiveTabId(opened.length ? opened[opened.length - 1].id : replaced!.id);
+      }
+    }
+
+    if (failures.length) {
+      notify(failures.join("\n"), t("Some files could not be opened"));
+    }
+  };
 
   async function newDocument() {
     await handleNewTab();
@@ -1664,6 +1750,7 @@ const MySlateEditor = () => {
           </Slate>
         </div>
       </div>
+      <DropOverlay onDrop={handleDroppedFiles} />
       <StatusBar
         characterCount={characterCount}
         line={cursorPosition.line}
