@@ -11,7 +11,7 @@ mod spellcheck;
 mod splash;
 mod tray;
 mod dropped;
-use file_handler::{open, save, save_as, open_in_tab, save_tab, save_tab_as, export_to_file, open_file_by_path, rename_tab_file};
+use file_handler::{open_in_tab, save_tab, save_tab_as, export_to_file, open_file_by_path, rename_tab_file};
 use pdf_export::{export_to_pdf, print_pdf};
 use session::{save_session, get_session};
 use markdown::parse_markdown;
@@ -158,7 +158,6 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
-            save, open, save_as, 
             save_tab, open_in_tab, save_tab_as, open_file_by_path, rename_tab_file,
             insert_image_from_file, insert_image_from_clipboard, insert_image_from_path,
             classify_dropped_files,

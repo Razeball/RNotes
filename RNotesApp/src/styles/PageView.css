@@ -162,15 +162,7 @@
   object-fit: contain;
 }
 
-/*
- * A table has no equivalent single property, and every scaling scheme tried fed back into its own
- * measurement (shrink the font, the height changes, the scale changes...). Containing it with an
- * internal scroll is stable and lossless: nothing is drawn outside the sheet and no cell is dropped.
- * Real scaling here needs row-level pagination — see CLAUDE.md.
- */
-[data-pv-oversized='table'] {
-  overflow: auto;
-}
+/* Tables are never capped: they continue on the next sheet between rows (Table.css). */
 
 .pv-page-count-label {
   text-align: center;

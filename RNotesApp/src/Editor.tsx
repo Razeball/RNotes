@@ -199,7 +199,7 @@ const Element = ({ attributes, children, element }: RenderElementProps) => {
       );
     case "table-cell":
       return (
-        <td {...attributes} style={{ border: '1px solid var(--rn-line)', padding: '8px' }}>
+        <td {...attributes} className="rn-table-cell">
           {children}
         </td>
       );
@@ -530,12 +530,31 @@ const MySlateEditor = () => {
         return;
       }
 
-      if (e.ctrlKey){
-        switch (e.key){
+      // AltGr arrives as Ctrl+Alt on Windows, and on many layouts it types characters (Polish
+      // AltGr+S is "ś"); a shortcut must never swallow a letter someone is writing.
+      if (e.ctrlKey && !e.getModifierState('AltGraph')) {
+        // Lower-cased so Caps Lock does not switch every shortcut off: with it on, `e.key` is "S".
+        const key = e.key.toLowerCase();
+
+        // Save As answers to both Ctrl+Shift+S and Ctrl+Alt+S. It is checked first because the plain
+        // switch below would otherwise take the "s" and run Save — which is what Ctrl+Alt+S did.
+        if (key === 's' && (e.shiftKey || e.altKey)) {
+          e.preventDefault();
+          saveAs();
+          return;
+        }
+        // The rest are plain Ctrl shortcuts. Shift and Alt combinations stay free, as they were
+        // before lower-casing made them match.
+        if (e.shiftKey || e.altKey) return;
+
+        switch (key){
           case 's':
-          save();
-          break;
+            // Without it the webview's own "save page" can fire as well.
+            e.preventDefault();
+            save();
+            break;
           case 'o':
+            e.preventDefault();
             open();
             break;
           case 'n':
@@ -570,9 +589,6 @@ const MySlateEditor = () => {
             updateTab({ viewMode: activeTab.viewMode === 'document' ? 'notepad' : 'document' });
             break;
         }
-      }
-      else if (e.ctrlKey && e.altKey && e.ctrlKey === 's'){
-        saveAs();
       }
     }
 
@@ -671,7 +687,7 @@ const MySlateEditor = () => {
       if (file.type.startsWith('image/')) {
         event.preventDefault();
         try {
-          const filePath = await invoke<string>("insert_image_from_clipboard");
+          const filePath = await invoke<string>("insert_image_from_clipboard", { tabId: activeTabId });
           insertImage(editor, filePath);
         } catch (error) {
           console.error("Error pasting image:", error);
@@ -703,7 +719,7 @@ const MySlateEditor = () => {
       if (items[i].type.startsWith('image/')) {
         event.preventDefault();
         try {
-          const filePath = await invoke<string>("insert_image_from_clipboard");
+          const filePath = await invoke<string>("insert_image_from_clipboard", { tabId: activeTabId });
           insertImage(editor, filePath);
         } catch (error) {
           console.error("Error pasting image:", error);
@@ -711,7 +727,7 @@ const MySlateEditor = () => {
         return;
       }
     }
-  }, [editor]);
+  }, [editor, activeTabId]);
 
   
   const renderElement = useCallback(
@@ -1447,7 +1463,7 @@ const MySlateEditor = () => {
     { id: 'new', label: t("New"), tooltip: t("Create a new document"), shortcut: 'Ctrl+N' },
     { id: 'open', label: t("Open"), tooltip: t("Open an existing document"), shortcut: 'Ctrl+O', divider: true },
     { id: 'save', label: t("Save"), tooltip: t("Save the current document"), shortcut: 'Ctrl+S' },
-    { id: 'saveAs', label: t("Save As"), tooltip: t("Save the document as a new file"), shortcut: 'Ctrl+Alt+S', divider: true },
+    { id: 'saveAs', label: t("Save As"), tooltip: t("Save the document as a new file"), shortcut: 'Ctrl+Shift+S', divider: true },
     { id: 'export', label: t("Export"), submenu: makeFormatSubmenu(handleExportFormat), divider: true },
     { id: 'print', label: t("Print"), tooltip: t("Print the document"), shortcut: 'Ctrl+P', divider: true },
     { id: 'settings', label: t("Settings"), tooltip: t("Open application settings") },
@@ -1685,7 +1701,7 @@ const MySlateEditor = () => {
         onReorder={handleTabReorder}
       />
       <div className="miscellaneous-bar">
-        <Miscellaneousbar loadDocumentName={getDocumentName} onCommitDocumentName={handleCommitDocumentName} documentName={activeTab.name} editor={editor} editorVersion={editorVersion} onToolSelect={(tool) => tool === 'spelling' ? setSpellingReviewOpen(true) : setDictionaryOpen(true)}>    
+        <Miscellaneousbar loadDocumentName={getDocumentName} onCommitDocumentName={handleCommitDocumentName} documentName={activeTab.name} editor={editor} tabId={activeTabId} editorVersion={editorVersion} onToolSelect={(tool) => tool === 'spelling' ? setSpellingReviewOpen(true) : setDictionaryOpen(true)}>    
           <ActionDropdown
           items={fileMenuItems}
           onSelect={handleFileAction}

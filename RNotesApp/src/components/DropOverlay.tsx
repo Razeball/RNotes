@@ -32,7 +32,14 @@ export default function DropOverlay({ onDrop }: { onDrop: (files: DroppedFile[])
         paths.map((path) => ({ path, name: path, kind: 'unsupported' as const })),
       )
 
-    getCurrentWebview()
+    let webview: ReturnType<typeof getCurrentWebview>
+    try {
+      webview = getCurrentWebview()
+    } catch {
+      return
+    }
+
+    webview
       .onDragDropEvent(async (event) => {
         const payload = event.payload
         if (payload.type === 'enter') {

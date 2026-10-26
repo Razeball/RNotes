@@ -24,10 +24,10 @@ pub fn get_images_dir(save_path: &PathBuf) -> Result<PathBuf, String> {
     Ok(images_dir)
 }
 
+/// The image goes next to the document of the tab it is inserted into, so that tab is passed in.
 #[tauri::command]
-pub fn insert_image_from_file(state: tauri::State<Config>) -> Result<String, String> {
-    let active_tab = state.active_tab.read().unwrap().clone();
-    let tab_info = state.get_tab_info(&active_tab);
+pub fn insert_image_from_file(tab_id: String, state: tauri::State<Config>) -> Result<String, String> {
+    let tab_info = state.get_tab_info(&tab_id);
     let save_path = tab_info.map(|t| t.save_path).unwrap_or_default();
     
     if let Some(source_path) = FileDialog::new()
@@ -56,9 +56,8 @@ pub fn insert_image_from_file(state: tauri::State<Config>) -> Result<String, Str
 }
 
 #[tauri::command]
-pub fn insert_image_from_clipboard(state: tauri::State<Config>) -> Result<String, String> {
-    let active_tab = state.active_tab.read().unwrap().clone();
-    let tab_info = state.get_tab_info(&active_tab);
+pub fn insert_image_from_clipboard(tab_id: String, state: tauri::State<Config>) -> Result<String, String> {
+    let tab_info = state.get_tab_info(&tab_id);
     let save_path = tab_info.map(|t| t.save_path).unwrap_or_default();
     
     let mut clipboard = Clipboard::new()

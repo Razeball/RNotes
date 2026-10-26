@@ -17,10 +17,12 @@ export type MiscellaneousbarProps = {
     onCommitDocumentName?: (name: string) => void
     documentName: string
     editor: BaseEditor & ReactEditor & HistoryEditor
+    /** The tab being edited: an inserted image is copied next to that tab's document. */
+    tabId: string
     editorVersion?: number
     onToolSelect?: (tool: 'spelling' | 'dictionary') => void
 }
-export default function Miscellaneousbar({children, loadDocumentName, onCommitDocumentName, documentName, editor, editorVersion, onToolSelect} : MiscellaneousbarProps) {
+export default function Miscellaneousbar({children, loadDocumentName, onCommitDocumentName, documentName, editor, tabId, editorVersion, onToolSelect} : MiscellaneousbarProps) {
   const { t } = useTranslation();
   
   const formatOptions: { value: 'quote' | 'code' | 'crossedOut' | 'highlight' | 'link', label: string, shortcut: string, tooltip: string }[] = [
@@ -204,7 +206,7 @@ export default function Miscellaneousbar({children, loadDocumentName, onCommitDo
 
   const handleInsertImage = async () => {
     try {
-      const filePath = await invoke<string>("insert_image_from_file");
+      const filePath = await invoke<string>("insert_image_from_file", { tabId });
       insertImage(editor, filePath);
       ReactEditor.focus(editor);
     } catch (error) {

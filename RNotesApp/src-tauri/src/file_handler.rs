@@ -71,57 +71,6 @@ fn extract_plain_text(nodes: &[Node]) -> String {
 }
 
 #[tauri::command]
-pub fn save(document: Vec<Node>, document_name: String, meta: Option<DocumentMeta>, state: tauri::State<Config>) -> Result<String, String> {
-    println!("Received document with {} nodes", document.len());
-    let doc_meta = meta.unwrap_or_default();
-    let active_tab = state.active_tab.read().unwrap().clone();
-    let tab_info = state.get_tab_info(&active_tab);
-    
-    if let Some(info) = tab_info {
-        let save_path = info.save_path;
-        let wrapper = JsonDocumentWrapper { meta: doc_meta.clone(), nodes: document.clone() };
-        let json_str = serde_json::to_string_pretty(&wrapper)
-            .map_err(|e| format!("Serialize error: {}", e))?;
-        if !save_path.as_os_str().is_empty() {
-            match save_path.extension().and_then(|e| e.to_str()) {
-                Some("rdocx") => {
-                    let binary_data = encode_document_with_meta(&document, &doc_meta)
-                        .map_err(|e| format!("Encode error: {}", e))?;
-                    std::fs::write(&save_path, binary_data).expect("There was an error trying to save");
-                }
-                Some("txt") => {
-                    std::fs::write(&save_path, extract_plain_text(&document)).expect("There was an error trying to save");
-                }
-                Some("md") => {
-                    std::fs::write(&save_path, to_markdown(&document)).expect("There was an error trying to save");
-                }
-                _ => {
-                    std::fs::write(&save_path, json_str.as_bytes()).expect("There was an error trying to save");
-                }
-            }
-            state.set_tab_changed(&active_tab, false);
-            println!("file saved successfully in {:?}", &save_path);
-            return Ok(format!("file saved successfully in {:?}", &save_path));
-        }
-        else {
-            return create_file_for_tab(extract_plain_text(&document), json_str, &document, &doc_meta, document_name, &active_tab, &state);
-        }
-    }
-    Err("Tab not found".to_string())
-}
-
-#[tauri::command]
-pub fn save_as(document: Vec<Node>, document_name: String, meta: Option<DocumentMeta>, state: tauri::State<Config>) -> Result<String, String>{
-    println!("Received document with {} nodes", document.len());
-    let doc_meta = meta.unwrap_or_default();
-    let wrapper = JsonDocumentWrapper { meta: doc_meta.clone(), nodes: document.clone() };
-    let json_str = serde_json::to_string_pretty(&wrapper)
-        .map_err(|e| format!("Serialize error: {}", e))?;
-    let active_tab = state.active_tab.read().unwrap().clone();
-    return create_file_for_tab(extract_plain_text(&document), json_str, &document, &doc_meta, document_name, &active_tab, &state);
-}
-
-#[tauri::command]
 pub fn save_tab(document: Vec<Node>, document_name: String, tab_id: String, meta: Option<DocumentMeta>, state: tauri::State<Config>) -> Result<String, String> {
     let doc_meta = meta.unwrap_or_default();
     println!("Saving tab {} with {} nodes", tab_id, document.len());
@@ -435,29 +384,6 @@ pub fn export_to_file(document: Vec<Node>, document_name: String, format: String
         Ok(format!("Exported successfully to {:?}", &path))
     } else {
         Ok("The operation was cancelled".to_string())
-    }
-}
-#[tauri::command]
-pub fn open(state: tauri::State<Config>) -> Result<(Vec<Node>, String, DocumentMeta), String> {
-    let active_tab = state.active_tab.read().unwrap().clone();
-    
-    if let Some(path) = FileDialog::new()
-        .set_title("Open File")
-        .set_directory(".")
-        .add_filter("All supported files", &DOCUMENT_EXTENSIONS)
-        .add_filter("RNotes Document", &["rdocx"])
-        .add_filter("RichText", &["json"])
-        .add_filter("Text", &["txt"])
-        .add_filter("Markdown", &["md"])
-        .pick_file()
-    {
-        let result = load_file_from_path(&path)?;
-        state.set_tab_path(&active_tab, path.clone());
-        state.set_tab_changed(&active_tab, false);
-        return Ok(result);
-    } else {
-        println!("The operation was cancelled");
-        return Err("The operation was cancelled".to_string());
     }
 }
 #[cfg(test)]

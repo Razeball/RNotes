@@ -54,6 +54,9 @@ export interface PageGeometry {
 export type PageBreak =
   | { kind: 'block'; blockIndex: number; gapPx: number; y: number }
   | { kind: 'line'; blockIndex: number; point: Point; gapPx: number; y: number }
+  | { kind: 'row'; blockIndex: number; rowIndex: number; gapPx: number; y: number }
+
+export const ROW_GAP_ATTR = 'data-pv-row-gap'
 
 export interface OversizedBlock {
   blockIndex: number
@@ -82,15 +85,18 @@ interface FlowUnit extends LineEntry {
   /** Position within its block; 0 means the unit starts the block. */
   lineInBlock: number
   unbreakable: boolean
+  /** Set when the unit is a table row, which is the only way a table is ever split. */
+  rowIndex?: number
 }
 
-/**
- * Blocks we refuse to split mid-way. Images are Slate voids and tables would need row-level
- * pagination, which is a separate piece of work.
- */
 function isUnbreakable(el: HTMLElement): boolean {
   if (el.dataset.slateVoid === 'true') return true
-  return el.querySelector('table, img') !== null
+  return el.querySelector('img') !== null && el.querySelector('table') === null
+}
+
+function tableRows(el: HTMLElement): HTMLTableRowElement[] | null {
+  const table = el.querySelector('table')
+  return table ? Array.from(table.rows) : null
 }
 
 interface CacheEntry {
@@ -128,6 +134,25 @@ function buildUnits(
     if (rect.height === 0) return
 
     const blockTop = (rect.top - originTop) / scale
+
+    // A table is paginated row by row. 
+    const rows = tableRows(child)
+    if (rows && rows.length > 0) {
+      rows.forEach((row, rowIndex) => {
+        const rowRect = row.getBoundingClientRect()
+        units.push({
+          start: fallback,
+          resolved: false,
+          blockIndex,
+          top: (rowRect.top - originTop) / scale,
+          height: rowRect.height / scale,
+          lineInBlock: rowIndex,
+          unbreakable: true,
+          rowIndex,
+        })
+      })
+      return
+    }
 
     if (isUnbreakable(child)) {
       units.push({
@@ -200,6 +225,16 @@ function collectAppliedGaps(editable: HTMLElement, originTop: number, scale: num
     })
   }
 
+  // A table continued on the next sheet
+  for (const row of Array.from(editable.querySelectorAll<HTMLElement>(`[${ROW_GAP_ATTR}]`))) {
+    const declared = parseFloat(row.getAttribute(ROW_GAP_ATTR) ?? '')
+    if (!Number.isFinite(declared) || declared <= 0) continue
+    gaps.push({
+      top: (row.getBoundingClientRect().top - originTop) / scale - declared,
+      height: declared,
+    })
+  }
+
   return gaps.sort((a, b) => a.top - b.top)
 }
 
@@ -242,7 +277,11 @@ export function paginate(
     //
     // The `>=` matters: once the cap is applied the block measures exactly one sheet, and a strict
     // `>` would drop it from the list, un-cap it, and oscillate forever.
-    if (unit.unbreakable && unit.height >= usableHeight - EPSILON) {
+    //
+    // Table rows are left out: capping the block would cap the whole table again, which is the
+    // scroll box this replaced. A single row taller than a sheet is as pathological as a line that
+    // is, and is let overflow the same way.
+    if (unit.unbreakable && unit.rowIndex === undefined && unit.height >= usableHeight - EPSILON) {
       oversized.push({ blockIndex: unit.blockIndex, maxHeightPx: usableHeight })
     }
     const effectiveHeight = Math.min(unit.height, usableHeight)
@@ -253,7 +292,11 @@ export function paginate(
 
     // A line break needs a trustworthy point. When the offset could not be resolved we fall back to
     // moving the whole block, which is less pretty but never puts the gap in the wrong place.
-    if (!allowLineBreaks || unit.lineInBlock === 0 || !unit.resolved) {
+    if (unit.rowIndex !== undefined && unit.rowIndex > 0) {
+      // Not the first row: the table continues on the next sheet from this row on. When it *is*
+      // the first row the whole table moves, which is the ordinary block break below.
+      breaks.push({ kind: 'row', blockIndex: unit.blockIndex, rowIndex: unit.rowIndex, gapPx, y: unit.top })
+    } else if (!allowLineBreaks || unit.lineInBlock === 0 || !unit.resolved) {
       breaks.push({ kind: 'block', blockIndex: unit.blockIndex, gapPx, y: unit.top })
     } else {
       breaks.push({ kind: 'line', blockIndex: unit.blockIndex, point: unit.start, gapPx, y: unit.top })
@@ -267,7 +310,11 @@ export function paginate(
   return {
     breaks,
     oversized,
-    lines: units.map(({ lineInBlock: _lineInBlock, unbreakable: _unbreakable, ...line }) => line),
+    // One entry per table, as before rows became units: Ln/Col counts a table as one line, and the
+    // rows have no resolvable start point of their own to report anyway.
+    lines: units
+      .filter((unit) => !unit.rowIndex)
+      .map(({ lineInBlock: _lineInBlock, unbreakable: _unbreakable, rowIndex: _rowIndex, ...line }) => line),
     pageCount,
     flowHeight: pageCount * usableHeight + (pageCount - 1) * chromeHeight,
   }

@@ -3,7 +3,7 @@ import React, { useState, useRef, useEffect, useCallback, useLayoutEffect } from
 import { Editable, RenderElementProps, RenderLeafProps, useSlateStatic } from 'slate-react';
 import { Range as SlateRange, NodeEntry } from 'slate';
 import { getPageModel, getContentHeight, type PageSize } from '../models/pageModel';
-import { paginate, type PaginationResult, type PageBreak } from '../services/pagination';
+import { paginate, ROW_GAP_ATTR, type PaginationResult, type PageBreak } from '../services/pagination';
 import type { EditorInstance } from '../editorActions';
 import '../styles/PageView.css';
 
@@ -65,6 +65,45 @@ function applyBlockBreaks(editable: HTMLElement, breaks: PageBreak[]) {
   });
 }
 
+function applyRowBreaks(editable: HTMLElement, breaks: PageBreak[]) {
+  const gapsByBlock = new Map<number, Map<number, number>>();
+  for (const item of breaks) {
+    if (item.kind !== 'row') continue;
+    const rows = gapsByBlock.get(item.blockIndex) ?? new Map<number, number>();
+    rows.set(item.rowIndex, item.gapPx);
+    gapsByBlock.set(item.blockIndex, rows);
+  }
+
+  const children = Array.from(editable.children) as HTMLElement[];
+  children.forEach((child, index) => {
+    const table = child.querySelector('table');
+    if (!table) return;
+
+    const gaps = gapsByBlock.get(index);
+    let shift = 0;
+    Array.from(table.rows).forEach((row, rowIndex) => {
+      const gap = gaps?.get(rowIndex);
+      if (gap != null) {
+        shift += gap;
+        row.setAttribute(ROW_GAP_ATTR, String(gap));
+      } else {
+        row.removeAttribute(ROW_GAP_ATTR);
+      }
+      row.style.transform = shift > 0 ? `translateY(${shift}px)` : '';
+    });
+
+    if (shift > 0) {
+      child.style.paddingBottom = `${shift}px`;
+      child.style.setProperty('--pv-table-shift', `${shift}px`);
+      child.dataset.pvRowShift = 'true';
+    } else if (child.dataset.pvRowShift) {
+      child.style.paddingBottom = '';
+      child.style.removeProperty('--pv-table-shift');
+      delete child.dataset.pvRowShift;
+    }
+  });
+}
+
 /**
  * Caps the block so it can be only be smaller than the whole sheet and is purely visual.
  */
@@ -76,7 +115,8 @@ function applyOversized(editable: HTMLElement, result: PaginationResult) {
     const plimit = page_limits.get(i);
     if (plimit != null) {
       child.style.setProperty('--pv-max-block-height', `${plimit.maxHeightPx}px`);
-      child.dataset.pvOversized = child.querySelector('table') ? 'table' : 'image';
+      // Only images get here: a table is split between rows instead of capped.
+      child.dataset.pvOversized = 'image';
     } else if (child.dataset.pvOversized) {
       child.style.removeProperty('--pv-max-block-height');
       delete child.dataset.pvOversized;
@@ -124,6 +164,7 @@ const PageView: React.FC<PageViewProps> = ({
     
     if (printing) {
       applyBlockBreaks(editable, []);
+      applyRowBreaks(editable, []);
       return;
     }
 
@@ -134,6 +175,7 @@ const PageView: React.FC<PageViewProps> = ({
     });
 
     applyBlockBreaks(editable, result.breaks);
+    applyRowBreaks(editable, result.breaks);
     applyOversized(editable, result);
 
     // The index changes so it has to been put unconditionally

@@ -234,7 +234,6 @@ impl TabInfo {
 
 pub struct Config {
     pub tabs: Arc<RwLock<HashMap<String, TabInfo>>>,
-    pub active_tab: Arc<RwLock<String>>,
     pub settings: Arc<RwLock<AppSettings>>,
 }
 
@@ -246,7 +245,6 @@ impl Config {
         
         Config { 
             tabs: Arc::new(RwLock::new(tabs)),
-            active_tab: Arc::new(RwLock::new(initial_tab_id)),
             settings: Arc::new(RwLock::new(AppSettings::load())),
         }
     }

@@ -3,6 +3,7 @@ import { Transforms, Editor } from "slate";
 import Popup from "./Popup";
 import { useTranslation } from "react-i18next";
 import { CustomElement, CustomText } from "../Editor";
+import '../styles/Table.css';
 
 export const TableElement = ({ attributes, children, element }: RenderElementProps) => {
   const { t } = useTranslation();
@@ -240,7 +241,7 @@ export const TableElement = ({ attributes, children, element }: RenderElementPro
                     delay={100}
                     interactive={true}
                   >
-                    <table style={{ borderCollapse: 'collapse', width: '80%', minWidth: '400px', maxWidth: '900px', tableLayout: 'fixed'}}>
+                    <table className="rn-table" style={{ width: '80%', minWidth: '400px', maxWidth: '900px', tableLayout: 'fixed'}}>
                       <tbody>
                         {children}
                       </tbody>
