@@ -7,6 +7,7 @@ import { getVersion } from '@tauri-apps/api/app';
 import Modal from './Modal';
 import { ReleaseContentDialog } from './ReleaseNotes';
 import { bundledReleaseNotes, fetchReleaseNotes, storeReleaseNotes } from '../services/updateNotes';
+import { notesForLanguage } from '../services/changelog';
 import '../styles/UpdateChecker.css';
 
 type UpdateState = 'checking' | 'available' | 'downloading' | 'idle' | 'error' | 'post-update';
@@ -18,7 +19,7 @@ interface ChangelogStartup {
 }
 
 export default function UpdateChecker() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const [state, setState] = useState<UpdateState>('checking');
   const [update, setUpdate] = useState<Update | null>(null);
   const [progress, setProgress] = useState(0);
@@ -153,7 +154,7 @@ export default function UpdateChecker() {
             {releaseNotes && (
               <div className="update-release-notes">
                 <p className="update-release-notes-title">{t("What's New:")}</p>
-                <pre className="update-release-notes-body">{releaseNotes}</pre>
+                <pre className="update-release-notes-body">{notesForLanguage(releaseNotes, i18n.language)}</pre>
               </div>
             )}
             <div className="update-actions">

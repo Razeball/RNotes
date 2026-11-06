@@ -43,7 +43,7 @@ const MySlateEditor = () => {
   const { t } = useTranslation();
   const { settings, setSettings, settingsRef } = useAppSettings();
   const {
-    tabs, setTabs,
+    setTabs,
     activeTabId, setActiveTabId,
     tabCounter, setTabCounter,
     isInitialMount,
@@ -135,7 +135,6 @@ const MySlateEditor = () => {
   });
   useGlobalShortcuts({
     editor,
-    tabs,
     activeTab,
     activeTabId,
     save,

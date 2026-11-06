@@ -1,7 +1,7 @@
 import { useTranslation } from 'react-i18next'
 import Modal from './Modal'
 import WaveText from './WaveText'
-import { parseReleaseNotes, type ChangeKind, type Changelog } from '../services/changelog'
+import { notesForLanguage, parseReleaseNotes, type ChangeKind, type Changelog } from '../services/changelog'
 import '../styles/UpdateChecker.css'
 
 
@@ -20,8 +20,8 @@ export function ReleaseContentDialog({
   release_body: string
   version: string
 }) {
-  const { t } = useTranslation()
-  const changelog = parseReleaseNotes(body, version)
+  const { t, i18n } = useTranslation()
+  const changelog = parseReleaseNotes(notesForLanguage(body, i18n.language), version)
 
   return (
     <Modal

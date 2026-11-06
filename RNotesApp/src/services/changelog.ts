@@ -11,10 +11,46 @@ export interface Changelog {
   plain: string[]
 }
 
-const KINDS: ChangeKind[] = ['added', 'fixed', 'changed', 'deleted']
+const KEYWORDS: Record<string, ChangeKind> = {
+  added: 'added',
+  fixed: 'fixed',
+  changed: 'changed',
+  deleted: 'deleted',
+  agregado: 'added',
+  corregido: 'fixed',
+  cambiado: 'changed',
+  eliminado: 'deleted',
+}
+const WORDS = Object.keys(KEYWORDS).join('|')
 
-const COLON_FORM = new RegExp(`\\b(${KINDS.join('|')})\\s*:`, 'gi')
-const BARE_FORM = new RegExp(`(?:^|[,.;:]\\s|[-*]\\s)\\s*(${KINDS.join('|')})\\b`, 'gim')
+const COLON_FORM = new RegExp(`\\b(${WORDS})\\s*:`, 'gi')
+const BARE_FORM = new RegExp(`(?:^|[,.;:]\\s|[-*]\\s)\\s*(${WORDS})\\b`, 'gim')
+
+/** `[en]`, `[es]`, `[pt-br]`… alone on its line. A task box (`[x]`) has one letter, so it is not one. */
+const LANGUAGE_TAG = /^[ \t]*\[([a-z]{2,3}(?:-[a-z0-9]+)?)\][ \t]*$/gim
+const FALLBACK_LANGUAGE = 'en'
+
+
+export function notesForLanguage(body: string, language: string): string {
+  const text = (body ?? '').replace(/\r\n/g, '\n')
+  const tags = [...text.matchAll(LANGUAGE_TAG)]
+  if (!tags.length) return body ?? ''
+
+  const blocks = tags.map((tag, i) => ({
+    language: tag[1].toLowerCase(),
+    text: text.slice(tag.index! + tag[0].length, i + 1 < tags.length ? tags[i + 1].index! : text.length).trim(),
+  }))
+  const wanted = (language || FALLBACK_LANGUAGE).toLowerCase()
+  const base = wanted.split('-')[0]
+  const chosen =
+    blocks.find((block) => block.language === wanted) ??
+    blocks.find((block) => block.language.split('-')[0] === base) ??
+    blocks.find((block) => block.language === FALLBACK_LANGUAGE) ??
+    blocks[0]
+
+  const preamble = text.slice(0, tags[0].index!).trim()
+  return preamble ? `${preamble}\n\n${chosen.text}` : chosen.text
+}
 
 const stripBulletList = (text: string) => text.replace(/^\s*[-*•]\s*/, '').trim()
 
@@ -40,7 +76,7 @@ export function parseReleaseNotes(body: string, fallbackVersion = ''): Changelog
   const sections: ChangeSection[] = []
   for (let i = 0; i < matches.length; i++) {
     const match = matches[i]
-    const kind = match[1].toLowerCase() as ChangeKind
+    const kind = KEYWORDS[match[1].toLowerCase()]
     const from = match.index! + match[0].length
     const to = i + 1 < matches.length ? matches[i + 1].index! : text.length
     const items = splitFeaturedItems(text.slice(from, to))
