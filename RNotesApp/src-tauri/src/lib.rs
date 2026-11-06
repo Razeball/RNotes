@@ -2,6 +2,7 @@ mod document_model;
 mod image;
 mod config;
 mod file_handler;
+mod format;
 mod encoder;
 mod decoder;
 mod pdf_export;

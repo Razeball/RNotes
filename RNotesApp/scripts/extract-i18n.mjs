@@ -46,12 +46,8 @@ function isNonCopyAttribute(name) {
 /** Functions whose string arguments end up on screen. */
 const MESSAGE_FUNCTIONS = new Set(['notify', 'alert', 'alertFn', 'showAlert', 'setErrorMsg'])
 
-/** Strings that are part of a contract, not copy. Translating any of these breaks the app. "The operation was cancelled" is the worst offender: Rust returns it as an Ok value and the frontend string-matches on it to tell a cancelled dialog from a real save. It reads exactly like a user-facing message, which is precisely why it needs calling out. */
-const PROTOCOL_STRINGS = new Set([
-  'The operation was cancelled',
-  'Operation cancelled',
-  '__PDF_REQUESTED__',
-])
+/** Strings that are part of a contract, not copy: translating one breaks the app. Empty since the save commands return a typed outcome — cancelling used to arrive as the string "The operation was cancelled" in `Ok`, which read exactly like copy. Kept so the next contract string has somewhere to go. */
+const PROTOCOL_STRINGS = new Set([])
 
 /** Reads like copy but is normally left verbatim: the product name, file-format names, units, symbols. Routed to review rather than dropped — whether Ln/Col get localised is a choice, not a fact, and some locales do translate the bold/italic button glyphs (Spanish Word uses N/K/S). Also includes common toolbar glyphs that are icons but happen to be letters like A for Bold, B for Bold Italic. Language names are always shown in their own language, never translated. */
 const LIKELY_VERBATIM = new Set([

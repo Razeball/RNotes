@@ -3,9 +3,9 @@ import { BaseEditor, Editor, Range } from 'slate'
 import { ReactEditor } from 'slate-react'
 import { HistoryEditor } from 'slate-history'
 import { Transforms, Text } from 'slate'
-import { useEffect, useState, useMemo } from 'react'
+import { useEffect, useState, useMemo, useRef } from 'react'
 import { invoke } from "@tauri-apps/api/core";
-import { insertImage} from '../Editor'
+import { insertImage } from '../editorActions'
 import { insertTable } from './Table'
 import Modal from './Modal'
 import ActionDropdown, { ActionDropdownItem } from './ActionDropdown'
@@ -22,6 +22,20 @@ export type MiscellaneousbarProps = {
     editorVersion?: number
     onToolSelect?: (tool: 'spelling' | 'dictionary') => void
 }
+/**
+ * Format shortcuts by *physical* key (`KeyboardEvent.code`), which is what the labels describe.
+ * Matching the produced character instead ties them to one layout: the old handler listened for
+ * "$", "%" and "^", which is Shift+4/5/6 on a US keyboard — on a Spanish one Shift+6 is "&", so
+ * the link shortcut never fired.
+ */
+const FORMAT_SHORTCUTS: Record<string, 'quote' | 'code' | 'crossedOut' | 'highlight' | 'link'> = {
+  KeyQ: 'quote',
+  Digit4: 'code',
+  Digit5: 'crossedOut',
+  KeyH: 'highlight',
+  Digit6: 'link',
+}
+
 export default function Miscellaneousbar({children, loadDocumentName, onCommitDocumentName, documentName, editor, tabId, editorVersion, onToolSelect} : MiscellaneousbarProps) {
   const { t } = useTranslation();
   
@@ -74,34 +88,6 @@ export default function Miscellaneousbar({children, loadDocumentName, onCommitDo
     setActiveFormats(active);
   }, [editor, selectionKey, marksKey, editorVersion]);
   
-   useEffect(() => {
-          const handleKeyDown = (e: KeyboardEvent) => {
-              if (e.altKey && e.shiftKey) {
-                  switch (e.key) {
-                      case 'Q':
-                          handleFormatSelect('quote')
-                          break;
-                      case '$':
-                          handleFormatSelect('code')
-                          break;
-                      case '%':
-                          handleFormatSelect('crossedOut')
-                          break;
-                      case 'H':
-                        handleFormatSelect('highlight')
-                        break;
-                      case '^':
-                        handleFormatSelect('link')
-                        break;
-                      default:
-                          break;
-                  }
-              }
-          };
-  
-          window.addEventListener("keydown", handleKeyDown);
-          return () => window.removeEventListener("keydown", handleKeyDown);
-      }, []);
 
   const handleFormatSelect = (format: 'quote' | 'code' | 'crossedOut' | 'highlight' | 'link') => {
     if (format === 'link') {
@@ -143,6 +129,26 @@ export default function Miscellaneousbar({children, loadDocumentName, onCommitDo
     )
     ReactEditor.focus(editor)
   }
+
+  // The window listener is registered once, so it reaches the handler through a ref that every render
+  // updates. It used to close over the first render's handler directly — and with it the editor of
+  // whichever tab was open then, so after a tab switch the shortcuts formatted a tab not on screen.
+  const formatShortcutRef = useRef(handleFormatSelect)
+  formatShortcutRef.current = handleFormatSelect
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Ctrl excluded: AltGr arrives as Ctrl+Alt on Windows, and AltGr+Shift types characters.
+      if (!e.altKey || !e.shiftKey || e.ctrlKey) return
+      const format = FORMAT_SHORTCUTS[e.code]
+      if (!format) return
+      e.preventDefault()
+      formatShortcutRef.current(format)
+    }
+
+    window.addEventListener("keydown", handleKeyDown)
+    return () => window.removeEventListener("keydown", handleKeyDown)
+  }, [])
 
   const applyLink = () => {
     if (!linkUrl) {
@@ -206,13 +212,12 @@ export default function Miscellaneousbar({children, loadDocumentName, onCommitDo
 
   const handleInsertImage = async () => {
     try {
-      const filePath = await invoke<string>("insert_image_from_file", { tabId });
+      const filePath = await invoke<string | null>("insert_image_from_file", { tabId });
+      if (!filePath) return; // the dialog was cancelled
       insertImage(editor, filePath);
       ReactEditor.focus(editor);
     } catch (error) {
-      if (error !== "Operation cancelled") {
-        notify(String(error), t("Could not insert image"));
-      }
+      notify(String(error), t("Could not insert image"));
     }
   }
 

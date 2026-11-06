@@ -1,51 +1,8 @@
 use crate::document_model::{Node, TextNode, TableRow, TableCell, ListItemNode, Alignment, ImageSize, DocumentMeta, ViewMode};
 use std::io::{Write, Result, Error, ErrorKind};
 
-// Magic bytes and version
-const MAGIC: &[u8; 3] = b"RDC";
-const VERSION: u8 = 4;
-
-// Node type constants
-const NODE_PARAGRAPH: u8 = 0x01;
-const NODE_HEADER: u8 = 0x02;
-const NODE_HEADER2: u8 = 0x03;
-const NODE_HEADER3: u8 = 0x04;
-const NODE_HEADER4: u8 = 0x05;
-const NODE_ULIST: u8 = 0x06;
-const NODE_OLIST: u8 = 0x07;
-const NODE_LIST_ITEM: u8 = 0x08;
-const NODE_IMAGE: u8 = 0x09;
-const NODE_TABLE: u8 = 0x0A;
-const NODE_TABLE_ROW: u8 = 0x0B;
-const NODE_TABLE_CELL: u8 = 0x0C;
-const NODE_CHECK: u8 = 0x0D;
-
-// Flag bit positions
-const FLAG_HAS_ALIGNMENT: u8 = 0;
-const FLAG_HAS_URL: u8 = 1;
-const FLAG_HAS_IMAGE_SIZE: u8 = 2;
-const FLAG_IMAGE_EMBEDDED: u8 = 3;
-const FLAG_HAS_CAPTION: u8 = 4;
-const FLAG_HAS_SUBTITLE: u8 = 5;
-const FLAG_HAS_TITLE: u8 = 6;
-// Bits 0-6 belong to image nodes and bits 4-5 carry the alignment, so the check state takes bit 7.
-const FLAG_CHECK_CHECKED: u8 = 7;
-
-// Image format constants
-const IMAGE_FORMAT_PNG: u8 = 0;
-const IMAGE_FORMAT_JPG: u8 = 1;
-const IMAGE_FORMAT_BMP: u8 = 2;
-const IMAGE_FORMAT_GIF: u8 = 3;
-const IMAGE_FORMAT_WEBP: u8 = 4;
-
-// Style flag bit positions
-const STYLE_BOLD: u8 = 0;
-const STYLE_ITALIC: u8 = 1;
-const STYLE_UNDERLINE: u8 = 2;
-const STYLE_CODE: u8 = 3;
-const STYLE_QUOTE: u8 = 4;
-const STYLE_CROSSED_OUT: u8 = 5;
-const STYLE_LINK: u8 = 6;
+// Every tag, flag bit and the version live in format.rs, shared with the other half.
+use crate::format::*;
 
 /// Encodes a document to the binary .rdocx format
 #[allow(dead_code)]

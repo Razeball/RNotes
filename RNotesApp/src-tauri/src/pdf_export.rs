@@ -1,6 +1,7 @@
 use tauri::{command, AppHandle, Manager};
 use std::path::PathBuf;
 use rfd::FileDialog;
+use crate::file_handler::SaveOutcome;
 
 #[cfg(windows)]
 fn webview_print_to_pdf(
@@ -98,7 +99,7 @@ pub async fn export_to_pdf(
     margin_left: f64,
     margin_right: f64,
     document_name: Option<String>,
-) -> Result<String, String> {
+) -> Result<SaveOutcome, String> {
     let file_name = document_name
         .filter(|n| !n.is_empty())
         .map(|n| format!("{}.pdf", n))
@@ -109,8 +110,10 @@ pub async fn export_to_pdf(
         .set_directory(".")
         .set_file_name(&file_name)
         .add_filter("PDF Document", &["pdf"])
-        .save_file()
-        .ok_or("The operation was cancelled")?;
+        .save_file();
+    let Some(path) = path else {
+        return Ok(SaveOutcome::Cancelled);
+    };
 
     let path_str = path
         .to_str()
@@ -123,7 +126,7 @@ pub async fn export_to_pdf(
     #[cfg(not(windows))]
     return Err("PDF export is only supported on Windows".to_string());
 
-    Ok(format!("PDF exported to {:?}", path))
+    Ok(SaveOutcome::Saved { path: path_str })
 }
 
 

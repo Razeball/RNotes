@@ -2,7 +2,7 @@ import { RenderElementProps, ReactEditor, useSlateStatic } from "slate-react";
 import { Transforms, Editor } from "slate";
 import Popup from "./Popup";
 import { useTranslation } from "react-i18next";
-import { CustomElement, CustomText } from "../Editor";
+import { CustomElement, CustomText } from "../editor/model";
 import '../styles/Table.css';
 
 export const TableElement = ({ attributes, children, element }: RenderElementProps) => {

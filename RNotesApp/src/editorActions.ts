@@ -1,6 +1,7 @@
 import { BaseEditor, Editor, Transforms, Text, Range, Element as SlateElement, Node } from 'slate'
 import { ReactEditor } from 'slate-react'
 import { HistoryEditor } from 'slate-history'
+import type { CustomElement, ImageSize } from './editor/model'
 
 export type EditorInstance = BaseEditor & ReactEditor & HistoryEditor
 
@@ -406,3 +407,14 @@ export const getSelectionInfo = (editor: EditorInstance): SelectionInfo => {
 
     return defaults
 }
+
+export const insertImage = (editor: ReactEditor, url: string, size: ImageSize = "original", alignment: "start" | "center" | "end" | "justify" = "center") => {
+    const image: CustomElement = {
+      type: "image", 
+      url,
+      size,
+      alignment,
+      children: [{text: ""}],
+    };
+    editor.insertNode(image);
+  };

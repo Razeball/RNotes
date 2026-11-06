@@ -2,7 +2,7 @@ import { Transforms } from 'slate'
 import { ReactEditor, useSlateStatic, type RenderElementProps } from 'slate-react'
 import { useTranslation } from 'react-i18next'
 import CheckButton from './CheckButton'
-import type { CustomElement } from '../Editor'
+import type { CustomElement } from '../editor/model'
 import '../styles/CheckItem.css'
 
 type CheckItemElementProps = {

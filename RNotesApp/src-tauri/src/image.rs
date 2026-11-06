@@ -26,7 +26,9 @@ pub fn get_images_dir(save_path: &PathBuf) -> Result<PathBuf, String> {
 
 /// The image goes next to the document of the tab it is inserted into, so that tab is passed in.
 #[tauri::command]
-pub fn insert_image_from_file(tab_id: String, state: tauri::State<Config>) -> Result<String, String> {
+/// `None` when the dialog was cancelled. It used to be `Err("Operation cancelled")` — a different
+/// string from every other command's, so the frontend matched it separately.
+pub fn insert_image_from_file(tab_id: String, state: tauri::State<Config>) -> Result<Option<String>, String> {
     let tab_info = state.get_tab_info(&tab_id);
     let save_path = tab_info.map(|t| t.save_path).unwrap_or_default();
     
@@ -49,9 +51,9 @@ pub fn insert_image_from_file(tab_id: String, state: tauri::State<Config>) -> Re
         std::fs::copy(&source_path, &dest_path)
             .map_err(|e| format!("Error copying image: {}", e))?;
 
-        Ok(dest_path.to_string_lossy().to_string())
+        Ok(Some(dest_path.to_string_lossy().to_string()))
     } else {
-        Err("Operation cancelled".to_string())
+        Ok(None)
     }
 }
 
