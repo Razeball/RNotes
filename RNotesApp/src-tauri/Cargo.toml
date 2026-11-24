@@ -33,7 +33,10 @@ serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 # Keeps the position of a bad node when a document from the frontend fails to deserialize.
 serde_path_to_error = "0.1"
-rfd = "0.14"
+# The same version and backend as tauri-plugin-dialog, so Cargo builds one copy. rfd's default
+# xdg-portal backend pulls in ashpd; 0.14 brought ashpd 0.8, which stopped compiling on stable Rust
+# (the never-type fallback change, rust-lang/rust#148922) and broke the Linux release build.
+rfd = { version = "0.16", default-features = false, features = ["gtk3", "common-controls-v6"] }
 uuid = { version = "1", features = ["v4"] }
 image = "0.25"
 arboard = "3"
