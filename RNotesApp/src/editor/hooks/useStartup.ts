@@ -3,6 +3,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { applyTheme, type AppSettings } from "../../components/Settings";
 import { activatePreferredUserLanguage } from "../../i18n";
 import type { LoadedDocument, TabData } from "../model";
+import { loadFontLibrary } from "../../services/fonts";
 
 /**
  * Runs once at launch: loads the settings from Rust, applies the theme and language, then reopens
@@ -20,6 +21,7 @@ export function useStartup({
   setTabCounter: Dispatch<SetStateAction<number>>;
 }) {
   useEffect(() => {
+    void loadFontLibrary();
     (async () => {
       try {
         const loaded = await invoke<any>("get_settings");

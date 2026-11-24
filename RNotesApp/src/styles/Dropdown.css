@@ -66,6 +66,12 @@
     background-color: var(--rn-bg-hover);
 }
 
+.value-dropdown-item.value-dropdown-action {
+    color: var(--rn-accent-text);
+    border-bottom: 1px solid var(--rn-line-subtle);
+    white-space: nowrap;
+}
+
 
 .action-dropdown-item {
     transition: background-color 0.08s ease;

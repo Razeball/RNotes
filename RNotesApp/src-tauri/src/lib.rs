@@ -12,6 +12,7 @@ mod spellcheck;
 mod splash;
 mod tray;
 mod dropped;
+mod fonts;
 use file_handler::{open_in_tab, save_tab, save_tab_as, export_to_file, open_file_by_path, rename_tab_file};
 use pdf_export::{export_to_pdf, print_pdf};
 use session::{save_session, get_session};
@@ -174,7 +175,9 @@ pub fn run() {
             check_spelling, check_spelling_batch, suggest_single_word,
             get_dictionary_words, add_dictionary_word, remove_dictionary_word,
             main_window_ready, is_main_window_ready, close_splash_window,
-            store_changelog, changelog_startup, changelog_for
+            store_changelog, changelog_startup, changelog_for,
+            fonts::font_library, fonts::set_enabled_fonts, fonts::import_fonts,
+            fonts::delete_font_family, fonts::system_fonts
         ])
         .on_window_event(|window, event|{
             if let WindowEvent::CloseRequested { api, .. } = event {

@@ -6,6 +6,8 @@ import Dropdown, { DropdownOption } from './Dropdown'
 import Popup from './Popup'
 import Modal from './Modal'
 import { useAlert } from './Notice'
+import FontManager from './FontManager'
+import { cssFontFamily, useFontLibrary } from '../services/fonts'
 import {
     EditorInstance,
     EditorWithLinkActions,
@@ -51,23 +53,9 @@ const Toolbar = (_props: ToolbarProps) => {
     const [linkUrl, setLinkUrl] = useState('')
     const [headers, setHeaders] = useState<{ id: string; text: string; type: string }[]>([])
 
-    const availableFonts = [
-        'Arial',
-        'Times New Roman',
-        'Courier New',
-        'Georgia',
-        'Verdana',
-        'Helvetica',
-        'Trebuchet MS',
-        'Comic Sans MS',
-        'Impact',
-        'Lucida Console',
-        'Arimo',
-        'Google Sans Code',
-        'Jacquard 12',
-        'Roboto Flex',
-        'Tinos',
-    ]
+    // What the font window left ticked, in its order; the bundled fifteen until it is first used.
+    const { enabled: availableFonts } = useFontLibrary()
+    const [showFontManager, setShowFontManager] = useState(false)
 
     const filteredFonts = isFontSearching && fontSearch.trim() !== ''
         ? availableFonts.filter(f =>
@@ -541,7 +529,7 @@ const Toolbar = (_props: ToolbarProps) => {
                         setIsFontDropdownAnimating(true)
                     }}
                     onMouseDown={(e) => e.stopPropagation()}
-                    style={{ width: '130px', marginLeft: '10px', fontFamily: fontFamily || 'Arial' }}
+                    style={{ width: '130px', marginLeft: '10px', fontFamily: cssFontFamily(fontFamily || 'Arial') }}
                     placeholder={t("Font")}
                 />
                 {showFontDropdown && (
@@ -550,6 +538,17 @@ const Toolbar = (_props: ToolbarProps) => {
                         style={{ maxHeight: '200px', overflowY: 'auto', width: '200px' }}
                         onMouseLeave={() => closeFontDropdown()}
                     >
+                        <div
+                            className="value-dropdown-item value-dropdown-action"
+                            onMouseDown={(e) => {
+                                e.preventDefault()
+                                closeFontDropdown()
+                                setShowFontManager(true)
+                            }}
+                        >
+                            <span style={{ width: '16px', flexShrink: 0 }}>+</span>
+                            <span>{t("Add more fonts")}</span>
+                        </div>
                         {filteredFonts.length === 0 ? (
                             <div style={{ padding: '8px 16px', color: 'var(--rn-text-muted)', fontSize: '13px' }}>
                                 {t("No matching font found")}</div>
@@ -566,7 +565,7 @@ const Toolbar = (_props: ToolbarProps) => {
                                             handleSelectFont(font)
                                         }}
                                         className={`value-dropdown-item ${fontFamily === font ? 'selected' : ''}`}
-                                        style={{ fontFamily: font, display: 'flex', alignItems: 'center', gap: '8px' }}
+                                        style={{ fontFamily: cssFontFamily(font), display: 'flex', alignItems: 'center', gap: '8px' }}
                                     >
                                         <span style={{ width: '16px', flexShrink: 0 }}>{fontFamily === font ? '✓' : ''}</span>
                                         <span>{font}</span>
@@ -577,6 +576,8 @@ const Toolbar = (_props: ToolbarProps) => {
                     </div>
                 )}
             </div>
+
+            <FontManager isOpen={showFontManager} onClose={() => setShowFontManager(false)} />
 
             {/* External Link Modal */}
             <Modal isOpen={showLinkModal} onClose={() => setShowLinkModal(false)} title={t("Insert Link")}>

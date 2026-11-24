@@ -1,6 +1,7 @@
 import React from "react";
 import type { RenderLeafProps } from "slate-react";
 import Popup from "../components/Popup";
+import { cssFontFamily } from "../services/fonts";
 
 /**
  * How a run of text is drawn: its marks, plus the two decorations — search highlights and spelling
@@ -71,7 +72,7 @@ export const Leaf = ({ attributes, children, leaf }: RenderLeafProps) => {
     ...(leaf.fontSize && { fontSize: `${leaf.fontSize}px` }),
     ...(leaf.color && { color: leaf.color }),
     ...(leaf.crossedOut && {textDecoration: "line-through"}),
-    ...(leaf.fontFamily && { fontFamily: leaf.fontFamily }),
+    ...(leaf.fontFamily && { fontFamily: cssFontFamily(leaf.fontFamily) }),
   };
   return (
     <span {...attributes} style={style}>
